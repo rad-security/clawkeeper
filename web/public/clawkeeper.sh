@@ -281,7 +281,7 @@ AGENT_VERSION="1.0.0"
 AGENT_CONFIG_DIR="$HOME/.clawkeeper"
 AGENT_CONFIG_FILE="$AGENT_CONFIG_DIR/config"
 AGENT_PLIST_LABEL="com.clawkeeper.agent"
-AGENT_API_URL="https://clawkeeper.com/api/v1/scans"
+AGENT_API_URL="https://clawkeeper.dev/api/v1/scans"
 
 agent_log() {
     echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] $*"
@@ -406,7 +406,7 @@ agent_install() {
     echo ""
 
     # Prompt for API key
-    echo -e "  Enter your API key from ${BOLD}clawkeeper.com/settings${RESET}:"
+    echo -e "  Enter your API key from ${BOLD}clawkeeper.dev/settings${RESET}:"
     printf "  > "
     read -r api_key
 
@@ -478,7 +478,7 @@ EOF
 
     echo ""
     echo -e "  ${GREEN}${BOLD}Agent installed successfully!${RESET}"
-    echo -e "  ${DIM}View your dashboard at ${RESET}${CYAN}clawkeeper.com${RESET}"
+    echo -e "  ${DIM}View your dashboard at ${RESET}${CYAN}clawkeeper.dev${RESET}"
     echo ""
 }
 
@@ -3551,7 +3551,7 @@ print_report() {
     # CTA: agent install if not installed, dashboard if it is
     echo ""
     if [ -f "$AGENT_CONFIG_FILE" ]; then
-        echo -e "  ${GREEN}✓${RESET} Agent installed — view your dashboard at ${CYAN}clawkeeper.com${RESET}"
+        echo -e "  ${GREEN}✓${RESET} Agent installed — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
     else
         if [ "$score" -lt 70 ]; then
             echo -e "  Your security posture has room to improve."
@@ -3621,7 +3621,7 @@ save_report() {
         echo ""
         echo "This is a point-in-time snapshot. Settings drift over time."
         echo "For continuous monitoring, drift detection, and compliance reporting:"
-        echo "https://clawkeeper.com"
+        echo "https://clawkeeper.dev"
     } > "$REPORT_FILE"
 
     echo -e "  ${DIM}Report saved to: $REPORT_FILE${RESET}"
