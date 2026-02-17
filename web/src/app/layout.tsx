@@ -19,7 +19,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Clawkeeper — AI Agent Security for OpenClaw",
+  title: "Your OpenClaw Agents Are Exposed",
   description:
     "Your OpenClaw AI agents are exposed. Clawkeeper scans for misconfigurations, exposed credentials, malicious skills, and CVEs in 60 seconds. Free CLI, Pro monitoring dashboard, and Enterprise Kubernetes hardening with eBPF runtime detection. By RAD Security.",
 };

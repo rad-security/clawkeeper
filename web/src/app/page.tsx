@@ -105,7 +105,7 @@ export default function LandingPage() {
           </Badge>
 
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Your AI agents
+            Your OpenClaw agents
             <br />
             <span className="gradient-text">are&nbsp;exposed.</span>
           </h1>
