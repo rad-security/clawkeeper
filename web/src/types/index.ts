@@ -1,0 +1,132 @@
+export interface Organization {
+  id: string;
+  name: string;
+  plan: "free" | "pro";
+  stripe_customer_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrgMember {
+  id: string;
+  org_id: string;
+  user_id: string;
+  role: "owner" | "admin" | "member";
+  created_at: string;
+}
+
+export interface ApiKey {
+  id: string;
+  org_id: string;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  last_used_at: string | null;
+  created_at: string;
+}
+
+export interface Host {
+  id: string;
+  org_id: string;
+  hostname: string;
+  platform: string | null;
+  os_version: string | null;
+  last_grade: string | null;
+  last_score: number | null;
+  last_scan_at: string | null;
+  agent_version: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Scan {
+  id: string;
+  host_id: string;
+  org_id: string;
+  score: number;
+  grade: string;
+  passed: number;
+  failed: number;
+  fixed: number;
+  skipped: number;
+  raw_report: string | null;
+  scanned_at: string;
+  created_at: string;
+}
+
+export interface ScanCheck {
+  id: string;
+  scan_id: string;
+  status: "PASS" | "FAIL" | "FIXED" | "SKIPPED";
+  check_name: string;
+  detail: string | null;
+  created_at: string;
+}
+
+export interface AlertRule {
+  id: string;
+  org_id: string;
+  name: string;
+  rule_type: "grade_drop" | "check_fail" | "score_below";
+  config: Record<string, unknown>;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  org_id: string;
+  alert_rule_id: string | null;
+  host_id: string | null;
+  scan_id: string | null;
+  message: string;
+  notified_at: string;
+  created_at: string;
+}
+
+// Scan upload payload from agent
+export interface ScanUploadPayload {
+  hostname: string;
+  platform: string;
+  os_version: string;
+  score: number;
+  grade: string;
+  passed: number;
+  failed: number;
+  fixed: number;
+  skipped: number;
+  checks: { status: string; check_name: string; detail: string }[];
+  raw_report: string;
+  scanned_at: string;
+  agent_version: string;
+}
+
+// Event types
+export type EventType =
+  | "scan.completed"
+  | "grade.changed"
+  | "check.flipped"
+  | "host.registered"
+  | "agent.installed"
+  | "agent.started"
+  | "agent.stopped"
+  | "agent.uninstalled";
+
+export interface Event {
+  id: string;
+  org_id: string;
+  host_id: string | null;
+  event_type: EventType;
+  title: string;
+  detail: Record<string, unknown>;
+  actor: string | null;
+  created_at: string;
+  hosts?: { hostname: string } | null;
+}
+
+// Tier limits
+export const TIER_LIMITS = {
+  free: { hosts: 1, scan_history_days: 7, alert_rules: 0, api_keys: 1, events_visible: 5 },
+  pro: { hosts: 50, scan_history_days: 365, alert_rules: 20, api_keys: 10, events_visible: -1 },
+} as const;
