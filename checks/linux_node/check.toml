@@ -1,0 +1,7 @@
+id = "linux_node"
+name = "Node.js"
+phase = "prerequisites"
+platform = "linux"
+description = "OpenClaw requires Node.js 22 or higher."
+requires_sudo = true
+order = 31

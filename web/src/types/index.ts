@@ -1,7 +1,9 @@
+export type PlanType = "free" | "pro" | "enterprise";
+
 export interface Organization {
   id: string;
   name: string;
-  plan: "free" | "pro";
+  plan: PlanType;
   stripe_customer_id: string | null;
   created_at: string;
   updated_at: string;
@@ -129,4 +131,46 @@ export interface Event {
 export const TIER_LIMITS = {
   free: { hosts: 1, scan_history_days: 7, alert_rules: 0, api_keys: 1, events_visible: 5 },
   pro: { hosts: 50, scan_history_days: 365, alert_rules: 20, api_keys: 10, events_visible: -1 },
+  enterprise: { hosts: -1, scan_history_days: -1, alert_rules: -1, api_keys: -1, events_visible: -1 },
 } as const;
+
+// Pricing (cents) for Stripe integration
+export const PLAN_PRICING = {
+  pro: { monthly: 2900, annual: 28800 }, // $29/mo or $24/mo billed annually ($288/yr)
+  enterprise: { monthly: 14900, annual: 142800 }, // $149/mo or $119/mo billed annually ($1428/yr)
+} as const;
+
+// Shared feature lists for pricing cards (used by landing + upgrade pages)
+export const PRO_FEATURES = [
+  "Everything in Free",
+  "Up to 50 hosts",
+  "365 days scan history",
+  "10 API keys",
+  "Fleet dashboard",
+  "Email & webhook alerts",
+  "Up to 20 alert rules",
+  "Score history & trends",
+  "Priority support",
+] as const;
+
+export const ENTERPRISE_FEATURES = [
+  "Everything in Pro",
+  "Unlimited hosts & clusters",
+  "Hardened Helm charts",
+  "eBPF runtime detection",
+  "Real-time KSPM",
+  "KBOM inventory",
+  "Cloud-native ITDR",
+  "AWS / GCP / Azure deploy",
+  "SSO / SAML integration",
+  "Dedicated support & SLA",
+] as const;
+
+export const FREE_FEATURES = [
+  "Full CLI scanner (35+ checks)",
+  "Auto-fix for common issues",
+  "1 host on dashboard",
+  "7 days scan history",
+  "1 API key",
+  "Letter grade & score",
+] as const;

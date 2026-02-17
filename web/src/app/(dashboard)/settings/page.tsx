@@ -1,19 +1,16 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ApiKeyManager } from "@/components/settings/ApiKeyManager";
-import { TIER_LIMITS } from "@/types";
+import { BillingPortalButton } from "@/components/settings/BillingPortalButton";
+import { TIER_LIMITS, type PlanType } from "@/types";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-
-  // Layout guarantees org exists
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("org_id, role")
-    .single();
-
-  const orgId = membership!.org_id;
+  const orgId = await getOrgId(supabase);
 
   const [orgRes, keysRes, hostCountRes] = await Promise.all([
     supabase.from("organizations").select("*").eq("id", orgId).single(),
@@ -31,8 +28,15 @@ export default async function SettingsPage() {
   const org = orgRes.data;
   const keys = keysRes.data || [];
   const hostCount = hostCountRes.count || 0;
-  const plan = (org?.plan || "free") as "free" | "pro";
+  const plan = (org?.plan || "free") as PlanType;
   const limits = TIER_LIMITS[plan];
+  const hasStripe = !!org?.stripe_customer_id;
+
+  const planLabel = plan === "enterprise" ? "Enterprise" : plan === "pro" ? "Pro" : "Free";
+  const planVariant = plan === "free" ? "secondary" as const : "default" as const;
+
+  // Format limit display (-1 means unlimited)
+  const fmtLimit = (v: number) => (v === -1 ? "Unlimited" : String(v));
 
   return (
     <div className="space-y-6">
@@ -69,36 +73,58 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
-            <Badge variant={plan === "pro" ? "default" : "secondary"} className="text-sm">
-              {plan === "pro" ? "Pro" : "Free"}
+            <Badge variant={planVariant} className="text-sm">
+              {planLabel}
             </Badge>
             {plan === "free" && (
-              <p className="text-sm text-muted-foreground">
-                Upgrade to Pro for multi-instance monitoring, alerts, and
-                extended history.
-              </p>
+              <Link href="/upgrade">
+                <Button size="sm" className="bg-cyan-600 text-white hover:bg-cyan-700">
+                  Upgrade to Pro
+                </Button>
+              </Link>
+            )}
+            {hasStripe && plan !== "free" && (
+              <BillingPortalButton />
             )}
           </div>
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <div>
-              Hosts: <strong>{hostCount}/{limits.hosts}</strong>
+
+          {/* Usage meters */}
+          <div className="grid gap-3 text-sm sm:grid-cols-2">
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <span className="text-muted-foreground">Hosts</span>
+              <div className="flex items-center gap-2">
+                <strong>
+                  {hostCount}/{fmtLimit(limits.hosts)}
+                </strong>
+                {limits.hosts > 0 && (
+                  <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-cyan-500 transition-all"
+                      style={{
+                        width: `${Math.min(100, (hostCount / limits.hosts) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              API Keys: <strong>{keys.length}/{limits.api_keys}</strong>
-            </div>
-            <div>
-              Scan History: <strong>{limits.scan_history_days} days</strong>
-            </div>
-            <div>
-              Alert Rules: <strong>{limits.alert_rules} max</strong>
-            </div>
-            <div>
-              Activity Events:{" "}
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <span className="text-muted-foreground">API Keys</span>
               <strong>
-                {limits.events_visible === -1
-                  ? "Unlimited"
-                  : `${limits.events_visible} preview`}
+                {keys.length}/{fmtLimit(limits.api_keys)}
               </strong>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <span className="text-muted-foreground">Scan History</span>
+              <strong>
+                {limits.scan_history_days === -1
+                  ? "Unlimited"
+                  : `${limits.scan_history_days} days`}
+              </strong>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <span className="text-muted-foreground">Alert Rules</span>
+              <strong>{fmtLimit(limits.alert_rules)} max</strong>
             </div>
           </div>
         </CardContent>

@@ -1,0 +1,7 @@
+id = "linux_unnecessary_services"
+name = "Unnecessary Services"
+phase = "host_hardening"
+platform = "linux"
+description = "Reducing running services minimizes the attack surface."
+requires_sudo = true
+order = 6

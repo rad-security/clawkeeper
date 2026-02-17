@@ -1,0 +1,7 @@
+id = "automatic_login"
+name = "Automatic Login"
+phase = "host_hardening"
+platform = "macos"
+description = "Automatic login bypasses the login screen — anyone with physical access gets in."
+requires_sudo = true
+order = 11

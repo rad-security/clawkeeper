@@ -1,0 +1,7 @@
+id = "openclaw_config"
+name = "OpenClaw Configuration Audit"
+phase = "security_audit"
+platform = "all"
+description = "Audits ~/.openclaw directory and openclaw.json for permissions, gateway binding, auth, discovery, and credential exposure."
+requires_sudo = false
+order = 51

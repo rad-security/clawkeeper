@@ -1,0 +1,32 @@
+# Clawkeeper Documentation
+
+Clawkeeper is an open-source security scanner and hardening tool for [OpenClaw](https://github.com/openclaw/openclaw) AI agent deployments. It runs 39 automated checks across host hardening, network security, prerequisites, and runtime configuration — then gives you a letter grade (A–F) and auto-fixes what it can.
+
+## Quick start
+
+```bash
+curl -fsSL https://clawkeeper.dev/install.sh | bash
+```
+
+That's it. No account, no dependencies, no configuration. The installer drops a single bash script and launches an interactive menu.
+
+## What it does
+
+1. **Scans** your machine for security misconfigurations (firewall, disk encryption, SSH hardening, exposed credentials, malicious skills, CVEs)
+2. **Grades** your setup from A to F based on what passes
+3. **Fixes** common issues automatically when you run in interactive mode
+4. **Reports** results to an optional SaaS dashboard for fleet monitoring
+
+## Documentation sections
+
+- [Installation](/docs/installation) — curl install, macOS desktop app, Helm chart, environment variables
+- [CLI Reference](/docs/cli) — commands, flags, interactive menu, agent subcommands
+- [Configuration](/docs/configuration) — API keys, agent setup, environment variables
+- [Grading](/docs/grading) — scoring formula, grade thresholds, how SKIPPED and FIXED checks are handled
+- [Security Checks](/docs/checks) — full reference of all 39 checks, grouped by phase
+
+## Open source
+
+Clawkeeper is open source. The check definitions live in `checks/*/check.toml` and the CLI logic lives in `lib/orchestrator.sh`. These docs are auto-generated from those source files — when a check changes, the docs update on the next build.
+
+Source: [github.com/clawkeeper/clawkeeper](https://github.com/clawkeeper/clawkeeper)

@@ -1,0 +1,7 @@
+id = "mdns_bonjour"
+name = "mDNS / Bonjour (OpenClaw Discovery)"
+phase = "network"
+platform = "macos"
+description = "OpenClaw can broadcast its presence via mDNS. This should be disabled."
+requires_sudo = false
+order = 23

@@ -14,8 +14,8 @@ export function CopyCommand({ command }: { command: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border bg-zinc-950 px-4 py-2">
-      <code className="flex-1 text-sm text-green-400">$ {command}</code>
+    <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-black px-4 py-2">
+      <code className="flex-1 text-sm text-cyan-400">$ {command}</code>
       <Button
         size="sm"
         variant="ghost"

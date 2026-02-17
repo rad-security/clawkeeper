@@ -1,0 +1,7 @@
+id = "openclaw_running"
+name = "OpenClaw Instance Detection"
+phase = "security_audit"
+platform = "all"
+description = "Detects running OpenClaw instances via Docker containers, processes, and port 18789 binding."
+requires_sudo = false
+order = 50

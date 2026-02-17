@@ -1,0 +1,7 @@
+id = "linux_network"
+name = "Network Configuration"
+phase = "network"
+platform = "linux"
+description = "Reviews network interfaces and connectivity."
+requires_sudo = false
+order = 20

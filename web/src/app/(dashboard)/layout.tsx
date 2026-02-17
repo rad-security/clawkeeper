@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureOrganization } from "@/lib/ensure-organization";
-import { LogOut, Shield, AlertTriangle } from "lucide-react";
+import { LogOut, AlertTriangle } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarNav, MobileNav } from "@/components/dashboard/SidebarNav";
@@ -58,15 +59,29 @@ export default async function DashboardLayout({
     );
   }
 
+  // Get plan for sidebar upgrade CTA
+  const { data: membership } = await supabase
+    .from("org_members")
+    .select("org_id")
+    .single();
+  let plan = "free";
+  if (membership) {
+    const { data: orgData } = await supabase
+      .from("organizations")
+      .select("plan")
+      .eq("id", membership.org_id)
+      .single();
+    plan = orgData?.plan || "free";
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="hidden w-64 flex-col border-r bg-muted/30 md:flex">
-        <div className="flex h-14 items-center gap-2 border-b px-4">
-          <Shield className="h-5 w-5 text-primary" />
-          <span className="text-lg font-bold">Clawkeeper</span>
+        <div className="flex h-14 items-center border-b px-4">
+          <Logo />
         </div>
-        <SidebarNav />
+        <SidebarNav plan={plan} />
         <Separator />
         <div className="p-4">
           <p className="mb-2 truncate text-xs text-muted-foreground">

@@ -1,0 +1,7 @@
+id = "airdrop"
+name = "AirDrop & Handoff"
+phase = "host_hardening"
+platform = "macos"
+description = "Both create network-discoverable services. AirDrop makes this machine visible nearby."
+requires_sudo = false
+order = 4

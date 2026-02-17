@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, Copy, Key, Download, Loader2 } from "lucide-react";
+import { Check, Copy, Key, Download, Loader2, Apple } from "lucide-react";
 
 export function OnboardingFlow({ orgId }: { orgId: string }) {
   const [step, setStep] = useState(1);
@@ -186,6 +186,21 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
                 agent scans your OpenClaw instance hourly and uploads results.
               </p>
             </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">
+                or use the desktop app
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <a
+              href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+              className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              <Apple className="h-4 w-4" />
+              Download Clawkeeper for macOS
+            </a>
 
             <Button onClick={() => setStep(3)} className="w-full">
               I&apos;ve installed the agent

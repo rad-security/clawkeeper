@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EventFeed } from "@/components/activity/EventFeed";
@@ -15,13 +16,7 @@ export default async function ActivityPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .single();
-
-  const orgId = membership!.org_id;
+  const orgId = await getOrgId(supabase);
 
   const [orgRes, hostsRes] = await Promise.all([
     supabase.from("organizations").select("plan").eq("id", orgId).single(),

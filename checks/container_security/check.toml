@@ -1,0 +1,7 @@
+id = "container_security"
+name = "Container Security Audit"
+phase = "security_audit"
+platform = "all"
+description = "Audits running OpenClaw Docker container for user, capabilities, privileged mode, network, resource limits, and volume mounts."
+requires_sudo = false
+order = 57

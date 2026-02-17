@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AlertRuleForm } from "@/components/alerts/AlertRuleForm";
@@ -9,14 +10,7 @@ import { Bell, TrendingDown, ShieldAlert } from "lucide-react";
 
 export default async function AlertsPage() {
   const supabase = await createClient();
-
-  // Layout guarantees org exists
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .single();
-
-  const orgId = membership!.org_id;
+  const orgId = await getOrgId(supabase);
 
   const [orgRes, rulesRes, eventsRes] = await Promise.all([
     supabase.from("organizations").select("plan").eq("id", orgId).single(),

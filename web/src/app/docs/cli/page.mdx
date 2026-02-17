@@ -1,0 +1,121 @@
+# CLI Reference
+
+Clawkeeper is a single bash script that provides an interactive security scanner for OpenClaw deployments. Run it with no arguments to get an interactive menu, or pass a command directly.
+
+## Interactive menu
+
+When you run `clawkeeper.sh` with no arguments (or `clawkeeper.sh start`), you get an interactive menu:
+
+```
+What would you like to do?
+
+  1) Scan existing OpenClaw  — audit your current installation (read-only)
+  2) Deploy OpenClaw securely — full setup wizard with hardened defaults
+  3) Uninstall OpenClaw      — securely remove and wipe all data
+
+Choose [1/2/3]:
+```
+
+## Commands
+
+### `setup`
+
+Interactive hardening wizard. Runs all 5 phases of checks with auto-remediation prompts. This is the default experience when you choose option 2 from the menu.
+
+```bash
+clawkeeper.sh setup
+```
+
+### `deploy`
+
+Forces a full deployment even if OpenClaw is already installed. Same checks and prompts as `setup`.
+
+```bash
+clawkeeper.sh deploy
+```
+
+### `scan`
+
+Read-only security audit. Runs all checks but never modifies your system. Equivalent to choosing option 1 from the interactive menu.
+
+```bash
+clawkeeper.sh scan
+```
+
+### `uninstall`
+
+Securely removes OpenClaw and wipes sensitive data (containers, images, volumes, configs).
+
+```bash
+clawkeeper.sh uninstall
+```
+
+### `agent`
+
+Manages the Clawkeeper SaaS monitoring agent. The agent runs scheduled scans and reports results to the dashboard.
+
+```bash
+clawkeeper.sh agent --install     # Configure API key + install scheduled scans
+clawkeeper.sh agent --status      # Show agent status
+clawkeeper.sh agent --uninstall   # Remove agent and config
+clawkeeper.sh agent run           # Run a one-off agent scan (used by scheduler)
+```
+
+### `help`
+
+Shows usage information.
+
+```bash
+clawkeeper.sh help
+```
+
+## Flags
+
+| Flag | Description |
+|---|---|
+| `--non-interactive` | Don't prompt for fixes. Equivalent to `scan` mode. |
+| `--report FILE` | Save a text report to the specified file path. |
+| `--help`, `-h` | Show usage information and exit. |
+
+## Deployment modes
+
+During `setup` or `deploy`, Clawkeeper asks you to choose a deployment mode:
+
+- **native** — runs OpenClaw directly via npm. Simpler setup, no container overhead.
+- **docker** — runs OpenClaw in Docker. Better isolation, recommended for production.
+
+## Scan phases
+
+Every scan runs 5 phases in order:
+
+1. **Host Hardening** — OS-level security (firewall, encryption, SSH, services)
+2. **Network** — network isolation, exposed services, open ports
+3. **Prerequisites** — required software (Homebrew, Node.js, Docker)
+4. **OpenClaw Installation** — deployment, configuration, connectivity
+5. **Security Audit** — credential exposure, CVEs, malicious skills, hardening
+
+See [Security Checks](/docs/checks) for the full list of what's checked in each phase.
+
+## Report output
+
+When using `--report`, the output file contains a plain-text summary:
+
+```
+Clawkeeper Security Report
+Host: my-macbook.local
+Platform: macOS 15.3
+Date: 2026-02-17
+
+Phase 1: Host Hardening
+  PASS  macOS Firewall
+  FAIL  FileVault Disk Encryption
+  ...
+
+Score: 72%
+Grade: C
+```
+
+## Exit codes
+
+- `0` — scan completed (regardless of grade)
+- `1` — error (unknown command, missing arguments)

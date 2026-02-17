@@ -1,0 +1,7 @@
+id = "linux_essentials"
+name = "Essential Packages"
+phase = "prerequisites"
+platform = "linux"
+description = "Checks for git, curl, openssl, and ca-certificates."
+requires_sudo = true
+order = 30

@@ -1,0 +1,7 @@
+id = "soul_security"
+name = "SOUL.md Security Audit"
+phase = "security_audit"
+platform = "all"
+description = "Checks SOUL.md permissions, sensitive data, prompt injection patterns, base64, unicode, and file size."
+requires_sudo = false
+order = 56

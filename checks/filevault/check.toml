@@ -1,0 +1,7 @@
+id = "filevault"
+name = "FileVault (Full-Disk Encryption)"
+phase = "host_hardening"
+platform = "macos"
+description = "Protects data at rest if the machine is physically compromised."
+requires_sudo = false
+order = 8

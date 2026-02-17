@@ -33,7 +33,7 @@ create table organizations (
   id              uuid        primary key default gen_random_uuid(),
   name            text        not null,
   plan            text        not null default 'free'
-                              check (plan in ('free', 'pro')),
+                              check (plan in ('free', 'pro', 'enterprise')),
   stripe_customer_id text,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
@@ -201,27 +201,9 @@ create trigger trg_alert_rules_updated_at
 -- 6. AUTO-CREATE ORGANIZATION ON USER SIGNUP
 -- ============================================================================
 
--- When a new user signs up via Supabase Auth, automatically create a personal
--- organization and add the user as its owner.
-create or replace function handle_new_user()
-returns trigger as $$
-declare
-  new_org_id uuid;
-begin
-  insert into organizations (name)
-    values (coalesce(new.raw_user_meta_data ->> 'full_name', new.email))
-    returning id into new_org_id;
-
-  insert into org_members (org_id, user_id, role)
-    values (new_org_id, new.id, 'owner');
-
-  return new;
-end;
-$$ language plpgsql security definer;
-
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function handle_new_user();
+-- Organization creation is handled by ensureOrganization() in the app layer
+-- using the service-role client. This avoids trigger failures that block
+-- auth.users inserts (causing "Database error saving new user").
 
 -- ============================================================================
 -- 7. ROW LEVEL SECURITY

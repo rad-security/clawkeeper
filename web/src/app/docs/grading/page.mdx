@@ -1,0 +1,66 @@
+# Grading
+
+Clawkeeper assigns a letter grade (A–F) based on the percentage of scored checks that pass. The grading system is designed to be fair — skipped checks don't penalize you, and auto-fixed checks count as passes.
+
+## Scoring formula
+
+```
+score = (PASS + FIXED) / (PASS + FIXED + FAIL) * 100
+```
+
+- **PASS** — check passed without intervention
+- **FIXED** — check initially failed but was auto-remediated during the scan
+- **FAIL** — check failed and was not fixed
+- **SKIPPED** — check was not applicable (e.g., a macOS check on Linux) or the user declined to fix it
+
+Skipped checks are excluded from the denominator entirely. They represent accepted risk, not a security failure.
+
+## Grade thresholds
+
+| Grade | Score | Meaning |
+|---|---|---|
+| **A** | 95–100% | Excellent — nearly everything passing |
+| **B** | 85–94% | Good — a few issues to address |
+| **C** | 70–84% | Fair — multiple security gaps |
+| **D** | 50–69% | Poor — significant hardening needed |
+| **F** | 0–49% | Critical — most checks failing |
+
+## Examples
+
+### Clean macOS install with Docker
+
+A fresh macOS machine running Docker mode might score:
+
+- 8 host checks pass, 3 fail (no FileVault, firewall off, auto-login enabled)
+- 4 network checks pass
+- 1 prereq passes (Docker)
+- 6 audit checks pass, 2 fail
+
+Score: `(8+4+1+6) / (8+4+1+6+3+2) * 100` = **79%** = **C**
+
+### After running `--fix`
+
+If you re-run with `setup` and accept all remediations:
+
+- 3 previously failed checks get auto-fixed
+- 2 checks remain failed (manual fix required)
+
+Score: `(8+4+1+6+3) / (8+4+1+6+3+2) * 100` = **92%** = **B**
+
+## How FIXED works
+
+When a check fails in interactive mode, Clawkeeper may offer an auto-remediation:
+
+```
+✗ macOS Firewall is disabled
+
+  → Enable the firewall now? [y/N]
+```
+
+If you accept and the fix succeeds, the check is marked **FIXED** instead of FAIL. Fixed checks count the same as passes in the score.
+
+## Dashboard tracking
+
+If you have an API key configured, each scan's grade and score are sent to the [dashboard](/dashboard). The dashboard tracks your grade over time so you can spot regressions and config drift.
+
+See [Configuration](/docs/configuration) for how to set up the agent.

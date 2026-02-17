@@ -1,0 +1,7 @@
+id = "linux_firewall"
+name = "Firewall (UFW)"
+phase = "host_hardening"
+platform = "linux"
+description = "A firewall limits inbound access to only the ports you need."
+requires_sudo = true
+order = 3

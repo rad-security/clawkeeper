@@ -1,0 +1,7 @@
+id = "linux_user_account"
+name = "User Account"
+phase = "host_hardening"
+platform = "linux"
+description = "OpenClaw should run under a non-root user to limit blast radius."
+requires_sudo = true
+order = 1

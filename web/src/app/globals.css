@@ -123,4 +123,72 @@
   body {
     @apply bg-background text-foreground;
   }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ─── RAD Security–inspired landing page ─── */
+
+.hero-gradient {
+  background: linear-gradient(180deg, #000 0%, #0a0d1a 50%, #000 100%);
+}
+
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Cyan neon glow — primary accent */
+.glow-cyan {
+  box-shadow: 0 0 60px rgba(109, 237, 246, 0.12), 0 0 120px rgba(109, 237, 246, 0.04);
+}
+
+/* Violet glow — secondary accent */
+.glow-magenta {
+  box-shadow: 0 0 60px rgba(139, 92, 246, 0.12), 0 0 120px rgba(139, 92, 246, 0.05);
+}
+
+/* RAD gradient text (violet → cyan → indigo) */
+.gradient-text {
+  background: linear-gradient(135deg, #8b5cf6, #22d3ee, #6366f1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* RAD gradient border for cards */
+.gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(#000, #000) padding-box,
+              linear-gradient(135deg, #8b5cf6, #22d3ee, #6366f1) border-box;
+}
+
+/* RAD pill button style */
+.btn-rad {
+  border-radius: 50em;
+  transition: all 0.2s cubic-bezier(.215, .61, .355, 1);
+}
+.btn-rad:hover {
+  box-shadow: 0 0 24px rgba(109, 237, 246, 0.2);
+}
+
+.stat-border {
+  border-image: linear-gradient(to bottom, rgba(255,255,255,0.08), transparent) 1;
+}
+
+.enterprise-gradient {
+  background: linear-gradient(135deg, #000 0%, #0a0d1a 50%, #000 100%);
+}
+
+.cta-gradient {
+  background: linear-gradient(135deg, #0a0d1a 0%, #000 40%, #0d0a1a 100%);
+}
+
+/* Subtle radial glow behind sections */
+.section-glow {
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(109, 237, 246, 0.06), transparent 60%);
 }

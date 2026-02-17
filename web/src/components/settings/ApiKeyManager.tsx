@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TIER_LIMITS } from "@/types";
+import { TIER_LIMITS, type PlanType } from "@/types";
 import { Trash2, Copy, Check } from "lucide-react";
 
 interface ApiKeyRow {
@@ -24,7 +24,7 @@ export function ApiKeyManager({
 }: {
   orgId: string;
   keys: ApiKeyRow[];
-  plan: "free" | "pro";
+  plan: PlanType;
 }) {
   const [name, setName] = useState("");
   const [newKey, setNewKey] = useState("");

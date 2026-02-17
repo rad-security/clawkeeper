@@ -1,0 +1,7 @@
+id = "remote_login"
+name = "Remote Login"
+phase = "network"
+platform = "macos"
+description = "SSH is useful for managing this machine remotely. Verify it is intentional."
+requires_sudo = false
+order = 22

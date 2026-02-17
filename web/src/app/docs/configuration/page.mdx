@@ -1,0 +1,63 @@
+# Configuration
+
+Clawkeeper works out of the box with zero configuration. The only optional setting is an API key for SaaS dashboard reporting.
+
+## API key
+
+The `CLAWKEEPER_API_KEY` environment variable connects your scans to the web dashboard at [clawkeeper.dev/dashboard](/dashboard). Without it, scans still run locally — you just don't get fleet monitoring.
+
+```bash
+export CLAWKEEPER_API_KEY="ck_live_..."
+```
+
+You can get an API key from the [Settings page](/settings) in the dashboard after creating an account.
+
+## Agent installation
+
+The Clawkeeper agent runs scheduled scans and reports results to the dashboard automatically. It uses `systemd` timers on Linux and `launchd` on macOS.
+
+### Install the agent
+
+```bash
+clawkeeper.sh agent --install
+```
+
+This will:
+1. Prompt for your API key if `CLAWKEEPER_API_KEY` is not set
+2. Save the config to `~/.config/clawkeeper/`
+3. Install a scheduled timer/LaunchAgent for periodic scans
+4. Run an initial scan and report results
+
+### Check agent status
+
+```bash
+clawkeeper.sh agent --status
+```
+
+Shows whether the agent is configured, the timer is active, and the last scan time.
+
+### Remove the agent
+
+```bash
+clawkeeper.sh agent --uninstall
+```
+
+Removes the scheduled timer, config files, and API key.
+
+## Agent config files
+
+The agent stores its configuration in `~/.config/clawkeeper/`:
+
+| File | Purpose |
+|---|---|
+| `config.env` | API key and endpoint URL |
+| `last-report.json` | Most recent scan results (sent to dashboard) |
+
+## Scan modes
+
+Clawkeeper has two modes controlled by flags:
+
+- **Interactive** (default for `setup`/`deploy`) — prompts you to fix issues as they're found
+- **Non-interactive** (default for `scan`, also `--non-interactive` flag) — read-only audit, never modifies your system
+
+The agent always runs in non-interactive mode.

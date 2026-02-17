@@ -1,0 +1,7 @@
+id = "env_file"
+name = ".env File Security"
+phase = "security_audit"
+platform = "all"
+description = "Checks .env file permissions in common OpenClaw installation locations."
+requires_sudo = false
+order = 53

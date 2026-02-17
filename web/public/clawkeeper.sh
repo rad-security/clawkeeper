@@ -32,6 +32,8 @@ INTERACTIVE=true
 SCAN_ONLY=false
 REPORT_FILE=""
 REPORT_LINES=()
+HOMEBREW_FAILED=false
+CAN_INSTALL_SOFTWARE=true
 
 # --- Platform Detection -----------------------------------------------------
 PLATFORM=""
@@ -196,6 +198,13 @@ print_phase_summary() {
     local x=$((FAIL - PHASE_FAIL))
     local f=$((FIXED - PHASE_FIXED))
     local s=$((SKIPPED - PHASE_SKIPPED))
+    local total_in_phase=$((p + x + f + s))
+
+    # Don't print anything if no checks ran in this phase
+    if [ "$total_in_phase" -eq 0 ]; then
+        return
+    fi
+
     echo ""
     echo -ne "  ${DIM}──"
     [ "$p" -gt 0 ] && echo -ne " ${GREEN}$p passed${RESET}${DIM}"
@@ -1341,6 +1350,67 @@ check_automatic_login() {
     fi
 }
 
+# --- Admin / Install Capability Check ---------------------------------------
+
+detect_install_capability() {
+    # Determines if the current user can install software (needs admin/sudo).
+    # Called before Phase 3 to warn the user early instead of failing mid-install.
+    CAN_INSTALL_SOFTWARE=true
+
+    if [ "$PLATFORM" = "macos" ]; then
+        local current_user
+        current_user=$(whoami)
+        if ! groups "$current_user" 2>/dev/null | grep -qw "admin"; then
+            # Standard (non-admin) user on macOS — cannot install via Homebrew/sudo
+            CAN_INSTALL_SOFTWARE=false
+        fi
+    elif [ "$PLATFORM" = "linux" ]; then
+        # Check if user can sudo (member of sudo/wheel group, or has NOPASSWD)
+        if ! sudo -n true 2>/dev/null; then
+            local current_user
+            current_user=$(whoami)
+            if ! groups "$current_user" 2>/dev/null | grep -qwE "sudo|wheel|admin"; then
+                CAN_INSTALL_SOFTWARE=false
+            fi
+        fi
+    fi
+}
+
+print_install_capability_warning() {
+    # Shows a clear warning when a standard user can't install software,
+    # with actionable instructions for what to do.
+    if [ "$CAN_INSTALL_SOFTWARE" = true ]; then
+        return
+    fi
+
+    local current_user
+    current_user=$(whoami)
+
+    echo ""
+    echo -e "  ${YELLOW}${BOLD}Note: You're running as standard user '$current_user' (no admin/sudo).${RESET}"
+    echo -e "  ${DIM}This is good for security, but installing new software requires admin.${RESET}"
+    echo ""
+
+    if [ "$PLATFORM" = "macos" ]; then
+        if [ "$DEPLOY_MODE" = "native" ]; then
+            echo -e "  ${DIM}To install prerequisites, ask an admin to run:${RESET}"
+            echo -e "  ${CYAN}  1. Install Homebrew:  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"${RESET}"
+            echo -e "  ${CYAN}  2. Install Node.js:   brew install node@22 && brew link --overwrite node@22${RESET}"
+        else
+            echo -e "  ${DIM}To install Docker, ask an admin to either:${RESET}"
+            echo -e "  ${CYAN}  • Download Docker Desktop from https://docker.com/products/docker-desktop${RESET}"
+            echo -e "  ${CYAN}  • Or install via Homebrew: brew install --cask docker${RESET}"
+        fi
+        echo ""
+        echo -e "  ${DIM}Then re-run this script as '$current_user' — the security checks will pass.${RESET}"
+    elif [ "$PLATFORM" = "linux" ]; then
+        echo -e "  ${DIM}Ask an admin to install prerequisites, then re-run as '$current_user'.${RESET}"
+    fi
+
+    echo ""
+    echo -e "  ${DIM}Checking what's already available...${RESET}"
+}
+
 # --- Prerequisites ----------------------------------------------------------
 
 check_homebrew() {
@@ -1356,11 +1426,19 @@ check_homebrew() {
 
     warn "Homebrew is not installed"
 
+    # Check if user can install software before attempting
+    if [ "$CAN_INSTALL_SOFTWARE" = false ]; then
+        fail "Homebrew not installed (requires admin privileges to install)" "Homebrew"
+        HOMEBREW_FAILED=true
+        return
+    fi
+
     if ask_yn "Install Homebrew now?"; then
         info "Running Homebrew installer..."
         echo ""
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || {
             fail "Homebrew installation failed" "Homebrew"
+            HOMEBREW_FAILED=true
             return
         }
 
@@ -1386,6 +1464,7 @@ check_homebrew() {
             fixed "Homebrew installed" "Homebrew"
         else
             fail "Homebrew installed but not in PATH — restart your terminal" "Homebrew"
+            HOMEBREW_FAILED=true
         fi
     else
         if [ "$SCAN_ONLY" = true ]; then
@@ -1393,6 +1472,7 @@ check_homebrew() {
         else
             skipped "Homebrew not installed" "Homebrew"
         fi
+        HOMEBREW_FAILED=true
     fi
 }
 
@@ -2643,6 +2723,385 @@ check_env_file() {
     fi
 }
 
+# --- Deep OpenClaw Security Checks -----------------------------------------
+
+check_openclaw_hardening() {
+    step_header "OpenClaw Hardening Audit"
+
+    local config_file="$HOME/.openclaw/openclaw.json"
+
+    if [ ! -f "$config_file" ]; then
+        info "No openclaw.json found — skipping hardening checks"
+        return
+    fi
+
+    echo -e "  ${CYAN}Advanced hardening checks:${RESET}"
+
+    # Sandbox mode
+    if grep -q '"sandbox"' "$config_file" 2>/dev/null && grep -q '"mode".*"all"' "$config_file" 2>/dev/null; then
+        pass "agents.defaults.sandbox.mode = all" "Sandbox Mode"
+    else
+        fail "Sandbox mode should be 'all' (agents.defaults.sandbox.mode)" "Sandbox Mode"
+        info "This ensures all agent actions run within the sandbox"
+    fi
+
+    # Exec host policy
+    if grep -q '"exec"' "$config_file" 2>/dev/null && grep -q '"host".*"sandbox"' "$config_file" 2>/dev/null; then
+        pass "tools.exec.host = sandbox" "Exec Policy"
+    else
+        fail "Exec host should be 'sandbox' (not gateway/elevated)" "Exec Policy"
+        info "Prevents agents from executing on the gateway host directly"
+    fi
+
+    # DM scope
+    if grep -q '"dmScope".*"per-channel-peer"' "$config_file" 2>/dev/null; then
+        pass "session.dmScope = per-channel-peer" "DM Scope"
+    else
+        fail "DM scope should be 'per-channel-peer' for isolation" "DM Scope"
+    fi
+
+    # DM policy
+    if grep -q '"dmPolicy".*"pairing"' "$config_file" 2>/dev/null || grep -q '"dm".*"pairing"' "$config_file" 2>/dev/null; then
+        pass "DM policy = pairing (requires mutual opt-in)" "DM Policy"
+    else
+        fail "DM policy should be 'pairing' (not 'open')" "DM Policy"
+        info "Open DM policy allows any user to message the bot directly"
+    fi
+
+    # Filesystem restriction
+    if grep -q '"workspaceOnly".*true' "$config_file" 2>/dev/null; then
+        pass "tools.fs.workspaceOnly = true" "Filesystem Restriction"
+    else
+        fail "Filesystem access should be restricted to workspace only" "Filesystem Restriction"
+        info "Set tools.fs.workspaceOnly = true in openclaw.json"
+    fi
+
+    # Log redaction level (specific value, not just key exists)
+    if grep -q '"redactSensitive".*"tools"' "$config_file" 2>/dev/null; then
+        pass "logging.redactSensitive = tools (full redaction)" "Log Redaction Level"
+    elif grep -q '"redactSensitive".*true' "$config_file" 2>/dev/null; then
+        warn "logging.redactSensitive is enabled but not set to 'tools'"
+        fail "Log redaction should be 'tools' for complete coverage" "Log Redaction Level"
+    else
+        fail "logging.redactSensitive not configured" "Log Redaction Level"
+    fi
+}
+
+check_credential_exposure() {
+    step_header "Credential Exposure Scan"
+
+    # Patterns that match common credential formats
+    # NEVER echo actual credentials — truncate to first 4 chars
+    local cred_patterns='(sk-ant-api[A-Za-z0-9]{10,}|sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{36}|xoxb-[0-9]{10,}|AKIA[0-9A-Z]{16}|AIza[A-Za-z0-9_-]{35})'
+
+    local config_file="$HOME/.openclaw/openclaw.json"
+    local found_creds=false
+
+    # 1. Config file: detect resolved ${VAR} env vars (config.patch bug)
+    if [ -f "$config_file" ]; then
+        local config_matches
+        config_matches=$(grep -oE "$cred_patterns" "$config_file" 2>/dev/null || true)
+        if [ -n "$config_matches" ]; then
+            found_creds=true
+            local truncated
+            truncated=$(echo "$config_matches" | head -1 | cut -c1-4)
+            fail "CRITICAL: Credential found in openclaw.json (${truncated}****)" "Credential Exposure Config"
+            info "Likely caused by env-var resolution bug — remove and use .env instead"
+        else
+            pass "No credentials detected in openclaw.json" "Credential Exposure Config"
+        fi
+    else
+        info "No openclaw.json found — skipping config credential scan"
+    fi
+
+    # 2. Shell history
+    local history_files=(
+        "$HOME/.bash_history"
+        "$HOME/.zsh_history"
+    )
+    local history_hit=false
+    for hfile in "${history_files[@]}"; do
+        if [ -f "$hfile" ]; then
+            local hist_match
+            hist_match=$(grep -oE "$cred_patterns" "$hfile" 2>/dev/null | head -1 || true)
+            if [ -n "$hist_match" ]; then
+                history_hit=true
+                local truncated
+                truncated=$(echo "$hist_match" | cut -c1-4)
+                fail "Credential found in shell history: $(basename "$hfile") (${truncated}****)" "Credential Exposure History"
+                info "Run: history -c or remove matching lines from $hfile"
+            fi
+        fi
+    done
+    if [ "$history_hit" = false ]; then
+        pass "No credentials found in shell history" "Credential Exposure History"
+    fi
+
+    # 3. MEMORY.md
+    local memory_file="$HOME/.openclaw/MEMORY.md"
+    if [ -f "$memory_file" ]; then
+        # Check permissions
+        local mem_perms
+        mem_perms=$(stat -f "%OLp" "$memory_file" 2>/dev/null || stat -c "%a" "$memory_file" 2>/dev/null || echo "unknown")
+        if [ "$mem_perms" != "600" ] && [ "$mem_perms" != "700" ]; then
+            fail "MEMORY.md permissions are $mem_perms (should be 600)" "Credential Exposure Memory"
+        fi
+        # Content scan
+        local mem_match
+        mem_match=$(grep -oE "$cred_patterns" "$memory_file" 2>/dev/null | head -1 || true)
+        if [ -n "$mem_match" ]; then
+            found_creds=true
+            local truncated
+            truncated=$(echo "$mem_match" | cut -c1-4)
+            fail "Credential found in MEMORY.md (${truncated}****)" "Credential Exposure Memory"
+            info "OpenClaw may have memorized a secret — edit ~/.openclaw/MEMORY.md"
+        else
+            pass "No credentials detected in MEMORY.md" "Credential Exposure Memory"
+        fi
+    else
+        info "No MEMORY.md found — skipping memory credential scan"
+    fi
+
+    # 4. Session logs (sample scan — check permissions + first few files)
+    local sessions_dir="$HOME/.openclaw/agents"
+    if [ -d "$sessions_dir" ]; then
+        local session_files
+        session_files=$(find "$sessions_dir" -name "*.jsonl" -type f 2>/dev/null | head -5)
+        if [ -n "$session_files" ]; then
+            # Check directory permissions
+            local sess_perms
+            sess_perms=$(stat -f "%OLp" "$sessions_dir" 2>/dev/null || stat -c "%a" "$sessions_dir" 2>/dev/null || echo "unknown")
+            if [ "$sess_perms" != "700" ]; then
+                fail "Session logs directory permissions are $sess_perms (should be 700)" "Credential Exposure Sessions"
+            fi
+            # Sample content scan
+            local sess_hit=false
+            while IFS= read -r sfile; do
+                local s_match
+                s_match=$(grep -oE "$cred_patterns" "$sfile" 2>/dev/null | head -1 || true)
+                if [ -n "$s_match" ]; then
+                    sess_hit=true
+                    local truncated
+                    truncated=$(echo "$s_match" | cut -c1-4)
+                    fail "Credential found in session log (${truncated}****)" "Credential Exposure Sessions"
+                    info "File: $sfile"
+                    break
+                fi
+            done <<< "$session_files"
+            if [ "$sess_hit" = false ]; then
+                pass "No credentials detected in sampled session logs" "Credential Exposure Sessions"
+            fi
+        else
+            info "No session log files found"
+        fi
+    else
+        info "No agents directory found — skipping session log scan"
+    fi
+}
+
+check_skills_security() {
+    step_header "Skills Security Audit"
+
+    local skills_dirs=(
+        "$HOME/.openclaw/skills"
+        "./skills"
+    )
+
+    local found_skills=false
+
+    for skills_dir in "${skills_dirs[@]}"; do
+        if [ ! -d "$skills_dir" ]; then
+            continue
+        fi
+        found_skills=true
+
+        # Check directory permissions
+        local dir_perms
+        dir_perms=$(stat -f "%OLp" "$skills_dir" 2>/dev/null || stat -c "%a" "$skills_dir" 2>/dev/null || echo "unknown")
+        if [ "$dir_perms" = "700" ]; then
+            pass "Skills directory ($skills_dir) permissions are 700" "Skills Directory Permissions"
+        else
+            warn "Skills directory ($skills_dir) permissions are $dir_perms (should be 700)"
+            if ask_yn "Fix permissions to 700?"; then
+                chmod 700 "$skills_dir"
+                fixed "Skills directory set to 700" "Skills Directory Permissions"
+            else
+                if [ "$SCAN_ONLY" = true ]; then
+                    fail "Skills directory permissions are $dir_perms (should be 700)" "Skills Directory Permissions"
+                else
+                    skipped "Skills directory permissions not changed" "Skills Directory Permissions"
+                fi
+            fi
+        fi
+
+        # Scan each SKILL.md file
+        local skill_files
+        skill_files=$(find "$skills_dir" -name "SKILL.md" -o -name "skill.md" 2>/dev/null || true)
+        if [ -z "$skill_files" ]; then
+            info "No SKILL.md files found in $skills_dir"
+            continue
+        fi
+
+        echo -e "  ${CYAN}Scanning skills in $skills_dir:${RESET}"
+
+        local install_flagged=false
+        local secret_flagged=false
+        local exfil_flagged=false
+
+        while IFS= read -r skill_file; do
+            [ -z "$skill_file" ] && continue
+            local skill_name
+            skill_name=$(basename "$(dirname "$skill_file")")
+
+            # 1. Install commands — check for dangerous patterns
+            local install_block
+            install_block=$(grep -iA5 "^install:" "$skill_file" 2>/dev/null || true)
+            if [ -n "$install_block" ]; then
+                if echo "$install_block" | grep -qiE 'curl\s|wget\s|eval\s|exec\s|bash\s+-c|base64|sh\s+-c|\|\s*sh|\|\s*bash'; then
+                    install_flagged=true
+                    fail "CRITICAL: Skill '$skill_name' has dangerous install commands" "Skills Install Commands"
+                    info "Found shell execution patterns in install block"
+                    if ask_yn "Quarantine this skill? (rename with .quarantined)"; then
+                        mv "$skill_file" "${skill_file}.quarantined"
+                        fixed "Skill '$skill_name' quarantined" "Skills Install Commands"
+                    fi
+                fi
+            fi
+
+            # 2. Secret injection — skills using apiKey: or env: to inject secrets
+            if grep -qiE '^\s*(apiKey|api_key|secret|token)\s*:' "$skill_file" 2>/dev/null; then
+                secret_flagged=true
+                fail "Skill '$skill_name' injects secrets (apiKey/token)" "Skills Secret Injection"
+                info "Secrets injected via skills run in the host process context"
+            fi
+            if grep -qiE '^\s*env\s*:' "$skill_file" 2>/dev/null; then
+                # Check if the env block references sensitive-looking vars
+                local env_block
+                env_block=$(grep -iA3 '^\s*env\s*:' "$skill_file" 2>/dev/null || true)
+                if echo "$env_block" | grep -qiE 'KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL'; then
+                    secret_flagged=true
+                    fail "Skill '$skill_name' injects sensitive env vars" "Skills Secret Injection"
+                fi
+            fi
+
+            # 3. Data exfiltration — curl/wget/nc with external URLs in body
+            local body_content
+            body_content=$(sed -n '/^---$/,/^---$/d; p' "$skill_file" 2>/dev/null || true)
+            if echo "$body_content" | grep -qiE '(curl|wget|nc|ncat)\s+(https?://|[0-9]+\.[0-9]+\.[0-9]+)'; then
+                exfil_flagged=true
+                fail "Skill '$skill_name' may exfiltrate data (external network call)" "Skills Data Exfiltration"
+                info "Review: $skill_file"
+            fi
+
+        done <<< "$skill_files"
+
+        if [ "$install_flagged" = false ]; then
+            pass "No dangerous install commands found" "Skills Install Commands"
+        fi
+        if [ "$secret_flagged" = false ]; then
+            pass "No secret injection detected" "Skills Secret Injection"
+        fi
+        if [ "$exfil_flagged" = false ]; then
+            pass "No data exfiltration patterns found" "Skills Data Exfiltration"
+        fi
+    done
+
+    if [ "$found_skills" = false ]; then
+        info "No skills directories found — skipping skills audit"
+        info "Checked: ~/.openclaw/skills/ and ./skills/"
+    fi
+}
+
+check_soul_security() {
+    step_header "SOUL.md Security Audit"
+
+    local soul_files=(
+        "$HOME/.openclaw/SOUL.md"
+        "./SOUL.md"
+    )
+
+    local found_soul=false
+
+    for soul_file in "${soul_files[@]}"; do
+        if [ ! -f "$soul_file" ]; then
+            continue
+        fi
+        found_soul=true
+        echo -e "  ${CYAN}Checking: $soul_file${RESET}"
+
+        # 1. Permissions — should be 600
+        local perms
+        perms=$(stat -f "%OLp" "$soul_file" 2>/dev/null || stat -c "%a" "$soul_file" 2>/dev/null || echo "unknown")
+        if [ "$perms" = "600" ]; then
+            pass "SOUL.md permissions are 600 ($soul_file)" "SOUL.md Permissions"
+        else
+            warn "SOUL.md permissions are $perms (should be 600)"
+            if ask_yn "Fix permissions to 600?"; then
+                chmod 600 "$soul_file"
+                fixed "SOUL.md set to 600" "SOUL.md Permissions"
+            else
+                if [ "$SCAN_ONLY" = true ]; then
+                    fail "SOUL.md permissions are $perms (should be 600)" "SOUL.md Permissions"
+                else
+                    skipped "SOUL.md permissions not changed" "SOUL.md Permissions"
+                fi
+            fi
+        fi
+
+        # 2. Sensitive data — credential/PII patterns
+        local cred_patterns='(sk-ant-api|sk-[A-Za-z0-9]{20,}|ghp_|xoxb-|AKIA[0-9A-Z]|AIza[A-Za-z0-9]|password\s*[:=]\s*\S+)'
+        local soul_cred
+        soul_cred=$(grep -oiE "$cred_patterns" "$soul_file" 2>/dev/null | head -1 || true)
+        if [ -n "$soul_cred" ]; then
+            local truncated
+            truncated=$(echo "$soul_cred" | cut -c1-4)
+            fail "Sensitive data found in SOUL.md (${truncated}****)" "SOUL.md Sensitive Data"
+            info "SOUL.md is loaded into every conversation — remove secrets immediately"
+        else
+            pass "No sensitive data detected in SOUL.md" "SOUL.md Sensitive Data"
+        fi
+
+        # 3. Prompt injection / integrity
+        local injection_hit=false
+        # Check for common prompt injection patterns
+        if grep -qiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak)' "$soul_file" 2>/dev/null; then
+            injection_hit=true
+            fail "Potential prompt injection detected in SOUL.md" "SOUL.md Integrity"
+            info "Found override/jailbreak language — review file for tampering"
+        fi
+        # Check for base64-encoded blocks (suspicious in a personality file)
+        if grep -qE '[A-Za-z0-9+/]{40,}={0,2}$' "$soul_file" 2>/dev/null; then
+            injection_hit=true
+            fail "Suspicious base64-encoded content in SOUL.md" "SOUL.md Integrity"
+            info "Base64 blocks in SOUL.md may hide malicious instructions"
+        fi
+        # Check for unusual Unicode (zero-width chars, RTL override, homoglyphs)
+        if grep -qP '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{FEFF}]' "$soul_file" 2>/dev/null; then
+            injection_hit=true
+            fail "Invisible Unicode characters found in SOUL.md" "SOUL.md Integrity"
+            info "Zero-width or directional override chars can hide injected text"
+        fi
+        if [ "$injection_hit" = false ]; then
+            pass "No prompt injection patterns detected" "SOUL.md Integrity"
+        fi
+
+        # 4. File size — over 10KB is suspicious for a personality file
+        local file_size
+        file_size=$(wc -c < "$soul_file" 2>/dev/null | tr -d ' ')
+        if [ "$file_size" -gt 10240 ] 2>/dev/null; then
+            fail "SOUL.md is unusually large ($(( file_size / 1024 ))KB — over 10KB)" "SOUL.md Size"
+            info "Large SOUL.md files may contain hidden instructions or data"
+        else
+            pass "SOUL.md size is reasonable ($(( file_size / 1024 ))KB)" "SOUL.md Size"
+        fi
+    done
+
+    if [ "$found_soul" = false ]; then
+        info "No SOUL.md files found — skipping SOUL.md audit"
+        info "Checked: ~/.openclaw/SOUL.md and ./SOUL.md"
+    fi
+}
+
 # --- Network Checks --------------------------------------------------------
 
 check_network_isolation() {
@@ -3629,6 +4088,278 @@ save_report() {
     echo -e "  ${DIM}Report saved to: $REPORT_FILE${RESET}"
 }
 
+# --- Secure Uninstall -------------------------------------------------------
+
+uninstall_openclaw() {
+    print_banner
+    echo ""
+    echo -e "  ${RED}${BOLD}OpenClaw Secure Removal${RESET}"
+    echo ""
+    echo -e "  ${DIM}This will permanently remove OpenClaw and securely wipe sensitive data.${RESET}"
+    echo -e "  ${DIM}Every step requires your confirmation. Nothing runs without ${RESET}${BOLD}[Y/n]${RESET}${DIM}.${RESET}"
+    echo ""
+
+    detect_platform
+
+    # Detect what's installed
+    detect_openclaw_installed
+
+    if [ "$OPENCLAW_INSTALLED" = false ]; then
+        echo -e "  ${YELLOW}⚠${RESET} No OpenClaw installation detected."
+        echo ""
+        echo -e "  ${DIM}Checked: Docker containers/images, npm global, LaunchAgents, processes${RESET}"
+        echo ""
+        if ! ask_yn "Continue anyway to clean up leftover config/data files?"; then
+            echo -e "  ${DIM}Nothing to do. Exiting.${RESET}"
+            exit 0
+        fi
+    fi
+
+    local removed_something=false
+
+    # ── Step 1: Stop running instances ──
+    echo ""
+    echo -e "  ${CYAN}${BOLD}── Step 1: Stop Running Instances ──${RESET}"
+
+    # Docker containers
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        local running_containers
+        running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -i "openclaw" || true)
+        if [ -n "$running_containers" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} Found running OpenClaw containers:"
+            echo "$running_containers" | while read -r c; do echo -e "    ${DIM}$c${RESET}"; done
+            if ask_yn "Stop these containers?"; then
+                echo "$running_containers" | while read -r c; do
+                    docker stop "$c" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Stopped container: $c"
+                done
+                removed_something=true
+            fi
+        else
+            echo -e "  ${DIM}→ No running OpenClaw containers${RESET}"
+        fi
+    fi
+
+    # Native processes
+    local oc_pids
+    oc_pids=$(pgrep -f "openclaw" 2>/dev/null || true)
+    if [ -n "$oc_pids" ]; then
+        echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw processes:"
+        ps -p "$(echo "$oc_pids" | tr '\n' ',')" -o pid,command 2>/dev/null | tail -n +2 | while read -r line; do
+            echo -e "    ${DIM}$line${RESET}"
+        done
+        if ask_yn "Kill these processes?"; then
+            echo "$oc_pids" | while read -r pid; do
+                kill "$pid" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Killed PID $pid"
+            done
+            sleep 1
+            # Force kill any survivors
+            local remaining
+            remaining=$(pgrep -f "openclaw" 2>/dev/null || true)
+            if [ -n "$remaining" ]; then
+                echo "$remaining" | while read -r pid; do
+                    kill -9 "$pid" 2>/dev/null || true
+                done
+                echo -e "  ${GREEN}✓${RESET} Force-killed remaining processes"
+            fi
+            removed_something=true
+        fi
+    else
+        echo -e "  ${DIM}→ No running OpenClaw processes${RESET}"
+    fi
+
+    # ── Step 2: Remove LaunchAgent (macOS) ──
+    if [ "$PLATFORM" = "macos" ]; then
+        echo ""
+        echo -e "  ${CYAN}${BOLD}── Step 2: Remove LaunchAgents ──${RESET}"
+
+        local plist_file="$HOME/Library/LaunchAgents/com.openclaw.agent.plist"
+        if [ -f "$plist_file" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} Found LaunchAgent: $plist_file"
+            if ask_yn "Unload and remove this LaunchAgent?"; then
+                launchctl unload "$plist_file" 2>/dev/null || true
+                rm -f "$plist_file"
+                echo -e "  ${GREEN}✓${RESET} LaunchAgent unloaded and removed"
+                removed_something=true
+            fi
+        else
+            echo -e "  ${DIM}→ No OpenClaw LaunchAgent found${RESET}"
+        fi
+    fi
+
+    # ── Step 3: Remove Docker resources ──
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        echo ""
+        echo -e "  ${CYAN}${BOLD}── Step 3: Remove Docker Resources ──${RESET}"
+
+        # Containers (stopped)
+        local all_containers
+        all_containers=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i "openclaw" || true)
+        if [ -n "$all_containers" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw containers (including stopped):"
+            echo "$all_containers" | while read -r c; do echo -e "    ${DIM}$c${RESET}"; done
+            if ask_yn "Remove these containers?"; then
+                echo "$all_containers" | while read -r c; do
+                    docker rm -f "$c" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed container: $c"
+                done
+                removed_something=true
+            fi
+        else
+            echo -e "  ${DIM}→ No OpenClaw containers to remove${RESET}"
+        fi
+
+        # Images
+        local oc_images
+        oc_images=$(docker images --format '{{.Repository}}:{{.Tag}} ({{.ID}})' 2>/dev/null | grep -i "openclaw" || true)
+        if [ -n "$oc_images" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw images:"
+            echo "$oc_images" | while read -r img; do echo -e "    ${DIM}$img${RESET}"; done
+            if ask_yn "Remove these images?"; then
+                docker images --format '{{.ID}} {{.Repository}}' 2>/dev/null | grep -i "openclaw" | awk '{print $1}' | while read -r id; do
+                    docker rmi -f "$id" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed image: $id"
+                done
+                removed_something=true
+            fi
+        else
+            echo -e "  ${DIM}→ No OpenClaw images to remove${RESET}"
+        fi
+
+        # Volumes
+        local oc_volumes
+        oc_volumes=$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -i "openclaw" || true)
+        if [ -n "$oc_volumes" ]; then
+            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw volumes:"
+            echo "$oc_volumes" | while read -r v; do echo -e "    ${DIM}$v${RESET}"; done
+            if ask_yn "Remove these volumes? (DATA WILL BE LOST)"; then
+                echo "$oc_volumes" | while read -r v; do
+                    docker volume rm "$v" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed volume: $v"
+                done
+                removed_something=true
+            fi
+        else
+            echo -e "  ${DIM}→ No OpenClaw volumes to remove${RESET}"
+        fi
+    fi
+
+    # ── Step 4: Remove npm global package ──
+    echo ""
+    echo -e "  ${CYAN}${BOLD}── Step 4: Remove npm Package ──${RESET}"
+
+    if command -v openclaw &>/dev/null; then
+        echo -e "  ${YELLOW}⚠${RESET} OpenClaw is installed globally via npm"
+        if ask_yn "Uninstall openclaw npm package?"; then
+            npm uninstall -g openclaw 2>&1 | tail -3
+            if ! command -v openclaw &>/dev/null; then
+                echo -e "  ${GREEN}✓${RESET} OpenClaw npm package removed"
+            else
+                echo -e "  ${YELLOW}⚠${RESET} openclaw still in PATH — may need manual removal"
+            fi
+            removed_something=true
+        fi
+    else
+        echo -e "  ${DIM}→ No global OpenClaw npm package found${RESET}"
+    fi
+
+    # ── Step 5: Securely wipe data directories ──
+    echo ""
+    echo -e "  ${CYAN}${BOLD}── Step 5: Secure Data Wipe ──${RESET}"
+    echo ""
+    echo -e "  ${DIM}The following directories may contain secrets, session logs, and config:${RESET}"
+
+    local data_dirs=(
+        "$HOME/.openclaw"
+        "$HOME/openclaw-docker"
+        "$HOME/openclaw"
+    )
+
+    local dirs_to_wipe=()
+    for dir in "${data_dirs[@]}"; do
+        if [ -d "$dir" ]; then
+            local dir_size
+            dir_size=$(du -sh "$dir" 2>/dev/null | awk '{print $1}' || echo "?")
+            echo -e "  ${YELLOW}⚠${RESET} $dir (${dir_size})"
+            dirs_to_wipe+=("$dir")
+        fi
+    done
+
+    if [ ${#dirs_to_wipe[@]} -eq 0 ]; then
+        echo -e "  ${DIM}→ No OpenClaw data directories found${RESET}"
+    else
+        echo ""
+        echo -e "  ${RED}${BOLD}WARNING: This permanently deletes all OpenClaw data including:${RESET}"
+        echo -e "  ${DIM}  • Configuration files (openclaw.json, .env)${RESET}"
+        echo -e "  ${DIM}  • Session logs and conversation history${RESET}"
+        echo -e "  ${DIM}  • MEMORY.md, SOUL.md, skills${RESET}"
+        echo -e "  ${DIM}  • API keys and credentials stored in these directories${RESET}"
+        echo ""
+
+        if ask_yn "Securely wipe these directories? (THIS CANNOT BE UNDONE)"; then
+            for dir in "${dirs_to_wipe[@]}"; do
+                echo -e "  ${DIM}→ Wiping $dir...${RESET}"
+
+                # Overwrite sensitive files before deletion
+                # Find files that likely contain secrets and overwrite them
+                while IFS= read -r sensitive_file; do
+                    [ -z "$sensitive_file" ] && continue
+                    if [ -f "$sensitive_file" ]; then
+                        local fsize
+                        fsize=$(wc -c < "$sensitive_file" 2>/dev/null | tr -d ' ')
+                        if [ "$fsize" -gt 0 ] 2>/dev/null; then
+                            dd if=/dev/urandom bs=1 count="$fsize" of="$sensitive_file" conv=notrunc 2>/dev/null || true
+                        fi
+                    fi
+                done < <(find "$dir" -type f \( \
+                    -name "*.json" -o -name "*.jsonl" -o -name ".env" -o \
+                    -name "*.md" -o -name "*.yml" -o -name "*.yaml" -o \
+                    -name "*.pem" -o -name "*.key" -o -name "*.token" -o \
+                    -name "*.log" -o -name "*.sqlite" -o -name "*.db" \
+                \) 2>/dev/null)
+
+                # Remove the directory
+                rm -rf "$dir"
+
+                if [ ! -d "$dir" ]; then
+                    echo -e "  ${GREEN}✓${RESET} Securely wiped: $dir"
+                else
+                    echo -e "  ${RED}✗${RESET} Failed to remove: $dir"
+                fi
+            done
+            removed_something=true
+        else
+            echo -e "  ${DIM}→ Data directories preserved${RESET}"
+        fi
+    fi
+
+    # ── Step 6: Clean up docker-compose file ──
+    local compose_file="$HOME/openclaw-docker/docker-compose.yml"
+    if [ -f "$compose_file" ]; then
+        # Already handled above in data dirs, but just in case
+        :
+    fi
+
+    # ── Summary ──
+    echo ""
+    echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
+    echo ""
+    if [ "$removed_something" = true ]; then
+        echo -e "  ${GREEN}${BOLD}OpenClaw removal complete.${RESET}"
+        echo ""
+        echo -e "  ${DIM}What was cleaned:${RESET}"
+        echo -e "  ${DIM}  • Running processes and containers stopped${RESET}"
+        echo -e "  ${DIM}  • Docker images/volumes/containers removed${RESET}"
+        echo -e "  ${DIM}  • LaunchAgents unloaded${RESET}"
+        echo -e "  ${DIM}  • Sensitive files overwritten before deletion${RESET}"
+        echo -e "  ${DIM}  • Data directories removed${RESET}"
+    else
+        echo -e "  ${DIM}No changes were made.${RESET}"
+    fi
+    echo ""
+    echo -e "  ${DIM}Remaining manual steps (if applicable):${RESET}"
+    echo -e "  ${DIM}  • Check shell history for pasted API keys: history | grep sk-${RESET}"
+    echo -e "  ${DIM}  • Revoke any API keys generated for OpenClaw${RESET}"
+    echo -e "  ${DIM}  • Remove any firewall rules added for OpenClaw${RESET}"
+    echo ""
+}
+
 # --- Main -------------------------------------------------------------------
 
 usage() {
@@ -3640,6 +4371,7 @@ usage() {
     echo "  setup       Guided wizard: harden host + install OpenClaw (default)"
     echo "  deploy      Force full deployment even if already installed"
     echo "  scan        Read-only security audit (no changes, just a report)"
+    echo "  uninstall   Securely remove OpenClaw and wipe sensitive data"
     echo "  agent       Manage the Clawkeeper SaaS agent"
     echo "  help        Show this help"
     echo ""
@@ -3656,6 +4388,7 @@ usage() {
     echo "  $prog deploy             # Full install + deployment"
     echo "  $prog scan               # Read-only security audit"
     echo "  $prog scan --report r.txt # Audit with saved report"
+    echo "  $prog uninstall          # Securely remove OpenClaw"
     echo "  $prog agent --install    # Install SaaS monitoring agent"
     echo "  $prog agent --status     # Check agent status"
     echo ""
@@ -3703,17 +4436,24 @@ main() {
             echo ""
             echo -e "  ${BOLD}1)${RESET} ${CYAN}Scan existing OpenClaw${RESET}  — audit your current installation (read-only)"
             echo -e "  ${BOLD}2)${RESET} ${CYAN}Deploy OpenClaw securely${RESET} — full setup wizard with hardened defaults"
+            echo -e "  ${BOLD}3)${RESET} ${RED}Uninstall OpenClaw${RESET}      — securely remove and wipe all data"
             echo ""
-            printf "  Choose [1/2]: "
+            printf "  Choose [1/2/3]: "
             read -r choice
             case "$choice" in
                 2)
+                    command="setup"
                     SCAN_ONLY=false
                     INTERACTIVE=true
                     print_expectations
                     select_deployment_mode
                     ;;
+                3)
+                    uninstall_openclaw
+                    exit 0
+                    ;;
                 *)
+                    command="scan"
                     SCAN_ONLY=true
                     INTERACTIVE=false
                     echo ""
@@ -3735,6 +4475,10 @@ main() {
             print_scan_banner
             select_deployment_mode
             echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
+            ;;
+        uninstall|remove)
+            uninstall_openclaw
+            exit 0
             ;;
         agent)
             agent_main "${agent_args[@]+"${agent_args[@]}"}"
@@ -3798,31 +4542,80 @@ main() {
 
     # ── Phase 3 of 5: Prerequisites ──
     reset_phase_counters
+    detect_install_capability
     echo ""
     if [ "$PLATFORM" = "macos" ]; then
+        print_install_capability_warning
         if [ "$DEPLOY_MODE" = "native" ]; then
             echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Homebrew + Node.js) ═══${RESET}"
             check_homebrew
-            check_node
+            if [ "$HOMEBREW_FAILED" = true ]; then
+                # Homebrew failed, but Node.js might already be installed (by admin, nvm, etc.)
+                if command -v node &>/dev/null; then
+                    check_node
+                else
+                    step_header "Node.js"
+                    info "Node.js is not installed and Homebrew is unavailable to install it."
+                    fail "Node.js 22+ not available (install Homebrew or Node.js directly)" "Node.js"
+                fi
+            else
+                check_node
+            fi
         else
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Homebrew + Node.js + Docker) ═══${RESET}"
-            check_homebrew
-            check_node
-            check_docker_installed
+            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Docker) ═══${RESET}"
+            # Docker mode: only Docker is needed (OpenClaw runs inside the container)
+            # Check if Docker is already installed before requiring Homebrew
+            if command -v docker &>/dev/null; then
+                check_docker_installed
+            else
+                # Need Homebrew to install Docker Desktop
+                check_homebrew
+                if [ "$HOMEBREW_FAILED" = true ]; then
+                    step_header "Docker Desktop"
+                    info "Skipped — Homebrew is required to install Docker Desktop."
+                    info "Alternatively, download Docker Desktop directly from https://docker.com/products/docker-desktop"
+                    fail "Docker not available (install Homebrew or download Docker Desktop directly)" "Docker"
+                else
+                    check_docker_installed
+                fi
+            fi
         fi
     elif [ "$PLATFORM" = "linux" ]; then
+        print_install_capability_warning
         if [ "$DEPLOY_MODE" = "native" ]; then
             echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Node.js) ═══${RESET}"
             linux_check_essentials
             linux_check_node
         else
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Node.js + Docker) ═══${RESET}"
-            linux_check_essentials
-            linux_check_node
-            linux_check_docker
+            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Docker) ═══${RESET}"
+            # Docker mode on Linux: check Docker first, Node.js not needed
+            if command -v docker &>/dev/null; then
+                linux_check_docker
+            else
+                linux_check_essentials
+                linux_check_docker
+            fi
         fi
     fi
     print_phase_summary
+
+    # If prerequisites failed because user can't install software, show clear next steps
+    if [ "$CAN_INSTALL_SOFTWARE" = false ] && [ "$FAIL" -gt "$PHASE_FAIL" ]; then
+        echo ""
+        echo -e "  ${YELLOW}${BOLD}What to do next:${RESET}"
+        if [ "$PLATFORM" = "macos" ]; then
+            echo -e "  ${DIM}1. Log into an admin account on this Mac${RESET}"
+            if [ "$DEPLOY_MODE" = "native" ]; then
+                echo -e "  ${DIM}2. Install Homebrew and Node.js (see commands above)${RESET}"
+            else
+                echo -e "  ${DIM}2. Install Docker Desktop (see options above)${RESET}"
+            fi
+            echo -e "  ${DIM}3. Log back in as '$(whoami)' and re-run this script${RESET}"
+        else
+            echo -e "  ${DIM}1. Ask an admin to install the required packages${RESET}"
+            echo -e "  ${DIM}2. Re-run this script${RESET}"
+        fi
+    fi
 
     # ── Phase 4 of 5: OpenClaw Installation & Deployment ──
     reset_phase_counters
@@ -3853,51 +4646,59 @@ main() {
             [ "$OPENCLAW_INSTALL_TYPE" = "docker" ] && install_label="Docker"
             pass "OpenClaw is already installed ($install_label)" "OpenClaw Detection"
         else
-            step_header "OpenClaw Detection"
-            warn "OpenClaw is not installed on this system"
-            info "The setup wizard can install OpenClaw with secure, hardened defaults."
+            # Check if prerequisites are actually available before offering to install
+            local prereqs_available=false
             if [ "$DEPLOY_MODE" = "native" ]; then
-                info "Selected mode: Native (npm) — runs directly on this Mac"
+                command -v node &>/dev/null && prereqs_available=true
             else
-                info "Selected mode: Docker — runs in an isolated container (recommended)"
+                command -v docker &>/dev/null && docker info &>/dev/null 2>&1 && prereqs_available=true
             fi
-            echo ""
 
-            if ask_yn "Install OpenClaw now?"; then
+            step_header "OpenClaw Detection"
+
+            if [ "$prereqs_available" = false ]; then
+                # Prerequisites not met — don't ask to install, just explain
+                warn "OpenClaw is not installed on this system"
                 if [ "$DEPLOY_MODE" = "native" ]; then
-                    echo ""
-                    echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Native/npm)...${RESET}"
-                    if command -v node &>/dev/null; then
+                    fail "Cannot install OpenClaw — Node.js is not available (see Phase 3)" "OpenClaw Installation"
+                else
+                    fail "Cannot install OpenClaw — Docker is not available (see Phase 3)" "OpenClaw Installation"
+                fi
+                info "Install the prerequisites above, then re-run: $(basename "$0") setup"
+            else
+                warn "OpenClaw is not installed on this system"
+                info "The setup wizard can install OpenClaw with secure, hardened defaults."
+                if [ "$DEPLOY_MODE" = "native" ]; then
+                    info "Selected mode: Native (npm) — runs directly on this Mac"
+                else
+                    info "Selected mode: Docker — runs in an isolated container (recommended)"
+                fi
+                echo ""
+
+                if ask_yn "Install OpenClaw now?"; then
+                    if [ "$DEPLOY_MODE" = "native" ]; then
+                        echo ""
+                        echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Native/npm)...${RESET}"
                         setup_native_openclaw_directories
                         check_native_openclaw_installed
                         setup_native_env_file
                         setup_openclaw_config
-                        setup_native_launchd
+                        if [ "$PLATFORM" = "macos" ]; then
+                            setup_native_launchd
+                        fi
                     else
                         echo ""
-                        warn "Node.js is not available — cannot install OpenClaw"
-                        info "Re-run this wizard after installing Node.js (Phase 3)."
-                        fail "Skipped installation (Node.js not available)" "Deploy"
-                    fi
-                else
-                    echo ""
-                    echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Docker)...${RESET}"
-                    if command -v docker &>/dev/null && docker info &>/dev/null; then
+                        echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Docker)...${RESET}"
                         setup_openclaw_directories
                         setup_env_file
                         setup_docker_compose
                         setup_openclaw_config
                         deploy_openclaw_docker
-                    else
-                        echo ""
-                        warn "Docker is not available — cannot install OpenClaw"
-                        info "Re-run this wizard after installing Docker Desktop (Phase 3)."
-                        fail "Skipped installation (Docker not available)" "Deploy"
                     fi
+                else
+                    skipped "OpenClaw installation deferred" "OpenClaw Installation"
+                    info "Run '$(basename "$0") deploy' when you're ready to install."
                 fi
-            else
-                skipped "OpenClaw installation deferred" "OpenClaw Installation"
-                info "Run '$(basename "$0") deploy' when you're ready to install."
             fi
         fi
 
@@ -3912,27 +4713,32 @@ main() {
                 check_native_openclaw_installed
                 setup_native_env_file
                 setup_openclaw_config
-                setup_native_launchd
+                if [ "$PLATFORM" = "macos" ]; then
+                    setup_native_launchd
+                fi
             else
-                echo ""
-                warn "Node.js is not available — cannot deploy OpenClaw"
+                step_header "OpenClaw Deployment"
+                fail "Cannot deploy — Node.js is not installed" "Deploy"
                 info "Install Node.js first, then re-run: $(basename "$0") deploy"
-                fail "Skipped deployment (Node.js not available)" "Deploy"
             fi
         else
             echo -e "${CYAN}${BOLD}═══ Phase 4 of 5: OpenClaw Docker Deployment ═══${RESET}"
 
-            if command -v docker &>/dev/null && docker info &>/dev/null; then
+            if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
                 setup_openclaw_directories
                 setup_env_file
                 setup_docker_compose
                 setup_openclaw_config
                 deploy_openclaw_docker
             else
-                echo ""
-                warn "Docker is not available — cannot deploy OpenClaw"
-                info "Install and start Docker Desktop first, then re-run: $(basename "$0") deploy"
-                fail "Skipped deployment (Docker not available)" "Deploy"
+                step_header "OpenClaw Deployment"
+                if command -v docker &>/dev/null; then
+                    fail "Cannot deploy — Docker is installed but not running" "Deploy"
+                    info "Start Docker Desktop, then re-run: $(basename "$0") deploy"
+                else
+                    fail "Cannot deploy — Docker is not installed" "Deploy"
+                    info "Install Docker Desktop first, then re-run: $(basename "$0") deploy"
+                fi
             fi
         fi
     fi
@@ -3948,11 +4754,19 @@ main() {
 
     if [ "$DEPLOY_MODE" = "native" ]; then
         check_openclaw_config
+        check_openclaw_hardening
         check_env_file
+        check_credential_exposure
+        check_skills_security
+        check_soul_security
     else
         audit_container_security
         check_openclaw_config
+        check_openclaw_hardening
         check_env_file
+        check_credential_exposure
+        check_skills_security
+        check_soul_security
     fi
     print_phase_summary
 

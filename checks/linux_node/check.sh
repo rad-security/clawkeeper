@@ -1,0 +1,45 @@
+#!/bin/bash
+# ============================================================================
+# Clawkeeper Check: Linux Node.js
+# Detects whether Node.js >= 22 is installed.
+# Offers installation via NodeSource if missing or outdated.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../lib/helpers.sh
+source "${SCRIPT_DIR}/../../lib/helpers.sh" 2>/dev/null || true
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "OpenClaw requires Node.js 22 or higher."
+
+if command -v node &>/dev/null; then
+    node_version=$(node --version 2>/dev/null || echo "unknown")
+    major_version=$(echo "$node_version" | sed 's/v//' | cut -d. -f1)
+
+    if [ "$major_version" -ge 22 ] 2>/dev/null; then
+        emit_pass "Node.js $node_version installed (meets v22+ requirement)" "Node.js"
+        exit 0
+    else
+        emit_warn "Node.js $node_version is installed but OpenClaw needs v22+"
+    fi
+else
+    emit_warn "Node.js is not installed"
+fi
+
+# Check for a supported package manager before offering remediation
+if ! command -v apt-get &>/dev/null && ! command -v dnf &>/dev/null; then
+    emit_fail "Node.js 22+ not available (unsupported package manager for NodeSource)" "Node.js"
+    exit 0
+fi
+
+emit_prompt "Install Node.js 22 via NodeSource?" "install_node" \
+    "Node.js 22+ not installed" \
+    "Node.js not installed"

@@ -1,0 +1,7 @@
+id = "firewall"
+name = "macOS Firewall"
+phase = "host_hardening"
+platform = "macos"
+description = "Host-level firewall provides defense in depth beyond network isolation."
+requires_sudo = true
+order = 7

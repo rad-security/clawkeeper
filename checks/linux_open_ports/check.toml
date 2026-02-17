@@ -1,0 +1,7 @@
+id = "linux_open_ports"
+name = "Open Ports Audit"
+phase = "network"
+platform = "linux"
+description = "Only essential ports should be listening on external interfaces."
+requires_sudo = false
+order = 21

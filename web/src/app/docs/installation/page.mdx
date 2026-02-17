@@ -1,0 +1,60 @@
+# Installation
+
+Clawkeeper supports three installation methods: CLI (macOS/Linux), the macOS desktop app, and Kubernetes via Helm.
+
+## CLI (recommended)
+
+One command installs the scanner. Pure bash — no runtime dependencies.
+
+```bash
+curl -fsSL https://clawkeeper.dev/install.sh | bash
+```
+
+This downloads `clawkeeper.sh` to your machine and makes it executable. Run `clawkeeper.sh` to launch the interactive menu, or pass a command directly:
+
+```bash
+clawkeeper.sh scan        # Read-only security audit
+clawkeeper.sh setup       # Interactive hardening wizard
+clawkeeper.sh deploy      # Full install + deployment
+```
+
+### Supported platforms
+
+- **macOS** — 11 host hardening checks, 4 network checks, full prereq + audit suite
+- **Linux** — Ubuntu, Debian, RHEL, CentOS, Fedora, Arch. 7 host hardening checks, 2 network checks, full prereq + audit suite
+- **Windows** — install WSL2, then run Clawkeeper from within WSL
+
+## macOS Desktop App
+
+A native macOS app with a visual interface for scanning and deployment.
+
+[Download Clawkeeper.dmg](https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg)
+
+The desktop app runs the same checks as the CLI but presents results in a graphical interface with guided deployment steps.
+
+## Kubernetes (Enterprise)
+
+Deploy OpenClaw into Kubernetes with hardened defaults and RAD Security runtime protection.
+
+```bash
+helm repo add clawkeeper https://charts.clawkeeper.dev
+helm install openclaw clawkeeper/openclaw-stack \
+    --set rad.enabled=true
+```
+
+See the [enterprise section](/#enterprise) on the landing page for details on what's included in the Helm chart.
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `CLAWKEEPER_API_KEY` | API key for SaaS dashboard reporting. Optional — the CLI works without it. |
+
+Set your API key before running the agent:
+
+```bash
+export CLAWKEEPER_API_KEY="ck_live_..."
+clawkeeper.sh agent --install
+```
+
+See [Configuration](/docs/configuration) for more details.

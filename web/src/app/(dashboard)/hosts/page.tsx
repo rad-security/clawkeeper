@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,18 +12,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Link from "next/link";
-import { Download, Terminal } from "lucide-react";
+import { Download, Terminal, Apple } from "lucide-react";
 
 export default async function HostsPage() {
   const supabase = await createClient();
-
-  // Layout guarantees org exists
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .single();
-
-  const orgId = membership!.org_id;
+  const orgId = await getOrgId(supabase);
 
   const { data: hosts } = await supabase
     .from("hosts")
@@ -64,6 +58,22 @@ export default async function HostsPage() {
                 curl -fsSL https://clawkeeper.dev/install.sh | bash
               </pre>
             </div>
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground">
+                or use the desktop app
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <a
+              href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+              className="inline-flex items-center gap-2"
+            >
+              <Button variant="outline" size="sm">
+                <Apple className="h-4 w-4" />
+                Download for macOS
+              </Button>
+            </a>
             <p className="text-sm text-muted-foreground">
               Need an API key first?{" "}
               <Link

@@ -1,0 +1,7 @@
+id = "bluetooth"
+name = "Bluetooth"
+phase = "host_hardening"
+platform = "macos"
+description = "Unnecessary radio interface. Exposes the machine to proximity-based attacks."
+requires_sudo = true
+order = 3

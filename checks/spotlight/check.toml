@@ -1,0 +1,7 @@
+id = "spotlight"
+name = "Spotlight Indexing"
+phase = "host_hardening"
+platform = "macos"
+description = "Spotlight indexes file contents and metadata. Reduces what's queryable by a compromised agent."
+requires_sudo = true
+order = 6

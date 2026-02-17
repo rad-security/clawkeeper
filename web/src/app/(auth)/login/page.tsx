@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -64,7 +65,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Clawkeeper</CardTitle>
+          <div className="flex justify-center">
+              <Logo size="lg" />
+            </div>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>

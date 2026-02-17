@@ -1,0 +1,7 @@
+id = "linux_ssh_hardening"
+name = "SSH Hardening"
+phase = "host_hardening"
+platform = "linux"
+description = "SSH is the primary attack surface on a VPS. Hardening is critical."
+requires_sudo = true
+order = 2

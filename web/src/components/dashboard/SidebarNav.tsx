@@ -8,9 +8,12 @@ import {
   Bell,
   Activity,
   Settings,
-  Shield,
+  Zap,
+  BookOpen,
 } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -18,9 +21,10 @@ const navItems = [
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
-export function SidebarNav() {
+export function SidebarNav({ plan }: { plan?: string }) {
   const pathname = usePathname();
 
   return (
@@ -43,6 +47,18 @@ export function SidebarNav() {
           </Link>
         );
       })}
+
+      {/* Upgrade CTA for free users */}
+      {plan === "free" && (
+        <Link
+          href="/upgrade"
+          className="mt-4 flex items-center gap-3 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100"
+        >
+          <Zap className="h-4 w-4" />
+          <span className="flex-1">Upgrade</span>
+          <Badge className="bg-cyan-600 text-[10px] text-white">Pro</Badge>
+        </Link>
+      )}
     </nav>
   );
 }
@@ -52,8 +68,7 @@ export function MobileNav() {
 
   return (
     <header className="flex h-14 items-center gap-4 border-b px-4 md:hidden">
-      <Shield className="h-5 w-5 text-primary" />
-      <span className="text-lg font-bold">Clawkeeper</span>
+      <Logo />
       <nav className="ml-auto flex gap-2">
         {navItems.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");

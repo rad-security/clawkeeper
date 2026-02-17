@@ -1,20 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SecurityGradeCard } from "@/components/dashboard/SecurityGradeCard";
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow";
 import { Monitor, Shield, AlertTriangle, Clock } from "lucide-react";
+import { UpgradeBanner } from "@/components/dashboard/UpgradeBanner";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
-  // Layout guarantees org exists
-  const { data: membership } = await supabase
-    .from("org_members")
-    .select("org_id")
-    .single();
-
-  const orgId = membership!.org_id;
+  const orgId = await getOrgId(supabase);
 
   // Parallel queries
   const [hostsRes, recentScansRes, alertEventsRes, orgRes] = await Promise.all([
@@ -84,6 +79,9 @@ export default async function DashboardPage() {
           </Badge>
         </p>
       </div>
+
+      {/* Upgrade banner for free users */}
+      {plan === "free" && <UpgradeBanner />}
 
       {/* Stats cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,0 +1,7 @@
+id = "admin_user"
+name = "User Account"
+phase = "host_hardening"
+platform = "macos"
+description = "OpenClaw should run under a standard (non-admin) user to limit blast radius."
+requires_sudo = true
+order = 9
