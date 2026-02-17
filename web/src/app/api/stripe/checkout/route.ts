@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PLAN_PRICING } from "@/types";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
+  return new Stripe(key);
+}
 
 // Map plan + billing to env var names for pre-created Stripe prices
 const PRICE_ENV_MAP: Record<string, string> = {
@@ -16,6 +20,7 @@ const PRICE_ENV_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const stripe = getStripe();
     const supabase = await createClient();
     const {
       data: { user },
