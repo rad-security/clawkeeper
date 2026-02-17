@@ -421,14 +421,9 @@ agent_install() {
         echo ""
 
         # Run a scan right now so they see value immediately
-        echo -e "  ${CYAN}Running your first scan...${RESET}"
-        echo ""
-        run_scan
-        echo ""
-        echo -e "  ${GREEN}${BOLD}Scan complete!${RESET}"
-        echo -e "  Ready to track scores over time? Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
-        echo ""
-        exit 0
+        local self_path
+        self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+        exec "$self_path" scan
     fi
 
     # Validate key format
@@ -3569,18 +3564,9 @@ print_report() {
     if [ -f "$AGENT_CONFIG_FILE" ]; then
         echo -e "  ${GREEN}✓${RESET} Agent installed — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
     else
-        if [ "$score" -lt 70 ]; then
-            echo -e "  Your security posture has room to improve."
-            echo -e "  Track drift and catch regressions automatically:"
-            echo -e "  → ${CYAN}clawkeeper.sh agent --install${RESET}"
-        elif [ "$FIXED" -gt 0 ]; then
-            echo -e "  You fixed ${BOLD}$FIXED issue(s)${RESET} during this session. Nice work."
-            echo -e "  Settings drift over time — monitor continuously:"
-            echo -e "  → ${CYAN}clawkeeper.sh agent --install${RESET}"
-        else
-            echo -e "  ${GREEN}Strong security posture.${RESET} Keep it that way across your org:"
-            echo -e "  → ${CYAN}clawkeeper.sh agent --install${RESET} ${DIM}— continuous monitoring & compliance${RESET}"
-        fi
+        echo -e "  Track your score over time with a free dashboard:"
+        echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
+        echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
     fi
     echo ""
 }
