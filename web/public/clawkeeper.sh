@@ -3662,7 +3662,7 @@ usage() {
 }
 
 main() {
-    local command="${1:-setup}"
+    local command="${1:-start}"
 
     # Save all args after command for agent passthrough
     local agent_args=()
@@ -3695,14 +3695,34 @@ main() {
     detect_platform
 
     case "$command" in
-        setup)
-            SCAN_ONLY=false
-            INTERACTIVE=true
+        start)
+            # Interactive menu — default when no command given
             print_banner
-            print_expectations
-            select_deployment_mode
+            echo ""
+            echo -e "  What would you like to do?"
+            echo ""
+            echo -e "  ${BOLD}1)${RESET} ${CYAN}Scan existing OpenClaw${RESET}  — audit your current installation (read-only)"
+            echo -e "  ${BOLD}2)${RESET} ${CYAN}Deploy OpenClaw securely${RESET} — full setup wizard with hardened defaults"
+            echo ""
+            printf "  Choose [1/2]: "
+            read -r choice
+            case "$choice" in
+                2)
+                    SCAN_ONLY=false
+                    INTERACTIVE=true
+                    print_expectations
+                    select_deployment_mode
+                    ;;
+                *)
+                    SCAN_ONLY=true
+                    INTERACTIVE=false
+                    echo ""
+                    echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
+                    select_deployment_mode
+                    ;;
+            esac
             ;;
-        deploy)
+        setup|deploy)
             SCAN_ONLY=false
             INTERACTIVE=true
             print_banner
