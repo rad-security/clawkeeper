@@ -26,6 +26,8 @@ export async function sendAlertEmail({
     return;
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://clawkeeper.dev";
+
   await getResend().emails.send({
     from: "Clawkeeper Alerts <alerts@clawkeeper.dev>",
     to,
@@ -39,8 +41,8 @@ export async function sendAlertEmail({
         <p>${message}</p>
         <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
         <p style="color: #6b7280; font-size: 14px;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/alerts">View alerts</a> ·
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/settings">Manage rules</a>
+          <a href="${appUrl}/alerts">View alerts</a> ·
+          <a href="${appUrl}/settings">Manage rules</a>
         </p>
       </div>
     `,

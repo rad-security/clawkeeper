@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CreditCard } from "lucide-react";
+import { toast } from "sonner";
 
 export function BillingPortalButton() {
   const [loading, setLoading] = useState(false);
@@ -16,7 +17,7 @@ export function BillingPortalButton() {
         window.location.href = data.url;
       }
     } catch {
-      alert("Failed to open billing portal");
+      toast.error("Failed to open billing portal");
     } finally {
       setLoading(false);
     }

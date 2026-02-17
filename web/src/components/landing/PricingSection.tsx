@@ -15,7 +15,7 @@ import { Check, Minus } from "lucide-react";
 import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 
 const comparisonFeatures = [
-  { name: "CLI scanner (35+ checks)", free: true, pro: true, enterprise: true },
+  { name: "CLI scanner (39 checks)", free: true, pro: true, enterprise: true },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
   { name: "Dashboard hosts", free: "1", pro: "50", enterprise: "Unlimited" },
   { name: "Scan history", free: "7 days", pro: "365 days", enterprise: "Unlimited" },
@@ -142,7 +142,7 @@ export function PricingSection() {
             </ul>
             <Link href="/signup" className="mt-8 block">
               <Button className="btn-rad w-full bg-cyan-500 text-black font-medium hover:bg-cyan-400">
-                Upgrade to Pro
+                Start with Pro
               </Button>
             </Link>
           </CardContent>

@@ -22,6 +22,7 @@ import {
   Lock,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { toast } from "sonner";
 
 export default function DemoPage() {
   const [name, setName] = useState("");
@@ -42,7 +43,7 @@ export default function DemoPage() {
       });
       setSubmitted(true);
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }

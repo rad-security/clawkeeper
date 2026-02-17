@@ -166,7 +166,7 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
                 Run this on any machine with OpenClaw installed:
               </p>
               <div className="flex items-center gap-2">
-                <pre className="flex-1 overflow-x-auto rounded-md bg-zinc-950 px-3 py-2 text-sm text-green-400">
+                <pre className="flex-1 overflow-x-auto rounded-md bg-black border border-white/10 px-3 py-2 text-sm text-cyan-400">
                   {installCommand}
                 </pre>
                 <Button
@@ -199,7 +199,7 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
               className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
             >
               <Apple className="h-4 w-4" />
-              Download Clawkeeper for macOS
+              Download for macOS
             </a>
 
             <Button onClick={() => setStep(3)} className="w-full">

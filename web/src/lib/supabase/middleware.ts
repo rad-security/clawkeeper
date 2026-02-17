@@ -34,6 +34,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/hosts") ||
     request.nextUrl.pathname.startsWith("/alerts") ||
+    request.nextUrl.pathname.startsWith("/activity") ||
+    request.nextUrl.pathname.startsWith("/upgrade") ||
     request.nextUrl.pathname.startsWith("/settings");
 
   if (!user && isAuthRoute) {

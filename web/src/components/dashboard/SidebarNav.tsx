@@ -52,11 +52,11 @@ export function SidebarNav({ plan }: { plan?: string }) {
       {plan === "free" && (
         <Link
           href="/upgrade"
-          className="mt-4 flex items-center gap-3 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-2.5 text-sm font-medium text-cyan-700 transition-colors hover:bg-cyan-100"
+          className="mt-4 flex items-center gap-3 rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-2.5 text-sm font-medium text-cyan-400 transition-colors hover:bg-cyan-500/20"
         >
           <Zap className="h-4 w-4" />
           <span className="flex-1">Upgrade</span>
-          <Badge className="bg-cyan-600 text-[10px] text-white">Pro</Badge>
+          <Badge className="bg-cyan-500 text-[10px] text-black">Pro</Badge>
         </Link>
       )}
     </nav>

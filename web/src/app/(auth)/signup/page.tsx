@@ -98,7 +98,7 @@ export default function SignupPage() {
           {[
             {
               icon: Terminal,
-              text: "35+ automated security checks",
+              text: "39 automated security checks",
             },
             {
               icon: Check,
@@ -178,7 +178,7 @@ export default function SignupPage() {
                 />
               </div>
               {error && (
-                <p className="text-sm text-red-400">{error}</p>
+                <p className="text-sm text-destructive">{error}</p>
               )}
               <Button
                 type="submit"

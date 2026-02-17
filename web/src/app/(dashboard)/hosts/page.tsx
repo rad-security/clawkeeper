@@ -11,8 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CopyCommand } from "@/components/landing/CopyCommand";
 import Link from "next/link";
-import { Download, Terminal, Apple } from "lucide-react";
+import { Download, Apple } from "lucide-react";
 
 export default async function HostsPage() {
   const supabase = await createClient();
@@ -52,12 +53,7 @@ export default async function HostsPage() {
               No hosts registered yet. Run this command on any machine running
               OpenClaw to install the agent:
             </p>
-            <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <pre className="flex-1 overflow-x-auto rounded-md bg-zinc-950 px-3 py-2 text-sm text-green-400">
-                curl -fsSL https://clawkeeper.dev/install.sh | bash
-              </pre>
-            </div>
+            <CopyCommand command="curl -fsSL https://clawkeeper.dev/install.sh | bash" />
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-border" />
               <span className="text-xs text-muted-foreground">
@@ -78,7 +74,7 @@ export default async function HostsPage() {
               Need an API key first?{" "}
               <Link
                 href="/dashboard"
-                className="text-primary hover:underline"
+                className="text-cyan-400 hover:underline"
               >
                 Go to the setup wizard
               </Link>{" "}
@@ -105,13 +101,13 @@ export default async function HostsPage() {
                   <TableCell>
                     <Link
                       href={`/hosts/${host.id}`}
-                      className="font-medium text-primary hover:underline"
+                      className="font-medium text-cyan-400 hover:underline"
                     >
                       {host.hostname}
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {host.platform || "—"}
+                    {host.platform || "\u2014"}
                     {host.os_version ? ` ${host.os_version}` : ""}
                   </TableCell>
                   <TableCell>
@@ -120,11 +116,11 @@ export default async function HostsPage() {
                         {host.last_grade}
                       </Badge>
                     ) : (
-                      "—"
+                      "\u2014"
                     )}
                   </TableCell>
                   <TableCell>
-                    {host.last_score !== null ? `${host.last_score}/100` : "—"}
+                    {host.last_score !== null ? `${host.last_score}/100` : "\u2014"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {host.last_scan_at
@@ -132,7 +128,7 @@ export default async function HostsPage() {
                       : "Never"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {host.agent_version || "—"}
+                    {host.agent_version || "\u2014"}
                   </TableCell>
                 </TableRow>
               ))}

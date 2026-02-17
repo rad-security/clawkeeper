@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
+import { toast } from "sonner";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -56,24 +57,24 @@ export default function LoginPage() {
       setError(error.message);
     } else {
       setError("");
-      alert("Check your email for the login link!");
+      toast.success("Check your email for the login link!");
     }
     setLoading(false);
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-black px-4">
+      <Card className="w-full max-w-md border-white/10 bg-zinc-900">
         <CardHeader className="text-center">
           <div className="flex justify-center">
-              <Logo size="lg" />
-            </div>
-          <CardDescription>Sign in to your account</CardDescription>
+            <Logo size="lg" className="text-white" />
+          </div>
+          <CardDescription className="text-zinc-400">Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-zinc-300">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -81,37 +82,43 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="border-white/10 bg-white/5 text-white placeholder:text-zinc-500"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-zinc-300">Password</Label>
               <Input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="border-white/10 bg-white/5 text-white placeholder:text-zinc-500"
               />
             </div>
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="btn-rad w-full bg-cyan-500 text-black font-medium hover:bg-cyan-400"
+              disabled={loading}
+            >
               {loading ? "Signing in..." : "Sign in"}
             </Button>
           </form>
           <div className="mt-4 flex flex-col gap-2">
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full border-white/10 text-zinc-300 hover:text-white"
               onClick={handleMagicLink}
               disabled={loading || !email}
             >
               Send magic link
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-center text-sm text-zinc-500">
               Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-primary hover:underline">
+              <Link href="/signup" className="text-cyan-400 hover:underline">
                 Sign up
               </Link>
             </p>

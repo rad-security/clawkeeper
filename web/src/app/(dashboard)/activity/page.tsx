@@ -105,7 +105,7 @@ export default async function ActivityPage({
                   lifecycle event across all your hosts. Full audit trail with
                   filtering and pagination.
                 </p>
-                <Link href="/settings">
+                <Link href="/upgrade">
                   <Button className="mt-4">Upgrade to Pro</Button>
                 </Link>
               </CardContent>

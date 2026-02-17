@@ -206,7 +206,7 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-zinc-950">
         <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-white/10 sm:grid-cols-4">
           {[
-            { value: "35+", label: "Security checks" },
+            { value: "39", label: "Security checks" },
             { value: "180k+", label: "OpenClaw installs at risk" },
             { value: "<60s", label: "Time to first scan" },
             { value: "A–F", label: "Letter grade scoring" },
@@ -316,7 +316,7 @@ export default function LandingPage() {
                 icon: ShieldCheck,
                 title: "Scan",
                 description:
-                  "35+ automated checks across 5 phases: host hardening, network, prerequisites, installation, and security audit. Results in under 60 seconds.",
+                  "39 automated checks across 5 phases: host hardening, network, prerequisites, installation, and security audit. Results in under 60 seconds.",
               },
               {
                 step: "03",
@@ -930,7 +930,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
                   </Link>
                 </li>
                 <li>
-                  <a href="#download" className="hover:text-zinc-300">
+                  <a href="#deploy" className="hover:text-zinc-300">
                     Download
                   </a>
                 </li>

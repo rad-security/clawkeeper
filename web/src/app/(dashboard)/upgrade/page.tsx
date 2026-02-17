@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, ArrowRight, Zap, Container } from "lucide-react";
 import { PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
+import { toast } from "sonner";
 
 export default function UpgradePage() {
   const [loading, setLoading] = useState<string | null>(null);
@@ -32,10 +33,10 @@ export default function UpgradePage() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert(data.error || "Failed to start checkout");
+        toast.error(data.error || "Failed to start checkout");
       }
     } catch {
-      alert("Something went wrong. Please try again.");
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(null);
     }
@@ -51,27 +52,27 @@ export default function UpgradePage() {
       </div>
 
       {/* Billing toggle */}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-1 rounded-full border border-white/10 bg-white/5 p-1 w-fit mx-auto">
         <button
           onClick={() => setBilling("monthly")}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+          className={`rounded-full px-4 py-2 text-sm font-medium transition ${
             billing === "monthly"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-white/10 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white"
           }`}
         >
           Monthly
         </button>
         <button
           onClick={() => setBilling("annual")}
-          className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+          className={`rounded-full px-4 py-2 text-sm font-medium transition ${
             billing === "annual"
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              ? "bg-white/10 text-white shadow-sm"
+              : "text-zinc-400 hover:text-white"
           }`}
         >
           Annual
-          <Badge variant="secondary" className="ml-2">
+          <Badge className="ml-2 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
             Save 17%
           </Badge>
         </button>
@@ -79,20 +80,20 @@ export default function UpgradePage() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         {/* Pro */}
-        <Card className="border-cyan-500">
+        <Card className="border-cyan-500/30 bg-cyan-500/5">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-cyan-600" />
+              <Zap className="h-5 w-5 text-cyan-400" />
               <CardTitle>Pro</CardTitle>
             </div>
             <div className="text-3xl font-bold">
               {billing === "annual" ? "$24" : "$29"}
-              <span className="text-base font-normal text-muted-foreground">
+              <span className="text-base font-normal text-zinc-500">
                 /host/mo
               </span>
             </div>
             {billing === "annual" && (
-              <p className="text-sm text-cyan-600">
+              <p className="text-sm text-cyan-400">
                 $288/year — save $60 vs monthly
               </p>
             )}
@@ -104,13 +105,13 @@ export default function UpgradePage() {
             <ul className="space-y-2 text-sm">
               {PRO_FEATURES.map((item) => (
                 <li key={item} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-cyan-600" />
+                  <Check className="h-4 w-4 text-cyan-400" />
                   {item}
                 </li>
               ))}
             </ul>
             <Button
-              className="mt-6 w-full bg-cyan-600 text-white hover:bg-cyan-700"
+              className="mt-6 w-full bg-cyan-500 text-black font-medium hover:bg-cyan-400"
               onClick={() => handleCheckout("pro")}
               disabled={loading === "pro"}
             >
@@ -121,20 +122,20 @@ export default function UpgradePage() {
         </Card>
 
         {/* Enterprise */}
-        <Card className="border-violet-400">
+        <Card className="border-violet-500/30 bg-violet-500/5">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Container className="h-5 w-5 text-violet-600" />
+              <Container className="h-5 w-5 text-violet-400" />
               <CardTitle>Enterprise</CardTitle>
             </div>
             <div className="text-3xl font-bold">
               {billing === "annual" ? "$119" : "$149"}
-              <span className="text-base font-normal text-muted-foreground">
+              <span className="text-base font-normal text-zinc-500">
                 /cluster/mo
               </span>
             </div>
             {billing === "annual" && (
-              <p className="text-sm text-violet-600">
+              <p className="text-sm text-violet-400">
                 $1,428/year — save $360 vs monthly
               </p>
             )}
@@ -146,14 +147,14 @@ export default function UpgradePage() {
             <ul className="space-y-2 text-sm">
               {ENTERPRISE_FEATURES.map((item) => (
                 <li key={item} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-violet-600" />
+                  <Check className="h-4 w-4 text-violet-400" />
                   {item}
                 </li>
               ))}
             </ul>
             <Button
               variant="outline"
-              className="mt-6 w-full border-violet-400 text-violet-700 hover:bg-violet-50"
+              className="mt-6 w-full border-violet-500/30 text-violet-300 hover:bg-violet-500/10"
               onClick={() => router.push("/demo")}
             >
               Schedule a demo

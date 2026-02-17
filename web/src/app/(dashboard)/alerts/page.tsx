@@ -110,7 +110,7 @@ export default async function AlertsPage() {
                   Get email notifications when grades drop, suspicious skills
                   are installed, or credentials are exposed. Up to 20 rules.
                 </p>
-                <Link href="/settings">
+                <Link href="/upgrade">
                   <Button className="mt-4">Upgrade to Pro</Button>
                 </Link>
               </CardContent>

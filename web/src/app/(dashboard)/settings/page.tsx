@@ -6,9 +6,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ApiKeyManager } from "@/components/settings/ApiKeyManager";
 import { BillingPortalButton } from "@/components/settings/BillingPortalButton";
+import { CopyCommand } from "@/components/landing/CopyCommand";
 import { TIER_LIMITS, type PlanType } from "@/types";
+import { CheckCircle2 } from "lucide-react";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ upgraded?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const orgId = await getOrgId(supabase);
 
@@ -47,6 +54,21 @@ export default async function SettingsPage() {
         </p>
       </div>
 
+      {/* Post-checkout success banner */}
+      {params.upgraded === "true" && (
+        <div className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-4 py-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-cyan-400" />
+          <div>
+            <p className="text-sm font-medium text-cyan-300">
+              Welcome to Pro!
+            </p>
+            <p className="text-xs text-cyan-400/70">
+              Your upgrade is active. All Pro features are now unlocked.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Agent install instructions — first for discoverability */}
       <Card>
         <CardHeader>
@@ -56,9 +78,7 @@ export default async function SettingsPage() {
           <p className="text-sm text-muted-foreground">
             Install the Clawkeeper agent on any machine running OpenClaw:
           </p>
-          <pre className="overflow-x-auto rounded-md bg-muted p-4 text-sm">
-{`curl -fsSL https://clawkeeper.dev/install.sh | bash`}
-          </pre>
+          <CopyCommand command="curl -fsSL https://clawkeeper.dev/install.sh | bash" />
           <p className="text-sm text-muted-foreground">
             You&apos;ll be prompted for your API key. The agent scans your
             OpenClaw installation hourly and uploads results automatically.
@@ -78,7 +98,7 @@ export default async function SettingsPage() {
             </Badge>
             {plan === "free" && (
               <Link href="/upgrade">
-                <Button size="sm" className="bg-cyan-600 text-white hover:bg-cyan-700">
+                <Button size="sm" className="bg-cyan-500 text-black font-medium hover:bg-cyan-400">
                   Upgrade to Pro
                 </Button>
               </Link>
