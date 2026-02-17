@@ -405,14 +405,30 @@ agent_install() {
     echo -e "${CYAN}${BOLD}  Clawkeeper Agent Setup${RESET}"
     echo ""
 
-    # Prompt for API key
-    echo -e "  Enter your API key from ${BOLD}clawkeeper.dev/settings${RESET}:"
+    # Prompt for API key (with helpful fallback if skipped)
+    echo -e "  To upload scan results to your dashboard, you need an API key."
+    echo -e "  Get one free at: ${CYAN}https://clawkeeper.dev/signup${RESET}"
+    echo ""
+    echo -e "  Enter your API key (or press Enter to scan locally without uploading):"
     printf "  > "
     read -r api_key
 
     if [ -z "$api_key" ]; then
-        echo -e "  ${RED}No API key provided. Aborting.${RESET}"
-        exit 1
+        echo ""
+        echo -e "  ${GREEN}✓${RESET} No problem — running in ${BOLD}local-only mode${RESET}."
+        echo -e "  ${DIM}Scans will run locally but won't upload to the dashboard.${RESET}"
+        echo -e "  ${DIM}To connect later, run: clawkeeper.sh agent --install${RESET}"
+        echo ""
+
+        # Run a scan right now so they see value immediately
+        echo -e "  ${CYAN}Running your first scan...${RESET}"
+        echo ""
+        run_scan
+        echo ""
+        echo -e "  ${GREEN}${BOLD}Scan complete!${RESET}"
+        echo -e "  Ready to track scores over time? Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
+        echo ""
+        exit 0
     fi
 
     # Validate key format
