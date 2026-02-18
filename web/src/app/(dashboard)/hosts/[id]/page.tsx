@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckStatusBadge } from "@/components/dashboard/CheckStatusBadge";
+import { DeploymentBadge } from "@/components/dashboard/DeploymentBadge";
 import { GradeHistoryChart } from "@/components/dashboard/GradeHistoryChart";
+import { ZoneCard } from "@/components/dashboard/ZoneCard";
 import {
   Table,
   TableBody,
@@ -12,7 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventFeed } from "@/components/activity/EventFeed";
+import { analyzeHost, PHASE_LABELS, PHASE_ORDER } from "@/lib/host-analysis";
 import type { Event } from "@/types";
 
 export default async function HostDetailPage({
@@ -60,6 +64,15 @@ export default async function HostDetailPage({
     checks = data || [];
   }
 
+  // Run analysis
+  const analysis = analyzeHost(checks);
+
+  // Determine which phase tabs have checks
+  const activePhaseTabs = PHASE_ORDER.filter(
+    (phase) => analysis.phaseGroups[phase].length > 0
+  );
+  const defaultTab = activePhaseTabs[0] || "security_audit";
+
   const gradeVariant = (grade: string | null) => {
     if (grade === "A" || grade === "B") return "default" as const;
     if (grade === "C") return "secondary" as const;
@@ -68,7 +81,8 @@ export default async function HostDetailPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      {/* Header */}
+      <div className="flex items-center gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold">{host.hostname}</h1>
           <p className="text-muted-foreground">
@@ -76,11 +90,17 @@ export default async function HostDetailPage({
             {host.os_version ? ` ${host.os_version}` : ""}
           </p>
         </div>
-        {host.last_grade && (
-          <Badge variant={gradeVariant(host.last_grade)} className="text-lg px-3 py-1">
-            Grade {host.last_grade}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          <DeploymentBadge
+            deployment={analysis.deployment}
+            detail={analysis.deploymentDetail}
+          />
+          {host.last_grade && (
+            <Badge variant={gradeVariant(host.last_grade)} className="text-lg px-3 py-1">
+              Grade {host.last_grade}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -117,6 +137,18 @@ export default async function HostDetailPage({
         </Card>
       </div>
 
+      {/* Security Zones */}
+      {analysis.hasOpenClawChecks && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Security Zones</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {analysis.zones.map((zone) => (
+              <ZoneCard key={zone.zone} zone={zone} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Grade history chart */}
       {scans && scans.length > 1 && (
         <Card>
@@ -135,42 +167,56 @@ export default async function HostDetailPage({
         </Card>
       )}
 
-      {/* Latest scan checks */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Latest Scan Checks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {checks.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No check data available.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Check</TableHead>
-                  <TableHead>Detail</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {checks.map((check) => (
-                  <TableRow key={check.id}>
-                    <TableCell>
-                      <CheckStatusBadge status={check.status} />
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {check.check_name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {check.detail || "—"}
-                    </TableCell>
-                  </TableRow>
+      {/* All Checks by Category */}
+      {checks.length > 0 && activePhaseTabs.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Checks by Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue={defaultTab}>
+              <TabsList className="flex-wrap">
+                {activePhaseTabs.map((phase) => (
+                  <TabsTrigger key={phase} value={phase}>
+                    {PHASE_LABELS[phase]}
+                    <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5 py-0">
+                      {analysis.phaseGroups[phase].length}
+                    </Badge>
+                  </TabsTrigger>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </TabsList>
+              {activePhaseTabs.map((phase) => (
+                <TabsContent key={phase} value={phase}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[100px]">Status</TableHead>
+                        <TableHead>Check</TableHead>
+                        <TableHead>Detail</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analysis.phaseGroups[phase].map((check) => (
+                        <TableRow key={check.id}>
+                          <TableCell>
+                            <CheckStatusBadge status={check.status} />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {check.check_name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {check.friendlyDetail}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Scan history table */}
       {scans && scans.length > 0 && (
