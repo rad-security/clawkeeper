@@ -37,8 +37,8 @@ else
     echo "  ✓ PATH already configured"
 fi
 
-# --- Run first scan ---
+# --- Launch interactive menu ---
 echo ""
-echo "  Running your first security scan..."
+echo "  Launching Clawkeeper..."
 echo ""
-exec "$DEST" scan
+exec "$DEST" </dev/tty
