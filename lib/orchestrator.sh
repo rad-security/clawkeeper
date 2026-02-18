@@ -1903,9 +1903,8 @@ print_report() {
     # CTA: check if agent is actually connected (has API key), not just config file
     echo ""
     local has_api_key=false
-    if [ -f "$AGENT_CONFIG_FILE" ]; then
-        # shellcheck disable=SC1090
-        (source "$AGENT_CONFIG_FILE" 2>/dev/null && [ -n "${CLAWKEEPER_API_KEY:-}" ]) && has_api_key=true
+    if [ -f "$AGENT_CONFIG_FILE" ] && grep -q 'CLAWKEEPER_API_KEY="ck_' "$AGENT_CONFIG_FILE" 2>/dev/null; then
+        has_api_key=true
     fi
 
     if [ "$has_api_key" = true ]; then
