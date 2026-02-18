@@ -30,9 +30,9 @@ export default async function AlertsPage() {
   const plan = orgRes.data?.plan || "free";
   const rules = rulesRes.data || [];
   const events = eventsRes.data || [];
-  const isPro = plan === "pro";
+  const hasAccess = plan === "pro" || plan === "enterprise";
 
-  if (!isPro) {
+  if (!hasAccess) {
     return (
       <div className="space-y-6">
         <div>

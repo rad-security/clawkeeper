@@ -1,6 +1,6 @@
 import { TIER_LIMITS } from "@/types";
 
-export type Plan = "free" | "pro";
+export type Plan = "free" | "pro" | "enterprise";
 
 export function getLimits(plan: Plan) {
   return TIER_LIMITS[plan];

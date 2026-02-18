@@ -27,6 +27,12 @@ export function validateScanPayload(
   if (!Array.isArray(b.checks)) {
     return { valid: false, error: "checks must be an array" };
   }
+  if (b.checks.length > 500) {
+    return { valid: false, error: "checks array exceeds maximum of 500 entries" };
+  }
+  if (typeof b.raw_report === "string" && b.raw_report.length > 1_000_000) {
+    return { valid: false, error: "raw_report exceeds maximum size of 1MB" };
+  }
 
   for (let i = 0; i < b.checks.length; i++) {
     const c = b.checks[i];

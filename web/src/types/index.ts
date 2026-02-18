@@ -167,7 +167,7 @@ export const ENTERPRISE_FEATURES = [
 ] as const;
 
 export const FREE_FEATURES = [
-  "Full CLI scanner (35+ checks)",
+  "Full CLI scanner (39 checks)",
   "Auto-fix for common issues",
   "3 hosts on dashboard",
   "7 days scan history",

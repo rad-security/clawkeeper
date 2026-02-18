@@ -58,7 +58,10 @@ export function ApiKeyManager({
     setLoading(false);
   }
 
-  async function deleteKey(id: string) {
+  async function deleteKey(id: string, name: string) {
+    if (!window.confirm(`Delete API key "${name}"? This cannot be undone and will break any agents using this key.`)) {
+      return;
+    }
     const res = await fetch(`/api/dashboard/api-keys/${id}`, {
       method: "DELETE",
     });
@@ -142,7 +145,7 @@ export function ApiKeyManager({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => deleteKey(key.id)}
+                  onClick={() => deleteKey(key.id, key.name)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>

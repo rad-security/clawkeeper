@@ -129,16 +129,11 @@ export default function UpgradePage() {
               <CardTitle>Enterprise</CardTitle>
             </div>
             <div className="text-3xl font-bold">
-              {billing === "annual" ? "$119" : "$149"}
-              <span className="text-base font-normal text-zinc-500">
-                /cluster/mo
-              </span>
+              Custom
             </div>
-            {billing === "annual" && (
-              <p className="text-sm text-violet-400">
-                $1,428/year — save $360 vs monthly
-              </p>
-            )}
+            <p className="text-sm text-violet-400">
+              Tailored to your infrastructure and compliance needs
+            </p>
             <CardDescription>
               Hardened K8s deployment with eBPF runtime detection.
             </CardDescription>

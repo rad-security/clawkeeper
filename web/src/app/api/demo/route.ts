@@ -5,6 +5,15 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
 }
 
+/** Escape HTML special characters to prevent XSS in emails */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const resend = getResend();
@@ -17,18 +26,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { error: "Invalid email address" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize all user inputs before injecting into HTML
+    const safeName = escapeHtml(String(name).slice(0, 200));
+    const safeEmail = escapeHtml(String(email).slice(0, 200));
+    const safeCompany = escapeHtml(String(company).slice(0, 200));
+    const safeClusters = escapeHtml(String(clusters || "Not specified").slice(0, 100));
+
     // Send notification to sales team
     await resend.emails.send({
       from: "Clawkeeper <noreply@clawkeeper.dev>",
       to: ["sales@clawkeeper.dev"],
-      subject: `Enterprise Demo Request — ${company}`,
+      subject: `Enterprise Demo Request — ${safeCompany}`,
       html: `
         <h2>New Enterprise Demo Request</h2>
         <table style="border-collapse:collapse;">
-          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Name</td><td>${name}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Email</td><td>${email}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Company</td><td>${company}</td></tr>
-          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Clusters</td><td>${clusters || "Not specified"}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Name</td><td>${safeName}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Email</td><td>${safeEmail}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Company</td><td>${safeCompany}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0;font-weight:bold;">Clusters</td><td>${safeClusters}</td></tr>
         </table>
         <p style="margin-top:16px;color:#666;">Submitted via clawkeeper.dev/demo</p>
       `,
@@ -40,7 +63,7 @@ export async function POST(req: NextRequest) {
       to: [email],
       subject: "Your Clawkeeper Enterprise demo request",
       html: `
-        <p>Hi ${name},</p>
+        <p>Hi ${safeName},</p>
         <p>Thanks for your interest in Clawkeeper Enterprise. We received your demo request and will reach out within one business day to schedule a walkthrough.</p>
         <p>In the meantime, you can try the free CLI scanner:</p>
         <pre style="background:#f4f4f5;padding:12px;border-radius:6px;">curl -fsSL https://clawkeeper.dev/install.sh | bash</pre>

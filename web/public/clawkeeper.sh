@@ -3617,6 +3617,28 @@ BOLD='\033[1m'
 DIM='\033[2m'
 RESET='\033[0m'
 
+# --- Gum Theme Constants ---------------------------------------------------
+HAS_GUM=false
+GUM_GREEN="34"
+GUM_RED="196"
+GUM_YELLOW="220"
+GUM_BLUE="33"
+GUM_CYAN="45"
+GUM_DIM="245"
+GUM_BOLD_WHITE="15"
+GUM_BORDER="rounded"
+GUM_BORDER_FG="45"
+GUM_SPINNER="dot"
+
+# Pre-computed gum styled icons (populated by init_gum_icons)
+_GUM_PASS_ICON=""
+_GUM_FAIL_ICON=""
+_GUM_WARN_ICON=""
+_GUM_SKIP_ICON=""
+_GUM_INFO_ICON=""
+_GUM_FIXED_SUFFIX=""
+_GUM_SKIPPED_SUFFIX=""
+
 # --- Counters ---------------------------------------------------------------
 PASS=0
 FAIL=0
@@ -3720,51 +3742,216 @@ detect_platform() {
     fi
 }
 
+# --- Gum Installation & Icons -----------------------------------------------
+
+ensure_gum() {
+    # Skip when stdout is not a TTY (piped output, scheduled jobs)
+    if ! [ -t 1 ]; then
+        return
+    fi
+
+    # Already available in PATH
+    if command -v gum &>/dev/null; then
+        HAS_GUM=true
+        return
+    fi
+
+    # Check our local install location
+    if [ -x "$HOME/.local/bin/gum" ]; then
+        export PATH="$HOME/.local/bin:$PATH"
+        HAS_GUM=true
+        return
+    fi
+
+    # Auto-install gum binary
+    local gum_version="0.15.2"
+    local os_name arch_name
+    os_name=$(uname -s)
+    arch_name=$(uname -m)
+
+    case "$os_name" in
+        Darwin) ;;
+        Linux)  ;;
+        *)      return ;;
+    esac
+
+    case "$arch_name" in
+        arm64|aarch64) arch_name="arm64" ;;
+        x86_64)        ;;
+        *)             return ;;
+    esac
+
+    local url="https://github.com/charmbracelet/gum/releases/download/v${gum_version}/gum_${gum_version}_${os_name}_${arch_name}.tar.gz"
+    local tmp_dir dest_dir="$HOME/.local/bin"
+    tmp_dir=$(mktemp -d)
+
+    echo -e "  ${DIM}Installing gum for styled output...${RESET}"
+
+    if curl -fsSL "$url" -o "$tmp_dir/gum.tar.gz" 2>/dev/null; then
+        tar -xzf "$tmp_dir/gum.tar.gz" -C "$tmp_dir" 2>/dev/null || { rm -rf "$tmp_dir"; return; }
+        mkdir -p "$dest_dir"
+        # Find the gum binary in extracted contents
+        local gum_bin=""
+        for candidate in "$tmp_dir/gum" "$tmp_dir"/gum_*/gum; do
+            if [ -f "$candidate" ]; then
+                gum_bin="$candidate"
+                break
+            fi
+        done
+        if [ -n "$gum_bin" ]; then
+            mv "$gum_bin" "$dest_dir/gum"
+            chmod +x "$dest_dir/gum"
+            export PATH="$dest_dir:$PATH"
+            if command -v gum &>/dev/null; then
+                HAS_GUM=true
+                echo -e "  ${GREEN}✓${RESET} ${DIM}gum installed${RESET}"
+            fi
+        fi
+    fi
+
+    rm -rf "$tmp_dir"
+}
+
+init_gum_icons() {
+    if [ "$HAS_GUM" != true ]; then
+        return
+    fi
+    _GUM_PASS_ICON=$(gum style --foreground "$GUM_GREEN" "✓")
+    _GUM_FAIL_ICON=$(gum style --foreground "$GUM_RED" "✗")
+    _GUM_WARN_ICON=$(gum style --foreground "$GUM_YELLOW" "⚠")
+    _GUM_SKIP_ICON=$(gum style --foreground "$GUM_YELLOW" "⊘")
+    _GUM_INFO_ICON=$(gum style --foreground "$GUM_DIM" "→")
+    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(just fixed)")
+    _GUM_SKIPPED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(accepted risk)")
+}
+
+# --- Styled Output Helpers (gum with ANSI fallback) -----------------------
+
+ok_msg() {
+    if [ "$HAS_GUM" = true ]; then echo "  ${_GUM_PASS_ICON} $*"
+    else echo -e "  ${GREEN}✓${RESET} $*"; fi
+}
+
+fail_msg() {
+    if [ "$HAS_GUM" = true ]; then echo "  ${_GUM_FAIL_ICON} $*"
+    else echo -e "  ${RED}✗${RESET} $*"; fi
+}
+
+warn_msg() {
+    if [ "$HAS_GUM" = true ]; then echo "  ${_GUM_WARN_ICON} $*"
+    else echo -e "  ${YELLOW}⚠${RESET} $*"; fi
+}
+
+dim_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --foreground "$GUM_DIM" -- "$*"
+    else echo -e "${DIM}$*${RESET}"; fi
+}
+
+accent_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --foreground "$GUM_CYAN" -- "$*"
+    else echo -e "${CYAN}$*${RESET}"; fi
+}
+
+accent_bold_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --bold --foreground "$GUM_CYAN" -- "$*"
+    else echo -e "${CYAN}${BOLD}$*${RESET}"; fi
+}
+
+highlight_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --bold --foreground "$GUM_YELLOW" -- "$*"
+    else echo -e "${YELLOW}${BOLD}$*${RESET}"; fi
+}
+
+error_bold_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --bold --foreground "$GUM_RED" -- "$*"
+    else echo -e "${RED}${BOLD}$*${RESET}"; fi
+}
+
+bold_msg() {
+    if [ "$HAS_GUM" = true ]; then gum style --bold --foreground "$GUM_BOLD_WHITE" -- "$*"
+    else echo -e "${BOLD}$*${RESET}"; fi
+}
+
+phase_header() {
+    echo ""
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_CYAN" --border normal --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- "$1"
+    else
+        echo -e "${CYAN}${BOLD}$1${RESET}"
+    fi
+}
+
+read_secret() {
+    # $1 = prompt text, $2 = placeholder
+    local prompt="$1" placeholder="${2:-}"
+    if [ "$HAS_GUM" = true ]; then
+        gum input --password --placeholder "$placeholder" --header "$prompt" </dev/tty
+    else
+        echo -ne "  ${BLUE}→${RESET} $prompt " >&2
+        local key
+        read -rs key </dev/tty
+        echo "" >&2
+        echo "$key"
+    fi
+}
+
 # --- Helpers ----------------------------------------------------------------
 print_platform_info() {
     local arch_label="$ARCH"
     if [ "$PLATFORM" = "macos" ]; then
         [ "$ARCH" = "arm64" ] && arch_label="Apple Silicon"
         [ "$ARCH" = "x86_64" ] && arch_label="Intel"
-        echo -e "  ${DIM}macOS $MACOS_VERSION ($arch_label)${RESET}"
+        dim_msg "  macOS $MACOS_VERSION ($arch_label)"
     elif [ "$PLATFORM" = "linux" ]; then
-        echo -e "  ${DIM}$LINUX_DISTRO_NAME ($arch_label)${RESET}"
+        dim_msg "  $LINUX_DISTRO_NAME ($arch_label)"
         if [ "$IS_VPS" = true ]; then
             local virt_type
             virt_type=$(systemd-detect-virt 2>/dev/null || echo "")
-            echo -e "  ${DIM}Virtualization: $virt_type (VPS/VM)${RESET}"
+            dim_msg "  Virtualization: $virt_type (VPS/VM)"
         fi
     fi
     if [ -n "$DEPLOY_MODE" ]; then
         local mode_label="Docker"
         [ "$DEPLOY_MODE" = "native" ] && mode_label="Native (npm)"
-        echo -e "  ${DIM}Deployment mode: $mode_label${RESET}"
+        dim_msg "  Deployment mode: $mode_label"
     fi
 }
 
 print_banner() {
     echo ""
-    echo -e "${CYAN}${BOLD}"
-    echo "   ┌────────────────────────────────────────┐"
-    echo "   │                                        │"
-    echo "   │        Clawkeeper Setup Wizard         │"
-    echo "   │                                        │"
-    echo "   │   Harden your host. Deploy securely.   │"
-    echo "   │                                        │"
-    echo "   └────────────────────────────────────────┘"
-    echo -e "${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --border "$GUM_BORDER" --border-foreground "$GUM_BORDER_FG" \
+            --padding "1 4" --align center --bold --foreground "$GUM_CYAN" \
+            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely."
+    else
+        echo -e "${CYAN}${BOLD}"
+        echo "   ┌────────────────────────────────────────┐"
+        echo "   │                                        │"
+        echo "   │        Clawkeeper Setup Wizard         │"
+        echo "   │                                        │"
+        echo "   │   Harden your host. Deploy securely.   │"
+        echo "   │                                        │"
+        echo "   └────────────────────────────────────────┘"
+        echo -e "${RESET}"
+    fi
     print_platform_info
 }
 
 print_scan_banner() {
     echo ""
-    echo -e "${CYAN}${BOLD}"
-    echo "   ┌────────────────────────────────────────┐"
-    echo "   │                                        │"
-    echo "   │       Clawkeeper Security Scan         │"
-    echo "   │                                        │"
-    echo "   └────────────────────────────────────────┘"
-    echo -e "${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --border "$GUM_BORDER" --border-foreground "$GUM_BORDER_FG" \
+            --padding "1 4" --align center --bold --foreground "$GUM_CYAN" \
+            "Clawkeeper Security Scan"
+    else
+        echo -e "${CYAN}${BOLD}"
+        echo "   ┌────────────────────────────────────────┐"
+        echo "   │                                        │"
+        echo "   │       Clawkeeper Security Scan         │"
+        echo "   │                                        │"
+        echo "   └────────────────────────────────────────┘"
+        echo -e "${RESET}"
+    fi
     print_platform_info
 }
 
@@ -3801,66 +3988,120 @@ print_phase_summary() {
     fi
 
     echo ""
-    echo -ne "  ${DIM}──"
-    [ "$p" -gt 0 ] && echo -ne " ${GREEN}$p passed${RESET}${DIM}"
-    [ "$f" -gt 0 ] && echo -ne " ${GREEN}$f fixed${RESET}${DIM}"
-    [ "$x" -gt 0 ] && echo -ne " ${RED}$x failed${RESET}${DIM}"
-    [ "$s" -gt 0 ] && echo -ne " ${YELLOW}$s skipped${RESET}${DIM}"
-    echo -e " ──${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        local summary="──"
+        [ "$p" -gt 0 ] && summary="$summary $(gum style --foreground "$GUM_GREEN" "$p passed")"
+        [ "$f" -gt 0 ] && summary="$summary $(gum style --foreground "$GUM_GREEN" "$f fixed")"
+        [ "$x" -gt 0 ] && summary="$summary $(gum style --foreground "$GUM_RED" "$x failed")"
+        [ "$s" -gt 0 ] && summary="$summary $(gum style --foreground "$GUM_YELLOW" "$s skipped")"
+        summary="$summary ──"
+        gum style --foreground "$GUM_DIM" -- "  $summary"
+    else
+        echo -ne "  ${DIM}──"
+        [ "$p" -gt 0 ] && echo -ne " ${GREEN}$p passed${RESET}${DIM}"
+        [ "$f" -gt 0 ] && echo -ne " ${GREEN}$f fixed${RESET}${DIM}"
+        [ "$x" -gt 0 ] && echo -ne " ${RED}$x failed${RESET}${DIM}"
+        [ "$s" -gt 0 ] && echo -ne " ${YELLOW}$s skipped${RESET}${DIM}"
+        echo -e " ──${RESET}"
+    fi
 }
 
 print_expectations() {
     echo ""
-    echo -e "  ${DIM}This wizard walks you through 5 phases:${RESET}"
-    echo -e "  ${DIM}  1. Host Hardening   — reduce your attack surface${RESET}"
-    echo -e "  ${DIM}  2. Network          — verify network security${RESET}"
-    echo -e "  ${DIM}  3. Prerequisites    — install required software${RESET}"
-    echo -e "  ${DIM}  4. OpenClaw         — deploy with hardened defaults${RESET}"
-    echo -e "  ${DIM}  5. Security Audit   — verify everything is locked down${RESET}"
-    echo ""
-    echo -e "  ${DIM}Every change requires your approval. Nothing runs without ${RESET}${BOLD}[Y/n]${RESET}${DIM}.${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --foreground "$GUM_DIM" -- \
+            "  This wizard walks you through 5 phases:" \
+            "    1. Host Hardening   — reduce your attack surface" \
+            "    2. Network          — verify network security" \
+            "    3. Prerequisites    — install required software" \
+            "    4. OpenClaw         — deploy with hardened defaults" \
+            "    5. Security Audit   — verify everything is locked down"
+        echo ""
+        echo "  $(gum style --foreground "$GUM_DIM" "Every change requires your approval. Nothing runs without") $(gum style --bold "[Y/n]")$(gum style --foreground "$GUM_DIM" ".")"
+    else
+        echo -e "  ${DIM}This wizard walks you through 5 phases:${RESET}"
+        echo -e "  ${DIM}  1. Host Hardening   — reduce your attack surface${RESET}"
+        echo -e "  ${DIM}  2. Network          — verify network security${RESET}"
+        echo -e "  ${DIM}  3. Prerequisites    — install required software${RESET}"
+        echo -e "  ${DIM}  4. OpenClaw         — deploy with hardened defaults${RESET}"
+        echo -e "  ${DIM}  5. Security Audit   — verify everything is locked down${RESET}"
+        echo ""
+        echo -e "  ${DIM}Every change requires your approval. Nothing runs without ${RESET}${BOLD}[Y/n]${RESET}${DIM}.${RESET}"
+    fi
 }
 
 step_header() {
     TOTAL=$((TOTAL + 1))
     echo ""
-    echo -e "${BOLD}Step ${TOTAL}: $1${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
+    else
+        echo -e "${BOLD}Step ${TOTAL}: $1${RESET}"
+    fi
 }
 
 pass() {
     PASS=$((PASS + 1))
-    echo -e "  ${GREEN}✓${RESET} $1"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_PASS_ICON} $1"
+    else
+        echo -e "  ${GREEN}✓${RESET} $1"
+    fi
     log_result "PASS" "$2" "$1"
 }
 
 fail() {
     FAIL=$((FAIL + 1))
-    echo -e "  ${RED}✗${RESET} $1"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_FAIL_ICON} $1"
+    else
+        echo -e "  ${RED}✗${RESET} $1"
+    fi
     log_result "FAIL" "$2" "$1"
 }
 
 fixed() {
     FIXED=$((FIXED + 1))
-    echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
+    else
+        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
+    fi
     log_result "FIXED" "$2" "$1"
     # After the 3rd fix, a subtle "at scale" hint
     if [ "$FIXED" -eq 3 ]; then
-        echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        else
+            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        fi
     fi
 }
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
-    echo -e "  ${YELLOW}⊘${RESET} $1 ${DIM}(accepted risk)${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_SKIP_ICON} $1 ${_GUM_SKIPPED_SUFFIX}"
+    else
+        echo -e "  ${YELLOW}⊘${RESET} $1 ${DIM}(accepted risk)${RESET}"
+    fi
     log_result "SKIPPED" "$2" "$1"
 }
 
 warn() {
-    echo -e "  ${YELLOW}⚠${RESET} $1"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_WARN_ICON} $1"
+    else
+        echo -e "  ${YELLOW}⚠${RESET} $1"
+    fi
 }
 
 info() {
-    echo -e "  ${DIM}→ $1${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  ${_GUM_INFO_ICON} $1"
+    else
+        echo -e "  ${DIM}→ $1${RESET}"
+    fi
 }
 
 ask_yn() {
@@ -3869,9 +4110,13 @@ ask_yn() {
     if [ "$INTERACTIVE" = false ] || [ "$SCAN_ONLY" = true ]; then
         return 1
     fi
+    if [ "$HAS_GUM" = true ]; then
+        gum confirm --default=yes --prompt.foreground="$GUM_BLUE" -- "  $1" </dev/tty
+        return $?
+    fi
     local answer
     echo -ne "  ${BLUE}→${RESET} $1 ${DIM}[Y/n]${RESET} "
-    read -r answer
+    read -r answer </dev/tty
     case "$answer" in
         [nN]|[nN][oO]) return 1 ;;
         *) return 0 ;;
@@ -3923,7 +4168,7 @@ report_event() {
 
 agent_load_config() {
     if [ ! -f "$AGENT_CONFIG_FILE" ]; then
-        echo -e "${RED}Error:${RESET} Agent not configured. Run: clawkeeper.sh agent --install"
+        error_bold_msg "Error: Agent not configured. Run: clawkeeper.sh agent --install"
         exit 1
     fi
     # shellcheck disable=SC1090
@@ -4006,43 +4251,63 @@ TMREOF
 
 agent_install() {
     echo ""
-    echo -e "${CYAN}${BOLD}  Clawkeeper Agent Setup${RESET}"
+    accent_bold_msg "  Clawkeeper Agent Setup"
     echo ""
 
     # Prompt for API key (with helpful fallback if skipped)
-    echo -e "  To upload scan results to your dashboard, you need an API key."
-    echo -e "  Get one free at: ${CYAN}https://clawkeeper.dev/signup${RESET}"
-    echo ""
-    echo -e "  Enter your API key (or press Enter to scan locally without uploading):"
-    printf "  > "
-    read -r api_key
+    echo "  To upload scan results to your dashboard, you need an API key."
+    if [ "$HAS_GUM" = true ]; then
+        echo "  Get one free at: $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
+        echo ""
+        api_key=$(gum input --placeholder "ck_live_..." --header "  Enter your API key (or press Enter to skip):" </dev/tty)
+    else
+        echo -e "  Get one free at: ${CYAN}https://clawkeeper.dev/signup${RESET}"
+        echo ""
+        echo "  Enter your API key (or press Enter to scan locally without uploading):"
+        printf "  > "
+        read -r api_key </dev/tty
+    fi
 
     if [ -z "$api_key" ]; then
         echo ""
-        echo -e "  ${DIM}No API key entered. To connect later:${RESET}"
-        echo -e "  ${DIM}  1. Sign up at ${RESET}${CYAN}https://clawkeeper.dev/signup${RESET}"
-        echo -e "  ${DIM}  2. Run ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
-        echo ""
-        echo -e "  ${DIM}To scan locally without uploading:${RESET} ${CYAN}clawkeeper.sh scan${RESET}"
+        dim_msg "  No API key entered. To connect later:"
+        if [ "$HAS_GUM" = true ]; then
+            dim_msg "    1. Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
+            dim_msg "    2. Run $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+            echo ""
+            echo "  $(gum style --foreground "$GUM_DIM" "To scan locally without uploading:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh scan")"
+        else
+            echo -e "  ${DIM}  1. Sign up at ${RESET}${CYAN}https://clawkeeper.dev/signup${RESET}"
+            echo -e "  ${DIM}  2. Run ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+            echo ""
+            echo -e "  ${DIM}To scan locally without uploading:${RESET} ${CYAN}clawkeeper.sh scan${RESET}"
+        fi
         echo ""
         exit 0
     fi
 
     # Validate key format
     if [[ ! "$api_key" =~ ^ck_live_ ]]; then
-        echo -e "  ${YELLOW}Warning:${RESET} Key doesn't start with ck_live_ — are you sure this is correct?"
-        printf "  Continue? [y/N] "
-        read -r confirm
-        if [[ ! "$confirm" =~ ^[yY] ]]; then
-            exit 1
+        if [ "$HAS_GUM" = true ]; then
+            warn_msg "Key doesn't start with ck_live_ — are you sure this is correct?"
+            if ! gum confirm --default=no "  Continue?" </dev/tty; then
+                exit 1
+            fi
+        else
+            echo -e "  ${YELLOW}Warning:${RESET} Key doesn't start with ck_live_ — are you sure this is correct?"
+            printf "  Continue? [y/N] "
+            read -r confirm </dev/tty
+            if [[ ! "$confirm" =~ ^[yY] ]]; then
+                exit 1
+            fi
         fi
     fi
 
     # Optional: custom API URL
     local api_url="${CLAWKEEPER_API_URL:-$AGENT_API_URL}"
     echo ""
-    echo -e "  ${DIM}API endpoint: $api_url${RESET}"
-    echo -e "  ${DIM}(Set CLAWKEEPER_API_URL env var to override)${RESET}"
+    dim_msg "  API endpoint: $api_url"
+    dim_msg "  (Set CLAWKEEPER_API_URL env var to override)"
 
     # Create config directory
     mkdir -p "$AGENT_CONFIG_DIR"
@@ -4057,7 +4322,7 @@ EOF
     chmod 600 "$AGENT_CONFIG_FILE"
 
     echo ""
-    echo -e "  ${GREEN}✓${RESET} Config saved to $AGENT_CONFIG_FILE"
+    ok_msg "Config saved to $AGENT_CONFIG_FILE"
 
     # Resolve our own path for the scheduler
     local self_path
@@ -4069,29 +4334,34 @@ EOF
         plist_dest=$(agent_generate_plist "$self_path")
         launchctl unload "$plist_dest" 2>/dev/null || true
         launchctl load "$plist_dest"
-        echo -e "  ${GREEN}✓${RESET} LaunchAgent installed and loaded"
-        echo -e "  ${DIM}  Runs hourly. Plist: $plist_dest${RESET}"
+        ok_msg "LaunchAgent installed and loaded"
+        dim_msg "    Runs hourly. Plist: $plist_dest"
     elif [ "$(uname -s)" = "Linux" ]; then
         local timer_path
         timer_path=$(agent_generate_systemd "$self_path")
-        echo -e "  ${GREEN}✓${RESET} Systemd user timer installed and enabled"
-        echo -e "  ${DIM}  Runs hourly. Timer: $timer_path${RESET}"
+        ok_msg "Systemd user timer installed and enabled"
+        dim_msg "    Runs hourly. Timer: $timer_path"
     else
-        echo -e "  ${YELLOW}⚠${RESET} Unsupported platform for scheduled scans."
-        echo -e "  ${DIM}  The agent still works manually: clawkeeper.sh agent run${RESET}"
+        warn_msg "Unsupported platform for scheduled scans."
+        dim_msg "    The agent still works manually: clawkeeper.sh agent run"
     fi
 
     # Run first scan
     echo ""
-    echo -e "  ${CYAN}Running first scan...${RESET}"
+    accent_msg "  Running first scan..."
     echo ""
     agent_run
 
     report_event "agent.installed"
 
     echo ""
-    echo -e "  ${GREEN}${BOLD}Agent installed successfully!${RESET}"
-    echo -e "  ${DIM}View your dashboard at ${RESET}${CYAN}clawkeeper.dev${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_GREEN" -- "  Agent installed successfully!"
+        echo "  $(gum style --foreground "$GUM_DIM" "View your dashboard at") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
+    else
+        echo -e "  ${GREEN}${BOLD}Agent installed successfully!${RESET}"
+        echo -e "  ${DIM}View your dashboard at ${RESET}${CYAN}clawkeeper.dev${RESET}"
+    fi
     echo ""
 }
 
@@ -4235,10 +4505,10 @@ agent_run() {
 
     if [ "$http_code" = "200" ]; then
         agent_log "Upload successful (HTTP $http_code)"
-        echo -e "  ${GREEN}✓${RESET} Scan uploaded successfully"
+        ok_msg "Scan uploaded successfully"
     else
         agent_log "Upload failed (HTTP $http_code)"
-        echo -e "  ${RED}✗${RESET} Upload failed (HTTP $http_code)"
+        fail_msg "Upload failed (HTTP $http_code)"
         if [ -f /tmp/clawkeeper-upload-response.json ]; then
             local err_body
             err_body=$(cat /tmp/clawkeeper-upload-response.json)
@@ -4247,7 +4517,7 @@ agent_run() {
             local err_msg
             err_msg=$(echo "$err_body" | sed -n 's/.*"error" *: *"\([^"]*\)".*/\1/p')
             if [ -n "$err_msg" ]; then
-                echo -e "  ${DIM}$err_msg${RESET}"
+                dim_msg "  $err_msg"
             fi
         fi
     fi
@@ -4260,7 +4530,7 @@ agent_run() {
 
 agent_uninstall() {
     echo ""
-    echo -e "${CYAN}${BOLD}  Clawkeeper Agent Uninstall${RESET}"
+    accent_bold_msg "  Clawkeeper Agent Uninstall"
     echo ""
 
     report_event "agent.uninstalled"
@@ -4270,9 +4540,9 @@ agent_uninstall() {
         if [ -f "$plist_dest" ]; then
             launchctl unload "$plist_dest" 2>/dev/null || true
             rm -f "$plist_dest"
-            echo -e "  ${GREEN}✓${RESET} LaunchAgent removed"
+            ok_msg "LaunchAgent removed"
         else
-            echo -e "  ${DIM}No LaunchAgent found${RESET}"
+            dim_msg "  No LaunchAgent found"
         fi
     elif [ "$(uname -s)" = "Linux" ]; then
         local service_dir="$HOME/.config/systemd/user"
@@ -4280,36 +4550,40 @@ agent_uninstall() {
             systemctl --user disable --now clawkeeper-agent.timer 2>/dev/null || true
             rm -f "$service_dir/clawkeeper-agent.service" "$service_dir/clawkeeper-agent.timer"
             systemctl --user daemon-reload 2>/dev/null || true
-            echo -e "  ${GREEN}✓${RESET} Systemd timer removed"
+            ok_msg "Systemd timer removed"
         else
-            echo -e "  ${DIM}No systemd timer found${RESET}"
+            dim_msg "  No systemd timer found"
         fi
     fi
 
     if [ -d "$AGENT_CONFIG_DIR" ]; then
         rm -rf "$AGENT_CONFIG_DIR"
-        echo -e "  ${GREEN}✓${RESET} Config directory removed ($AGENT_CONFIG_DIR)"
+        ok_msg "Config directory removed ($AGENT_CONFIG_DIR)"
     fi
 
     echo ""
-    echo -e "  ${GREEN}Agent uninstalled.${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --foreground "$GUM_GREEN" -- "  Agent uninstalled."
+    else
+        echo -e "  ${GREEN}Agent uninstalled.${RESET}"
+    fi
     echo ""
 }
 
 agent_status() {
     echo ""
-    echo -e "${CYAN}${BOLD}  Clawkeeper Agent Status${RESET}"
+    accent_bold_msg "  Clawkeeper Agent Status"
     echo ""
 
     # Config
     if [ -f "$AGENT_CONFIG_FILE" ]; then
-        echo -e "  ${GREEN}✓${RESET} Config: $AGENT_CONFIG_FILE"
+        ok_msg "Config: $AGENT_CONFIG_FILE"
         # shellcheck disable=SC1090
         source "$AGENT_CONFIG_FILE"
-        echo -e "  ${DIM}  API URL: ${CLAWKEEPER_API_URL:-$AGENT_API_URL}${RESET}"
-        echo -e "  ${DIM}  API Key: ${CLAWKEEPER_API_KEY:0:16}...${RESET}"
+        dim_msg "    API URL: ${CLAWKEEPER_API_URL:-$AGENT_API_URL}"
+        dim_msg "    API Key: ${CLAWKEEPER_API_KEY:0:16}..."
     else
-        echo -e "  ${RED}✗${RESET} Not configured. Run: clawkeeper.sh agent --install"
+        fail_msg "Not configured. Run: clawkeeper.sh agent --install"
         return
     fi
 
@@ -4317,24 +4591,24 @@ agent_status() {
     if [ "$(uname -s)" = "Darwin" ]; then
         local plist_dest="$HOME/Library/LaunchAgents/$AGENT_PLIST_LABEL.plist"
         if [ -f "$plist_dest" ]; then
-            echo -e "  ${GREEN}✓${RESET} LaunchAgent: installed"
+            ok_msg "LaunchAgent: installed"
             local launchd_status
             launchd_status=$(launchctl list 2>/dev/null | grep "$AGENT_PLIST_LABEL" || true)
             if [ -n "$launchd_status" ]; then
-                echo -e "  ${GREEN}✓${RESET} LaunchAgent: loaded"
+                ok_msg "LaunchAgent: loaded"
             else
-                echo -e "  ${YELLOW}⚠${RESET} LaunchAgent: not loaded"
+                warn_msg "LaunchAgent: not loaded"
             fi
         else
-            echo -e "  ${YELLOW}⚠${RESET} LaunchAgent: not installed"
+            warn_msg "LaunchAgent: not installed"
         fi
     elif [ "$(uname -s)" = "Linux" ]; then
         local timer_status
         timer_status=$(systemctl --user is-active clawkeeper-agent.timer 2>/dev/null || echo "inactive")
         if [ "$timer_status" = "active" ]; then
-            echo -e "  ${GREEN}✓${RESET} Systemd timer: active"
+            ok_msg "Systemd timer: active"
         else
-            echo -e "  ${YELLOW}⚠${RESET} Systemd timer: $timer_status"
+            warn_msg "Systemd timer: $timer_status"
         fi
     fi
 
@@ -4343,7 +4617,7 @@ agent_status() {
     if [ -f "$log_file" ]; then
         local last_line
         last_line=$(tail -1 "$log_file")
-        echo -e "  ${DIM}  Last log: $last_line${RESET}"
+        dim_msg "    Last log: $last_line"
     fi
 
     echo ""
@@ -4390,16 +4664,16 @@ ensure_sudo() {
         return 0
     fi
     echo ""
-    echo -e "  ${YELLOW}Some fixes require administrator privileges (sudo).${RESET}"
+    highlight_msg "  Some fixes require administrator privileges (sudo)."
     echo ""
     if sudo -v; then
         SUDO_AUTHENTICATED=true
         echo ""
-        echo -e "  ${GREEN}✓${RESET} Sudo access granted"
+        ok_msg "Sudo access granted"
         return 0
     else
         echo ""
-        echo -e "  ${RED}✗${RESET} Could not get sudo access. Some fixes will be skipped."
+        fail_msg "Could not get sudo access. Some fixes will be skipped."
         return 1
     fi
 }
@@ -4564,28 +4838,28 @@ print_install_capability_warning() {
     current_user=$(whoami)
 
     echo ""
-    echo -e "  ${YELLOW}${BOLD}Note: You're running as standard user '$current_user' (no admin/sudo).${RESET}"
-    echo -e "  ${DIM}This is good for security, but installing new software requires admin.${RESET}"
+    highlight_msg "  Note: You're running as standard user '$current_user' (no admin/sudo)."
+    dim_msg "  This is good for security, but installing new software requires admin."
     echo ""
 
     if [ "$PLATFORM" = "macos" ]; then
         if [ "$DEPLOY_MODE" = "native" ]; then
-            echo -e "  ${DIM}To install prerequisites, ask an admin to run:${RESET}"
-            echo -e "  ${CYAN}  1. Install Homebrew:  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"${RESET}"
-            echo -e "  ${CYAN}  2. Install Node.js:   brew install node@22 && brew link --overwrite node@22${RESET}"
+            dim_msg "  To install prerequisites, ask an admin to run:"
+            accent_msg "    1. Install Homebrew:  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+            accent_msg "    2. Install Node.js:   brew install node@22 && brew link --overwrite node@22"
         else
-            echo -e "  ${DIM}To install Docker, ask an admin to either:${RESET}"
-            echo -e "  ${CYAN}  • Download Docker Desktop from https://docker.com/products/docker-desktop${RESET}"
-            echo -e "  ${CYAN}  • Or install via Homebrew: brew install --cask docker${RESET}"
+            dim_msg "  To install Docker, ask an admin to either:"
+            accent_msg "    • Download Docker Desktop from https://docker.com/products/docker-desktop"
+            accent_msg "    • Or install via Homebrew: brew install --cask docker"
         fi
         echo ""
-        echo -e "  ${DIM}Then re-run this script as '$current_user' — the security checks will pass.${RESET}"
+        dim_msg "  Then re-run this script as '$current_user' — the security checks will pass."
     elif [ "$PLATFORM" = "linux" ]; then
-        echo -e "  ${DIM}Ask an admin to install prerequisites, then re-run as '$current_user'.${RESET}"
+        dim_msg "  Ask an admin to install prerequisites, then re-run as '$current_user'."
     fi
 
     echo ""
-    echo -e "  ${DIM}Checking what's already available...${RESET}"
+    dim_msg "  Checking what's already available..."
 }
 
 # --- Prerequisites ----------------------------------------------------------
@@ -4610,28 +4884,45 @@ select_deployment_mode() {
     fi
 
     echo ""
-    echo -e "  ${BOLD}How would you like to run OpenClaw?${RESET}"
-    echo ""
-    echo -e "  ${CYAN}1)${RESET} Native ${DIM}(npm)${RESET}"
-    echo -e "     ${DIM}Runs directly on your OS. Simpler setup, shares your filesystem.${RESET}"
-    echo ""
-    echo -e "  ${CYAN}2)${RESET} Docker ${DIM}(recommended)${RESET}"
-    echo -e "     ${DIM}Runs in an isolated container. Limits what a compromised agent can access.${RESET}"
-    echo ""
-    local choice
-    echo -ne "  ${BLUE}→${RESET} Enter 1 or 2 ${DIM}(default: 2)${RESET}: "
-    read -r choice
+    if [ "$HAS_GUM" = true ]; then
+        local choice
+        choice=$(gum choose --header "  How would you like to run OpenClaw?" \
+            "Docker (recommended) — isolated container, limits agent access" \
+            "Native (npm) — runs directly on your OS, simpler setup" </dev/tty)
+        case "$choice" in
+            Native*)
+                DEPLOY_MODE="native"
+                ok_msg "Selected: Native (npm) deployment"
+                ;;
+            *)
+                DEPLOY_MODE="docker"
+                ok_msg "Selected: Docker deployment"
+                ;;
+        esac
+    else
+        echo -e "  ${BOLD}How would you like to run OpenClaw?${RESET}"
+        echo ""
+        echo -e "  ${CYAN}1)${RESET} Native ${DIM}(npm)${RESET}"
+        echo -e "     ${DIM}Runs directly on your OS. Simpler setup, shares your filesystem.${RESET}"
+        echo ""
+        echo -e "  ${CYAN}2)${RESET} Docker ${DIM}(recommended)${RESET}"
+        echo -e "     ${DIM}Runs in an isolated container. Limits what a compromised agent can access.${RESET}"
+        echo ""
+        local choice
+        echo -ne "  ${BLUE}→${RESET} Enter 1 or 2 ${DIM}(default: 2)${RESET}: "
+        read -r choice </dev/tty
 
-    case "$choice" in
-        1)
-            DEPLOY_MODE="native"
-            echo -e "  ${GREEN}✓${RESET} Selected: ${BOLD}Native (npm)${RESET} deployment"
-            ;;
-        *)
-            DEPLOY_MODE="docker"
-            echo -e "  ${GREEN}✓${RESET} Selected: ${BOLD}Docker${RESET} deployment"
-            ;;
-    esac
+        case "$choice" in
+            1)
+                DEPLOY_MODE="native"
+                echo -e "  ${GREEN}✓${RESET} Selected: ${BOLD}Native (npm)${RESET} deployment"
+                ;;
+            *)
+                DEPLOY_MODE="docker"
+                echo -e "  ${GREEN}✓${RESET} Selected: ${BOLD}Docker${RESET} deployment"
+                ;;
+        esac
+    fi
 }
 
 # --- Native (npm/npx) Deployment -------------------------------------------
@@ -4650,16 +4941,16 @@ setup_native_openclaw_directories() {
             local perms
             perms=$(stat -f "%OLp" "$dir" 2>/dev/null || stat -c "%a" "$dir" 2>/dev/null || echo "unknown")
             if [ "$perms" = "700" ]; then
-                echo -e "  ${GREEN}✓${RESET} $dir exists (permissions: 700)"
+                ok_msg "$dir exists (permissions: 700)"
             else
-                echo -e "  ${YELLOW}⚠${RESET} $dir exists but permissions are $perms"
+                warn_msg "$dir exists but permissions are $perms"
                 chmod 700 "$dir"
-                echo -e "  ${GREEN}✓${RESET} Fixed permissions to 700"
+                ok_msg "Fixed permissions to 700"
             fi
         else
             mkdir -p "$dir"
             chmod 700 "$dir"
-            echo -e "  ${GREEN}✓${RESET} Created $dir (permissions: 700)"
+            ok_msg "Created $dir (permissions: 700)"
         fi
     done
 
@@ -4691,8 +4982,8 @@ setup_native_env_file() {
                 echo "GATEWAY_TOKEN=$token" >> "$env_file"
                 fixed "Generated and added GATEWAY_TOKEN" "Native .env"
                 echo ""
-                echo -e "  ${YELLOW}${BOLD}SAVE THIS TOKEN — you need it to connect clients:${RESET}"
-                echo -e "  ${CYAN}$token${RESET}"
+                highlight_msg "  SAVE THIS TOKEN — you need it to connect clients:"
+                accent_msg "  $token"
                 echo ""
             fi
         fi
@@ -4702,9 +4993,8 @@ setup_native_env_file() {
         else
             warn "No LLM API key found in .env"
             if ask_yn "Add your Anthropic API key now?"; then
-                echo -ne "  ${BLUE}→${RESET} Paste your Anthropic API key (sk-ant-...): "
-                read -rs api_key
-                echo ""
+                local api_key
+                api_key=$(read_secret "Paste your Anthropic API key (sk-ant-...):" "sk-ant-...")
                 if [ -n "$api_key" ]; then
                     echo "ANTHROPIC_API_KEY=$api_key" >> "$env_file"
                     fixed "Anthropic API key added to .env" "Native API Key"
@@ -4745,14 +5035,13 @@ setup_native_env_file() {
     chmod 600 "$env_file"
 
     echo ""
-    echo -e "  ${YELLOW}${BOLD}SAVE THIS GATEWAY TOKEN — you need it to connect clients:${RESET}"
-    echo -e "  ${CYAN}$token${RESET}"
+    highlight_msg "  SAVE THIS GATEWAY TOKEN — you need it to connect clients:"
+    accent_msg "  $token"
     echo ""
 
     if ask_yn "Add your Anthropic API key now?"; then
-        echo -ne "  ${BLUE}→${RESET} Paste your Anthropic API key (sk-ant-...): "
-        read -rs api_key
-        echo ""
+        local api_key
+        api_key=$(read_secret "Paste your Anthropic API key (sk-ant-...):" "sk-ant-...")
         if [ -n "$api_key" ]; then
             sed -i.bak "s|# ANTHROPIC_API_KEY=sk-ant-...|ANTHROPIC_API_KEY=$api_key|" "$env_file" 2>/dev/null || {
                 echo "ANTHROPIC_API_KEY=$api_key" >> "$env_file"
@@ -4886,7 +5175,7 @@ harden_docker_desktop() {
     fi
 
     echo ""
-    echo -e "  ${CYAN}Docker Desktop hardening:${RESET}"
+    accent_msg "  Docker Desktop hardening:"
 
     for issue in "${issues[@]}"; do
         case "$issue" in
@@ -4927,16 +5216,16 @@ setup_openclaw_directories() {
             local perms
             perms=$(stat -f "%OLp" "$dir" 2>/dev/null || stat -c "%a" "$dir" 2>/dev/null || echo "unknown")
             if [ "$perms" = "700" ]; then
-                echo -e "  ${GREEN}✓${RESET} $dir exists (permissions: 700)"
+                ok_msg "$dir exists (permissions: 700)"
             else
-                echo -e "  ${YELLOW}⚠${RESET} $dir exists but permissions are $perms"
+                warn_msg "$dir exists but permissions are $perms"
                 chmod 700 "$dir"
-                echo -e "  ${GREEN}✓${RESET} Fixed permissions to 700"
+                ok_msg "Fixed permissions to 700"
             fi
         else
             mkdir -p "$dir"
             chmod 700 "$dir"
-            echo -e "  ${GREEN}✓${RESET} Created $dir (permissions: 700)"
+            ok_msg "Created $dir (permissions: 700)"
         fi
     done
 
@@ -4982,8 +5271,8 @@ setup_env_file() {
                 echo "GATEWAY_TOKEN=$token" >> "$env_file"
                 fixed "Generated and added GATEWAY_TOKEN" ".env Setup"
                 echo ""
-                echo -e "  ${YELLOW}${BOLD}SAVE THIS TOKEN — you need it to connect clients:${RESET}"
-                echo -e "  ${CYAN}$token${RESET}"
+                highlight_msg "  SAVE THIS TOKEN — you need it to connect clients:"
+                accent_msg "  $token"
                 echo ""
             fi
         fi
@@ -4994,9 +5283,8 @@ setup_env_file() {
         else
             warn "No LLM API key found in .env"
             if ask_yn "Add your Anthropic API key now?"; then
-                echo -ne "  ${BLUE}→${RESET} Paste your Anthropic API key (sk-ant-...): "
-                read -rs api_key
-                echo ""
+                local api_key
+                api_key=$(read_secret "Paste your Anthropic API key (sk-ant-...):" "sk-ant-...")
                 if [ -n "$api_key" ]; then
                     echo "ANTHROPIC_API_KEY=$api_key" >> "$env_file"
                     fixed "Anthropic API key added to .env" "API Key"
@@ -5035,14 +5323,13 @@ setup_env_file() {
     chmod 600 "$env_file"
 
     echo ""
-    echo -e "  ${YELLOW}${BOLD}SAVE THIS GATEWAY TOKEN — you need it to connect clients:${RESET}"
-    echo -e "  ${CYAN}$token${RESET}"
+    highlight_msg "  SAVE THIS GATEWAY TOKEN — you need it to connect clients:"
+    accent_msg "  $token"
     echo ""
 
     if ask_yn "Add your Anthropic API key now?"; then
-        echo -ne "  ${BLUE}→${RESET} Paste your Anthropic API key (sk-ant-...): "
-        read -rs api_key
-        echo ""
+        local api_key
+        api_key=$(read_secret "Paste your Anthropic API key (sk-ant-...):" "sk-ant-...")
         if [ -n "$api_key" ]; then
             # Replace the placeholder line
             sed -i.bak "s|# ANTHROPIC_API_KEY=sk-ant-...|ANTHROPIC_API_KEY=$api_key|" "$env_file" 2>/dev/null || {
@@ -5169,16 +5456,16 @@ COMPOSE_EOF
     fixed "Hardened docker-compose.yml generated" "Docker Compose"
 
     echo ""
-    echo -e "  ${CYAN}Security features enabled:${RESET}"
-    echo -e "  ${DIM}  • Non-root user (1000:1000)${RESET}"
-    echo -e "  ${DIM}  • All capabilities dropped (only NET_BIND_SERVICE added)${RESET}"
-    echo -e "  ${DIM}  • no-new-privileges enforced${RESET}"
-    echo -e "  ${DIM}  • Read-only root filesystem${RESET}"
-    echo -e "  ${DIM}  • CPU (2) and memory (4GB) limits${RESET}"
-    echo -e "  ${DIM}  • Ports bound to 127.0.0.1 only${RESET}"
-    echo -e "  ${DIM}  • tmpfs with noexec,nosuid${RESET}"
-    echo -e "  ${DIM}  • Bonjour/mDNS disabled${RESET}"
-    echo -e "  ${DIM}  • Isolated Docker network${RESET}"
+    accent_msg "  Security features enabled:"
+    dim_msg "    • Non-root user (1000:1000)"
+    dim_msg "    • All capabilities dropped (only NET_BIND_SERVICE added)"
+    dim_msg "    • no-new-privileges enforced"
+    dim_msg "    • Read-only root filesystem"
+    dim_msg "    • CPU (2) and memory (4GB) limits"
+    dim_msg "    • Ports bound to 127.0.0.1 only"
+    dim_msg "    • tmpfs with noexec,nosuid"
+    dim_msg "    • Bonjour/mDNS disabled"
+    dim_msg "    • Isolated Docker network"
 }
 
 setup_openclaw_config() {
@@ -5233,14 +5520,14 @@ CONFIG_EOF
     fixed "Hardened openclaw.json generated (permissions: 600)" "OpenClaw Config"
 
     echo ""
-    echo -e "  ${CYAN}Configuration:${RESET}"
-    echo -e "  ${DIM}  • gateway.bind = loopback (localhost only)${RESET}"
-    echo -e "  ${DIM}  • gateway.auth.mode = token (required for every connection)${RESET}"
-    echo -e "  ${DIM}  • gateway.controlUI = false (web UI disabled)${RESET}"
-    echo -e "  ${DIM}  • gateway.discover.mode = off (no mDNS broadcast)${RESET}"
-    echo -e "  ${DIM}  • exec.ask = on (agent asks before every command)${RESET}"
-    echo -e "  ${DIM}  • applyPatch.workspaceOnly = true (agent can't write outside workspace)${RESET}"
-    echo -e "  ${DIM}  • logging.redactSensitive = tools (keys redacted in logs)${RESET}"
+    accent_msg "  Configuration:"
+    dim_msg "    • gateway.bind = loopback (localhost only)"
+    dim_msg "    • gateway.auth.mode = token (required for every connection)"
+    dim_msg "    • gateway.controlUI = false (web UI disabled)"
+    dim_msg "    • gateway.discover.mode = off (no mDNS broadcast)"
+    dim_msg "    • exec.ask = on (agent asks before every command)"
+    dim_msg "    • applyPatch.workspaceOnly = true (agent can't write outside workspace)"
+    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
 
 deploy_openclaw_docker() {
@@ -5273,32 +5560,52 @@ deploy_openclaw_docker() {
     fi
 
     if ask_yn "Pull the latest OpenClaw image and start the container?"; then
-        info "Pulling latest OpenClaw image..."
-        cd "$OPENCLAW_DIR" && docker compose pull 2>&1 | tail -3
+        if [ "$HAS_GUM" = true ]; then
+            gum spin --spinner "$GUM_SPINNER" --title "  Pulling latest OpenClaw image..." -- \
+                bash -c "cd '$OPENCLAW_DIR' && docker compose pull 2>&1 | tail -3"
+        else
+            info "Pulling latest OpenClaw image..."
+            cd "$OPENCLAW_DIR" && docker compose pull 2>&1 | tail -3
+        fi
 
         info "Starting container..."
         cd "$OPENCLAW_DIR" && docker compose up -d 2>&1 | tail -5
 
         # Wait for healthy
-        info "Waiting for OpenClaw to start (up to 30 seconds)..."
-        local waited=0
-        while [ $waited -lt 30 ]; do
-            if docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep "openclaw" | grep -qi "healthy\|Up"; then
+        if [ "$HAS_GUM" = true ]; then
+            gum spin --spinner "$GUM_SPINNER" --title "  Waiting for OpenClaw to start..." -- \
+                bash -c 'waited=0; while [ $waited -lt 30 ]; do docker ps --format "{{.Names}} {{.Status}}" 2>/dev/null | grep "openclaw" | grep -qi "healthy\|Up" && exit 0; sleep 3; waited=$((waited + 3)); done; exit 1'
+            if [ $? -eq 0 ]; then
                 echo ""
                 fixed "OpenClaw container is running" "Deploy"
-
-                # Show logs briefly
                 echo ""
-                echo -e "  ${CYAN}Recent container logs:${RESET}"
+                accent_msg "  Recent container logs:"
                 docker logs --tail 10 openclaw 2>&1 | while read -r line; do
-                    echo -e "  ${DIM}  $line${RESET}"
+                    dim_msg "    $line"
                 done
                 return
             fi
-            sleep 3
-            waited=$((waited + 3))
-            echo -ne "  ${DIM}  Waiting... (${waited}s)${RESET}\r"
-        done
+        else
+            info "Waiting for OpenClaw to start (up to 30 seconds)..."
+            local waited=0
+            while [ $waited -lt 30 ]; do
+                if docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep "openclaw" | grep -qi "healthy\|Up"; then
+                    echo ""
+                    fixed "OpenClaw container is running" "Deploy"
+
+                    # Show logs briefly
+                    echo ""
+                    accent_msg "  Recent container logs:"
+                    docker logs --tail 10 openclaw 2>&1 | while read -r line; do
+                        dim_msg "    $line"
+                    done
+                    return
+                fi
+                sleep 3
+                waited=$((waited + 3))
+                echo -ne "  ${DIM}  Waiting... (${waited}s)${RESET}\r"
+            done
+        fi
         echo ""
         warn "Container started but may still be initializing"
         info "Check logs: docker logs -f openclaw"
@@ -5428,7 +5735,11 @@ detect_openclaw_installed() {
 
 print_report() {
     echo ""
-    echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
+    else
+        echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
+    fi
     echo ""
 
     # Calculate grade — SKIPPED = accepted risk (not penalized like FAIL)
@@ -5442,68 +5753,109 @@ print_report() {
 
     local grade="F"
     local grade_color="$RED"
+    local gum_grade_color="$GUM_RED"
     if [ "$score" -ge 95 ]; then
-        grade="A"; grade_color="$GREEN"
+        grade="A"; grade_color="$GREEN"; gum_grade_color="$GUM_GREEN"
     elif [ "$score" -ge 85 ]; then
-        grade="B"; grade_color="$GREEN"
+        grade="B"; grade_color="$GREEN"; gum_grade_color="$GUM_GREEN"
     elif [ "$score" -ge 70 ]; then
-        grade="C"; grade_color="$YELLOW"
+        grade="C"; grade_color="$YELLOW"; gum_grade_color="$GUM_YELLOW"
     elif [ "$score" -ge 50 ]; then
-        grade="D"; grade_color="$YELLOW"
+        grade="D"; grade_color="$YELLOW"; gum_grade_color="$GUM_YELLOW"
     fi
 
-    echo -e "  ${BOLD}Security Grade: ${grade_color}${BOLD}$grade${RESET} ${DIM}(${score}% of checks passing)${RESET}"
-    echo ""
-    echo -e "  ${GREEN}✓ Passed:${RESET}  $PASS"
-    if [ "$FIXED" -gt 0 ]; then
-        echo -e "  ${GREEN}✓ Fixed:${RESET}   $FIXED ${DIM}(improved during this session)${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  $(gum style --bold "Security Grade:") $(gum style --bold --foreground "$gum_grade_color" "$grade") $(gum style --foreground "$GUM_DIM" "(${score}% of checks passing)")"
+    else
+        echo -e "  ${BOLD}Security Grade: ${grade_color}${BOLD}$grade${RESET} ${DIM}(${score}% of checks passing)${RESET}"
     fi
-    echo -e "  ${RED}✗ Failed:${RESET}  $FAIL"
-    if [ "$SKIPPED" -gt 0 ]; then
-        echo -e "  ${YELLOW}⊘ Accepted:${RESET} $SKIPPED ${DIM}(conscious risk decisions)${RESET}"
+    echo ""
+
+    if [ "$HAS_GUM" = true ]; then
+        echo "  $(gum style --foreground "$GUM_GREEN" "✓ Passed:")  $PASS"
+        if [ "$FIXED" -gt 0 ]; then
+            echo "  $(gum style --foreground "$GUM_GREEN" "✓ Fixed:")   $FIXED $(gum style --foreground "$GUM_DIM" "(improved during this session)")"
+        fi
+        echo "  $(gum style --foreground "$GUM_RED" "✗ Failed:")  $FAIL"
+        if [ "$SKIPPED" -gt 0 ]; then
+            echo "  $(gum style --foreground "$GUM_YELLOW" "⊘ Accepted:") $SKIPPED $(gum style --foreground "$GUM_DIM" "(conscious risk decisions)")"
+        fi
+    else
+        echo -e "  ${GREEN}✓ Passed:${RESET}  $PASS"
+        if [ "$FIXED" -gt 0 ]; then
+            echo -e "  ${GREEN}✓ Fixed:${RESET}   $FIXED ${DIM}(improved during this session)${RESET}"
+        fi
+        echo -e "  ${RED}✗ Failed:${RESET}  $FAIL"
+        if [ "$SKIPPED" -gt 0 ]; then
+            echo -e "  ${YELLOW}⊘ Accepted:${RESET} $SKIPPED ${DIM}(conscious risk decisions)${RESET}"
+        fi
     fi
     echo ""
 
     if [ "$FAIL" -gt 0 ]; then
-        echo -e "  ${RED}${BOLD}Failed checks:${RESET}"
+        error_bold_msg "  Failed checks:"
         for line in "${REPORT_LINES[@]}"; do
             local status step detail
             status=$(echo "$line" | cut -d'|' -f1)
             step=$(echo "$line" | cut -d'|' -f2)
             detail=$(echo "$line" | cut -d'|' -f3)
             if [ "$status" = "FAIL" ]; then
-                echo -e "    ${RED}✗${RESET} ${BOLD}[$step]${RESET} $detail"
+                if [ "$HAS_GUM" = true ]; then
+                    echo "    ${_GUM_FAIL_ICON} $(gum style --bold "[$step]") $detail"
+                else
+                    echo -e "    ${RED}✗${RESET} ${BOLD}[$step]${RESET} $detail"
+                fi
             fi
         done
         echo ""
     fi
 
     if [ "$SKIPPED" -gt 0 ]; then
-        echo -e "  ${YELLOW}Accepted risks:${RESET}"
+        if [ "$HAS_GUM" = true ]; then
+            gum style --foreground "$GUM_YELLOW" -- "  Accepted risks:"
+        else
+            echo -e "  ${YELLOW}Accepted risks:${RESET}"
+        fi
         for line in "${REPORT_LINES[@]}"; do
             local status step detail
             status=$(echo "$line" | cut -d'|' -f1)
             step=$(echo "$line" | cut -d'|' -f2)
             detail=$(echo "$line" | cut -d'|' -f3)
             if [ "$status" = "SKIPPED" ]; then
-                echo -e "    ${YELLOW}⊘${RESET} [$step] $detail"
+                if [ "$HAS_GUM" = true ]; then
+                    echo "    ${_GUM_SKIP_ICON} [$step] $detail"
+                else
+                    echo -e "    ${YELLOW}⊘${RESET} [$step] $detail"
+                fi
             fi
         done
         echo ""
     fi
 
-    echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
+    else
+        echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
+    fi
 
     if [ "$FAIL" -gt 0 ]; then
         echo ""
-        echo -e "  Run ${CYAN}${BOLD}$(basename "$0") setup${RESET} to fix failed checks interactively."
+        if [ "$HAS_GUM" = true ]; then
+            echo "  Run $(gum style --bold --foreground "$GUM_CYAN" "$(basename "$0") setup") to fix failed checks interactively."
+        else
+            echo -e "  Run ${CYAN}${BOLD}$(basename "$0") setup${RESET} to fix failed checks interactively."
+        fi
     fi
 
     if [ "$PLATFORM" = "linux" ] && [ "$IS_VPS" = true ]; then
         echo ""
         local vps_ip
         vps_ip=$(curl -sf --max-time 3 https://ifconfig.me 2>/dev/null || echo "your-vps-ip")
-        echo -e "  ${CYAN}VPS access:${RESET} ${DIM}ssh -N -L 18789:127.0.0.1:18789 user@${vps_ip}${RESET}"
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_CYAN" "VPS access:") $(gum style --foreground "$GUM_DIM" "ssh -N -L 18789:127.0.0.1:18789 user@${vps_ip}")"
+        else
+            echo -e "  ${CYAN}VPS access:${RESET} ${DIM}ssh -N -L 18789:127.0.0.1:18789 user@${vps_ip}${RESET}"
+        fi
     fi
 
     # CTA: check if agent is actually connected (has API key), not just config file
@@ -5514,11 +5866,20 @@ print_report() {
     fi
 
     if [ "$has_api_key" = true ]; then
-        echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
+        if [ "$HAS_GUM" = true ]; then
+            echo "  ${_GUM_PASS_ICON} Agent connected — view your dashboard at $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
+        else
+            echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
+        fi
     else
-        echo -e "  Track your score over time with a free dashboard:"
-        echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
-        echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
+        echo "  Track your score over time with a free dashboard:"
+        if [ "$HAS_GUM" = true ]; then
+            echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
+            echo "  → Then run $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install") to connect"
+        else
+            echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
+            echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
+        fi
     fi
     echo ""
 }
@@ -5578,7 +5939,7 @@ save_report() {
         echo "https://clawkeeper.dev"
     } > "$REPORT_FILE"
 
-    echo -e "  ${DIM}Report saved to: $REPORT_FILE${RESET}"
+    dim_msg "  Report saved to: $REPORT_FILE"
 }
 
 # --- Secure Uninstall -------------------------------------------------------
@@ -5586,10 +5947,14 @@ save_report() {
 uninstall_openclaw() {
     print_banner
     echo ""
-    echo -e "  ${RED}${BOLD}OpenClaw Secure Removal${RESET}"
+    error_bold_msg "  OpenClaw Secure Removal"
     echo ""
-    echo -e "  ${DIM}This will permanently remove OpenClaw and securely wipe sensitive data.${RESET}"
-    echo -e "  ${DIM}Every step requires your confirmation. Nothing runs without ${RESET}${BOLD}[Y/n]${RESET}${DIM}.${RESET}"
+    dim_msg "  This will permanently remove OpenClaw and securely wipe sensitive data."
+    if [ "$HAS_GUM" = true ]; then
+        echo "  $(gum style --foreground "$GUM_DIM" "Every step requires your confirmation. Nothing runs without") $(gum style --bold "[Y/n]")$(gum style --foreground "$GUM_DIM" ".")"
+    else
+        echo -e "  ${DIM}Every step requires your confirmation. Nothing runs without ${RESET}${BOLD}[Y/n]${RESET}${DIM}.${RESET}"
+    fi
     echo ""
 
     detect_platform
@@ -5598,12 +5963,12 @@ uninstall_openclaw() {
     detect_openclaw_installed
 
     if [ "$OPENCLAW_INSTALLED" = false ]; then
-        echo -e "  ${YELLOW}⚠${RESET} No OpenClaw installation detected."
+        warn_msg "No OpenClaw installation detected."
         echo ""
-        echo -e "  ${DIM}Checked: Docker containers/images, npm global, LaunchAgents, processes${RESET}"
+        dim_msg "  Checked: Docker containers/images, npm global, LaunchAgents, processes"
         echo ""
         if ! ask_yn "Continue anyway to clean up leftover config/data files?"; then
-            echo -e "  ${DIM}Nothing to do. Exiting.${RESET}"
+            dim_msg "  Nothing to do. Exiting."
             exit 0
         fi
     fi
@@ -5612,23 +5977,23 @@ uninstall_openclaw() {
 
     # ── Step 1: Stop running instances ──
     echo ""
-    echo -e "  ${CYAN}${BOLD}── Step 1: Stop Running Instances ──${RESET}"
+    accent_bold_msg "  ── Step 1: Stop Running Instances ──"
 
     # Docker containers
     if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
         local running_containers
         running_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -i "openclaw" || true)
         if [ -n "$running_containers" ]; then
-            echo -e "  ${YELLOW}⚠${RESET} Found running OpenClaw containers:"
-            echo "$running_containers" | while read -r c; do echo -e "    ${DIM}$c${RESET}"; done
+            warn_msg "Found running OpenClaw containers:"
+            echo "$running_containers" | while read -r c; do dim_msg "    $c"; done
             if ask_yn "Stop these containers?"; then
                 echo "$running_containers" | while read -r c; do
-                    docker stop "$c" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Stopped container: $c"
+                    docker stop "$c" 2>/dev/null && ok_msg "Stopped container: $c"
                 done
                 removed_something=true
             fi
         else
-            echo -e "  ${DIM}→ No running OpenClaw containers${RESET}"
+            dim_msg "  → No running OpenClaw containers"
         fi
     fi
 
@@ -5636,13 +6001,13 @@ uninstall_openclaw() {
     local oc_pids
     oc_pids=$(pgrep -f "openclaw" 2>/dev/null || true)
     if [ -n "$oc_pids" ]; then
-        echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw processes:"
+        warn_msg "Found OpenClaw processes:"
         ps -p "$(echo "$oc_pids" | tr '\n' ',')" -o pid,command 2>/dev/null | tail -n +2 | while read -r line; do
-            echo -e "    ${DIM}$line${RESET}"
+            dim_msg "    $line"
         done
         if ask_yn "Kill these processes?"; then
             echo "$oc_pids" | while read -r pid; do
-                kill "$pid" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Killed PID $pid"
+                kill "$pid" 2>/dev/null && ok_msg "Killed PID $pid"
             done
             sleep 1
             # Force kill any survivors
@@ -5652,111 +6017,111 @@ uninstall_openclaw() {
                 echo "$remaining" | while read -r pid; do
                     kill -9 "$pid" 2>/dev/null || true
                 done
-                echo -e "  ${GREEN}✓${RESET} Force-killed remaining processes"
+                ok_msg "Force-killed remaining processes"
             fi
             removed_something=true
         fi
     else
-        echo -e "  ${DIM}→ No running OpenClaw processes${RESET}"
+        dim_msg "  → No running OpenClaw processes"
     fi
 
     # ── Step 2: Remove LaunchAgent (macOS) ──
     if [ "$PLATFORM" = "macos" ]; then
         echo ""
-        echo -e "  ${CYAN}${BOLD}── Step 2: Remove LaunchAgents ──${RESET}"
+        accent_bold_msg "  ── Step 2: Remove LaunchAgents ──"
 
         local plist_file="$HOME/Library/LaunchAgents/com.openclaw.agent.plist"
         if [ -f "$plist_file" ]; then
-            echo -e "  ${YELLOW}⚠${RESET} Found LaunchAgent: $plist_file"
+            warn_msg "Found LaunchAgent: $plist_file"
             if ask_yn "Unload and remove this LaunchAgent?"; then
                 launchctl unload "$plist_file" 2>/dev/null || true
                 rm -f "$plist_file"
-                echo -e "  ${GREEN}✓${RESET} LaunchAgent unloaded and removed"
+                ok_msg "LaunchAgent unloaded and removed"
                 removed_something=true
             fi
         else
-            echo -e "  ${DIM}→ No OpenClaw LaunchAgent found${RESET}"
+            dim_msg "  → No OpenClaw LaunchAgent found"
         fi
     fi
 
     # ── Step 3: Remove Docker resources ──
     if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
         echo ""
-        echo -e "  ${CYAN}${BOLD}── Step 3: Remove Docker Resources ──${RESET}"
+        accent_bold_msg "  ── Step 3: Remove Docker Resources ──"
 
         # Containers (stopped)
         local all_containers
         all_containers=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i "openclaw" || true)
         if [ -n "$all_containers" ]; then
-            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw containers (including stopped):"
-            echo "$all_containers" | while read -r c; do echo -e "    ${DIM}$c${RESET}"; done
+            warn_msg "Found OpenClaw containers (including stopped):"
+            echo "$all_containers" | while read -r c; do dim_msg "    $c"; done
             if ask_yn "Remove these containers?"; then
                 echo "$all_containers" | while read -r c; do
-                    docker rm -f "$c" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed container: $c"
+                    docker rm -f "$c" 2>/dev/null && ok_msg "Removed container: $c"
                 done
                 removed_something=true
             fi
         else
-            echo -e "  ${DIM}→ No OpenClaw containers to remove${RESET}"
+            dim_msg "  → No OpenClaw containers to remove"
         fi
 
         # Images
         local oc_images
         oc_images=$(docker images --format '{{.Repository}}:{{.Tag}} ({{.ID}})' 2>/dev/null | grep -i "openclaw" || true)
         if [ -n "$oc_images" ]; then
-            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw images:"
-            echo "$oc_images" | while read -r img; do echo -e "    ${DIM}$img${RESET}"; done
+            warn_msg "Found OpenClaw images:"
+            echo "$oc_images" | while read -r img; do dim_msg "    $img"; done
             if ask_yn "Remove these images?"; then
                 docker images --format '{{.ID}} {{.Repository}}' 2>/dev/null | grep -i "openclaw" | awk '{print $1}' | while read -r id; do
-                    docker rmi -f "$id" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed image: $id"
+                    docker rmi -f "$id" 2>/dev/null && ok_msg "Removed image: $id"
                 done
                 removed_something=true
             fi
         else
-            echo -e "  ${DIM}→ No OpenClaw images to remove${RESET}"
+            dim_msg "  → No OpenClaw images to remove"
         fi
 
         # Volumes
         local oc_volumes
         oc_volumes=$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -i "openclaw" || true)
         if [ -n "$oc_volumes" ]; then
-            echo -e "  ${YELLOW}⚠${RESET} Found OpenClaw volumes:"
-            echo "$oc_volumes" | while read -r v; do echo -e "    ${DIM}$v${RESET}"; done
+            warn_msg "Found OpenClaw volumes:"
+            echo "$oc_volumes" | while read -r v; do dim_msg "    $v"; done
             if ask_yn "Remove these volumes? (DATA WILL BE LOST)"; then
                 echo "$oc_volumes" | while read -r v; do
-                    docker volume rm "$v" 2>/dev/null && echo -e "  ${GREEN}✓${RESET} Removed volume: $v"
+                    docker volume rm "$v" 2>/dev/null && ok_msg "Removed volume: $v"
                 done
                 removed_something=true
             fi
         else
-            echo -e "  ${DIM}→ No OpenClaw volumes to remove${RESET}"
+            dim_msg "  → No OpenClaw volumes to remove"
         fi
     fi
 
     # ── Step 4: Remove npm global package ──
     echo ""
-    echo -e "  ${CYAN}${BOLD}── Step 4: Remove npm Package ──${RESET}"
+    accent_bold_msg "  ── Step 4: Remove npm Package ──"
 
     if command -v openclaw &>/dev/null; then
-        echo -e "  ${YELLOW}⚠${RESET} OpenClaw is installed globally via npm"
+        warn_msg "OpenClaw is installed globally via npm"
         if ask_yn "Uninstall openclaw npm package?"; then
             npm uninstall -g openclaw 2>&1 | tail -3
             if ! command -v openclaw &>/dev/null; then
-                echo -e "  ${GREEN}✓${RESET} OpenClaw npm package removed"
+                ok_msg "OpenClaw npm package removed"
             else
-                echo -e "  ${YELLOW}⚠${RESET} openclaw still in PATH — may need manual removal"
+                warn_msg "openclaw still in PATH — may need manual removal"
             fi
             removed_something=true
         fi
     else
-        echo -e "  ${DIM}→ No global OpenClaw npm package found${RESET}"
+        dim_msg "  → No global OpenClaw npm package found"
     fi
 
     # ── Step 5: Securely wipe data directories ──
     echo ""
-    echo -e "  ${CYAN}${BOLD}── Step 5: Secure Data Wipe ──${RESET}"
+    accent_bold_msg "  ── Step 5: Secure Data Wipe ──"
     echo ""
-    echo -e "  ${DIM}The following directories may contain secrets, session logs, and config:${RESET}"
+    dim_msg "  The following directories may contain secrets, session logs, and config:"
 
     local data_dirs=(
         "$HOME/.openclaw"
@@ -5769,25 +6134,25 @@ uninstall_openclaw() {
         if [ -d "$dir" ]; then
             local dir_size
             dir_size=$(du -sh "$dir" 2>/dev/null | awk '{print $1}' || echo "?")
-            echo -e "  ${YELLOW}⚠${RESET} $dir (${dir_size})"
+            warn_msg "$dir (${dir_size})"
             dirs_to_wipe+=("$dir")
         fi
     done
 
     if [ ${#dirs_to_wipe[@]} -eq 0 ]; then
-        echo -e "  ${DIM}→ No OpenClaw data directories found${RESET}"
+        dim_msg "  → No OpenClaw data directories found"
     else
         echo ""
-        echo -e "  ${RED}${BOLD}WARNING: This permanently deletes all OpenClaw data including:${RESET}"
-        echo -e "  ${DIM}  • Configuration files (openclaw.json, .env)${RESET}"
-        echo -e "  ${DIM}  • Session logs and conversation history${RESET}"
-        echo -e "  ${DIM}  • MEMORY.md, SOUL.md, skills${RESET}"
-        echo -e "  ${DIM}  • API keys and credentials stored in these directories${RESET}"
+        error_bold_msg "  WARNING: This permanently deletes all OpenClaw data including:"
+        dim_msg "    • Configuration files (openclaw.json, .env)"
+        dim_msg "    • Session logs and conversation history"
+        dim_msg "    • MEMORY.md, SOUL.md, skills"
+        dim_msg "    • API keys and credentials stored in these directories"
         echo ""
 
         if ask_yn "Securely wipe these directories? (THIS CANNOT BE UNDONE)"; then
             for dir in "${dirs_to_wipe[@]}"; do
-                echo -e "  ${DIM}→ Wiping $dir...${RESET}"
+                dim_msg "  → Wiping $dir..."
 
                 # Overwrite sensitive files before deletion
                 # Find files that likely contain secrets and overwrite them
@@ -5811,14 +6176,14 @@ uninstall_openclaw() {
                 rm -rf "$dir"
 
                 if [ ! -d "$dir" ]; then
-                    echo -e "  ${GREEN}✓${RESET} Securely wiped: $dir"
+                    ok_msg "Securely wiped: $dir"
                 else
-                    echo -e "  ${RED}✗${RESET} Failed to remove: $dir"
+                    fail_msg "Failed to remove: $dir"
                 fi
             done
             removed_something=true
         else
-            echo -e "  ${DIM}→ Data directories preserved${RESET}"
+            dim_msg "  → Data directories preserved"
         fi
     fi
 
@@ -5831,25 +6196,33 @@ uninstall_openclaw() {
 
     # ── Summary ──
     echo ""
-    echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
-    echo ""
-    if [ "$removed_something" = true ]; then
-        echo -e "  ${GREEN}${BOLD}OpenClaw removal complete.${RESET}"
-        echo ""
-        echo -e "  ${DIM}What was cleaned:${RESET}"
-        echo -e "  ${DIM}  • Running processes and containers stopped${RESET}"
-        echo -e "  ${DIM}  • Docker images/volumes/containers removed${RESET}"
-        echo -e "  ${DIM}  • LaunchAgents unloaded${RESET}"
-        echo -e "  ${DIM}  • Sensitive files overwritten before deletion${RESET}"
-        echo -e "  ${DIM}  • Data directories removed${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
-        echo -e "  ${DIM}No changes were made.${RESET}"
+        echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
     echo ""
-    echo -e "  ${DIM}Remaining manual steps (if applicable):${RESET}"
-    echo -e "  ${DIM}  • Check shell history for pasted API keys: history | grep sk-${RESET}"
-    echo -e "  ${DIM}  • Revoke any API keys generated for OpenClaw${RESET}"
-    echo -e "  ${DIM}  • Remove any firewall rules added for OpenClaw${RESET}"
+    if [ "$removed_something" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            gum style --bold --foreground "$GUM_GREEN" -- "  OpenClaw removal complete."
+        else
+            echo -e "  ${GREEN}${BOLD}OpenClaw removal complete.${RESET}"
+        fi
+        echo ""
+        dim_msg "  What was cleaned:"
+        dim_msg "    • Running processes and containers stopped"
+        dim_msg "    • Docker images/volumes/containers removed"
+        dim_msg "    • LaunchAgents unloaded"
+        dim_msg "    • Sensitive files overwritten before deletion"
+        dim_msg "    • Data directories removed"
+    else
+        dim_msg "  No changes were made."
+    fi
+    echo ""
+    dim_msg "  Remaining manual steps (if applicable):"
+    dim_msg "    • Check shell history for pasted API keys: history | grep sk-"
+    dim_msg "    • Revoke any API keys generated for OpenClaw"
+    dim_msg "    • Remove any firewall rules added for OpenClaw"
     echo ""
 }
 
@@ -5858,33 +6231,63 @@ uninstall_openclaw() {
 usage() {
     local prog
     prog=$(basename "$0")
-    echo "Usage: $prog [command] [options]"
-    echo ""
-    echo "Commands:"
-    echo "  setup       Guided wizard: harden host + install OpenClaw (default)"
-    echo "  deploy      Force full deployment even if already installed"
-    echo "  scan        Read-only security audit (no changes, just a report)"
-    echo "  uninstall   Securely remove OpenClaw and wipe sensitive data"
-    echo "  agent       Manage the Clawkeeper SaaS agent"
-    echo "  help        Show this help"
-    echo ""
-    echo "Deployment modes (chosen interactively):"
-    echo "  native      Run OpenClaw directly via npm — simpler"
-    echo "  docker      Run OpenClaw in Docker — better isolation (recommended)"
-    echo ""
-    echo "Options:"
-    echo "  --non-interactive    Don't prompt for fixes (same as scan)"
-    echo "  --report FILE        Save report to FILE"
-    echo ""
-    echo "Examples:"
-    echo "  $prog setup              # Interactive hardening wizard"
-    echo "  $prog deploy             # Full install + deployment"
-    echo "  $prog scan               # Read-only security audit"
-    echo "  $prog scan --report r.txt # Audit with saved report"
-    echo "  $prog uninstall          # Securely remove OpenClaw"
-    echo "  $prog agent --install    # Install SaaS monitoring agent"
-    echo "  $prog agent --status     # Check agent status"
-    echo ""
+
+    if [ "$HAS_GUM" = true ]; then
+        gum format -t markdown -- "# $prog" \
+            "" \
+            "**Usage:** \`$prog [command] [options]\`" \
+            "" \
+            "## Commands" \
+            "| Command | Description |" \
+            "|---------|-------------|" \
+            "| \`setup\` | Guided wizard: harden host + install OpenClaw (default) |" \
+            "| \`deploy\` | Force full deployment even if already installed |" \
+            "| \`scan\` | Read-only security audit (no changes, just a report) |" \
+            "| \`uninstall\` | Securely remove OpenClaw and wipe sensitive data |" \
+            "| \`agent\` | Manage the Clawkeeper SaaS agent |" \
+            "| \`help\` | Show this help |" \
+            "" \
+            "## Options" \
+            "- \`--non-interactive\` — Don't prompt for fixes (same as scan)" \
+            "- \`--report FILE\` — Save report to FILE" \
+            "" \
+            "## Examples" \
+            "\`\`\`" \
+            "$prog setup              # Interactive hardening wizard" \
+            "$prog scan               # Read-only security audit" \
+            "$prog scan --report r.txt # Audit with saved report" \
+            "$prog uninstall          # Securely remove OpenClaw" \
+            "$prog agent --install    # Install SaaS monitoring agent" \
+            "\`\`\`"
+    else
+        echo "Usage: $prog [command] [options]"
+        echo ""
+        echo "Commands:"
+        echo "  setup       Guided wizard: harden host + install OpenClaw (default)"
+        echo "  deploy      Force full deployment even if already installed"
+        echo "  scan        Read-only security audit (no changes, just a report)"
+        echo "  uninstall   Securely remove OpenClaw and wipe sensitive data"
+        echo "  agent       Manage the Clawkeeper SaaS agent"
+        echo "  help        Show this help"
+        echo ""
+        echo "Deployment modes (chosen interactively):"
+        echo "  native      Run OpenClaw directly via npm — simpler"
+        echo "  docker      Run OpenClaw in Docker — better isolation (recommended)"
+        echo ""
+        echo "Options:"
+        echo "  --non-interactive    Don't prompt for fixes (same as scan)"
+        echo "  --report FILE        Save report to FILE"
+        echo ""
+        echo "Examples:"
+        echo "  $prog setup              # Interactive hardening wizard"
+        echo "  $prog deploy             # Full install + deployment"
+        echo "  $prog scan               # Read-only security audit"
+        echo "  $prog scan --report r.txt # Audit with saved report"
+        echo "  $prog uninstall          # Securely remove OpenClaw"
+        echo "  $prog agent --install    # Install SaaS monitoring agent"
+        echo "  $prog agent --status     # Check agent status"
+        echo ""
+    fi
 }
 
 main() {
@@ -5919,41 +6322,72 @@ main() {
 
     # Detect platform before anything else
     detect_platform
+    ensure_gum
+    init_gum_icons
 
     case "$command" in
         start)
             # Interactive menu — default when no command given
             print_banner
             echo ""
-            echo -e "  What would you like to do?"
-            echo ""
-            echo -e "  ${BOLD}1)${RESET} ${CYAN}Scan existing OpenClaw${RESET}  — audit your current installation (read-only)"
-            echo -e "  ${BOLD}2)${RESET} ${CYAN}Deploy OpenClaw securely${RESET} — full setup wizard with hardened defaults"
-            echo -e "  ${BOLD}3)${RESET} ${RED}Uninstall OpenClaw${RESET}      — securely remove and wipe all data"
-            echo ""
-            printf "  Choose [1/2/3]: "
-            read -r choice
-            case "$choice" in
-                2)
-                    command="setup"
-                    SCAN_ONLY=false
-                    INTERACTIVE=true
-                    print_expectations
-                    select_deployment_mode
-                    ;;
-                3)
-                    uninstall_openclaw
-                    exit 0
-                    ;;
-                *)
-                    command="scan"
-                    SCAN_ONLY=true
-                    INTERACTIVE=false
-                    echo ""
-                    echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
-                    select_deployment_mode
-                    ;;
-            esac
+            if [ "$HAS_GUM" = true ]; then
+                local choice
+                choice=$(gum choose --header "  What would you like to do?" \
+                    "Scan existing OpenClaw  — audit your current installation (read-only)" \
+                    "Deploy OpenClaw securely — full setup wizard with hardened defaults" \
+                    "Uninstall OpenClaw      — securely remove and wipe all data" </dev/tty)
+                case "$choice" in
+                    Deploy*)
+                        command="setup"
+                        SCAN_ONLY=false
+                        INTERACTIVE=true
+                        print_expectations
+                        select_deployment_mode
+                        ;;
+                    Uninstall*)
+                        uninstall_openclaw
+                        exit 0
+                        ;;
+                    *)
+                        command="scan"
+                        SCAN_ONLY=true
+                        INTERACTIVE=false
+                        echo ""
+                        dim_msg "  Read-only audit. No changes will be made."
+                        select_deployment_mode
+                        ;;
+                esac
+            else
+                echo -e "  What would you like to do?"
+                echo ""
+                echo -e "  ${BOLD}1)${RESET} ${CYAN}Scan existing OpenClaw${RESET}  — audit your current installation (read-only)"
+                echo -e "  ${BOLD}2)${RESET} ${CYAN}Deploy OpenClaw securely${RESET} — full setup wizard with hardened defaults"
+                echo -e "  ${BOLD}3)${RESET} ${RED}Uninstall OpenClaw${RESET}      — securely remove and wipe all data"
+                echo ""
+                printf "  Choose [1/2/3]: "
+                read -r choice </dev/tty
+                case "$choice" in
+                    2)
+                        command="setup"
+                        SCAN_ONLY=false
+                        INTERACTIVE=true
+                        print_expectations
+                        select_deployment_mode
+                        ;;
+                    3)
+                        uninstall_openclaw
+                        exit 0
+                        ;;
+                    *)
+                        command="scan"
+                        SCAN_ONLY=true
+                        INTERACTIVE=false
+                        echo ""
+                        echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
+                        select_deployment_mode
+                        ;;
+                esac
+            fi
             ;;
         setup|deploy)
             SCAN_ONLY=false
@@ -5967,7 +6401,7 @@ main() {
             INTERACTIVE=false
             print_scan_banner
             select_deployment_mode
-            echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
+            dim_msg "  Read-only audit. No changes will be made."
             ;;
         uninstall|remove)
             uninstall_openclaw
@@ -5995,9 +6429,8 @@ main() {
 
     # ── Phase 1 of 5: Host Hardening ──
     reset_phase_counters
-    echo ""
     if [ "$PLATFORM" = "macos" ]; then
-        echo -e "${CYAN}${BOLD}═══ Phase 1 of 5: macOS Host Hardening ═══${RESET}"
+        phase_header "═══ Phase 1 of 5: macOS Host Hardening ═══"
         run_check "siri"
         run_check "location_services"
         run_check "bluetooth"
@@ -6010,7 +6443,7 @@ main() {
         run_check "icloud"
         run_check "automatic_login"
     elif [ "$PLATFORM" = "linux" ]; then
-        echo -e "${CYAN}${BOLD}═══ Phase 1 of 5: Linux Host Hardening ═══${RESET}"
+        phase_header "═══ Phase 1 of 5: Linux Host Hardening ═══"
         run_check "linux_user_account"
         run_check "linux_ssh_hardening"
         run_check "linux_firewall"
@@ -6020,12 +6453,15 @@ main() {
         run_check "linux_disk_encryption"
     fi
     print_phase_summary
-    echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+    if [ "$HAS_GUM" = true ]; then
+        echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+    else
+        echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+    fi
 
     # ── Phase 2 of 5: Network ──
     reset_phase_counters
-    echo ""
-    echo -e "${CYAN}${BOLD}═══ Phase 2 of 5: Network ═══${RESET}"
+    phase_header "═══ Phase 2 of 5: Network ═══"
 
     if [ "$PLATFORM" = "macos" ]; then
         run_check "network_isolation"
@@ -6041,11 +6477,10 @@ main() {
     # ── Phase 3 of 5: Prerequisites ──
     reset_phase_counters
     detect_install_capability
-    echo ""
     if [ "$PLATFORM" = "macos" ]; then
         print_install_capability_warning
         if [ "$DEPLOY_MODE" = "native" ]; then
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Homebrew + Node.js) ═══${RESET}"
+            phase_header "═══ Phase 3 of 5: Prerequisites (Homebrew + Node.js) ═══"
             run_check "homebrew"
             if ! command -v brew &>/dev/null; then
                 # Node.js install depends on Homebrew — skip with clear guidance
@@ -6056,7 +6491,7 @@ main() {
                 run_check "node"
             fi
         else
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Docker) ═══${RESET}"
+            phase_header "═══ Phase 3 of 5: Prerequisites (Docker) ═══"
             # Docker mode: only Docker is needed (OpenClaw runs inside the container)
             # Check if Docker is already installed before requiring Homebrew
             if command -v docker &>/dev/null; then
@@ -6077,11 +6512,11 @@ main() {
     elif [ "$PLATFORM" = "linux" ]; then
         print_install_capability_warning
         if [ "$DEPLOY_MODE" = "native" ]; then
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Node.js) ═══${RESET}"
+            phase_header "═══ Phase 3 of 5: Prerequisites (Node.js) ═══"
             run_check "linux_essentials"
             run_check "linux_node"
         else
-            echo -e "${CYAN}${BOLD}═══ Phase 3 of 5: Prerequisites (Docker) ═══${RESET}"
+            phase_header "═══ Phase 3 of 5: Prerequisites (Docker) ═══"
             # Docker mode on Linux: check Docker first, Node.js not needed
             if command -v docker &>/dev/null; then
                 run_check "linux_docker"
@@ -6096,18 +6531,18 @@ main() {
     # If prerequisites failed because user can't install software, show clear next steps
     if [ "$CAN_INSTALL_SOFTWARE" = false ] && [ "$FAIL" -gt "$PHASE_FAIL" ]; then
         echo ""
-        echo -e "  ${YELLOW}${BOLD}What to do next:${RESET}"
+        highlight_msg "  What to do next:"
         if [ "$PLATFORM" = "macos" ]; then
-            echo -e "  ${DIM}1. Log into an admin account on this Mac${RESET}"
+            dim_msg "  1. Log into an admin account on this Mac"
             if [ "$DEPLOY_MODE" = "native" ]; then
-                echo -e "  ${DIM}2. Install Homebrew and Node.js (see commands above)${RESET}"
+                dim_msg "  2. Install Homebrew and Node.js (see commands above)"
             else
-                echo -e "  ${DIM}2. Install Docker Desktop (see options above)${RESET}"
+                dim_msg "  2. Install Docker Desktop (see options above)"
             fi
-            echo -e "  ${DIM}3. Log back in as '$(whoami)' and re-run this script${RESET}"
+            dim_msg "  3. Log back in as '$(whoami)' and re-run this script"
         else
-            echo -e "  ${DIM}1. Ask an admin to install the required packages${RESET}"
-            echo -e "  ${DIM}2. Re-run this script${RESET}"
+            dim_msg "  1. Ask an admin to install the required packages"
+            dim_msg "  2. Re-run this script"
         fi
     fi
 
@@ -6117,8 +6552,7 @@ main() {
 
     if [ "$command" = "scan" ]; then
         # Scan mode: report installation status only
-        echo ""
-        echo -e "${CYAN}${BOLD}═══ Phase 4 of 5: OpenClaw Installation Status ═══${RESET}"
+        phase_header "═══ Phase 4 of 5: OpenClaw Installation Status ═══"
         step_header "OpenClaw Detection"
         if [ "$OPENCLAW_INSTALLED" = true ]; then
             local install_label="native (npm)"
@@ -6131,8 +6565,7 @@ main() {
 
     elif [ "$command" = "setup" ]; then
         # Setup mode: detect and offer to install if missing
-        echo ""
-        echo -e "${CYAN}${BOLD}═══ Phase 4 of 5: OpenClaw Installation ═══${RESET}"
+        phase_header "═══ Phase 4 of 5: OpenClaw Installation ═══"
 
         if [ "$OPENCLAW_INSTALLED" = true ]; then
             step_header "OpenClaw Detection"
@@ -6153,7 +6586,7 @@ main() {
             if ask_yn "Install OpenClaw now?"; then
                 if [ "$DEPLOY_MODE" = "native" ]; then
                     echo ""
-                    echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Native/npm)...${RESET}"
+                    accent_bold_msg "  Installing OpenClaw (Native/npm)..."
                     if command -v node &>/dev/null; then
                         setup_native_openclaw_directories
                         run_check "native_openclaw"
@@ -6168,7 +6601,7 @@ main() {
                     fi
                 else
                     echo ""
-                    echo -e "  ${CYAN}${BOLD}Installing OpenClaw (Docker)...${RESET}"
+                    accent_bold_msg "  Installing OpenClaw (Docker)..."
                     if command -v docker &>/dev/null && docker info &>/dev/null; then
                         setup_openclaw_directories
                         setup_env_file
@@ -6190,9 +6623,8 @@ main() {
 
     elif [ "$command" = "deploy" ]; then
         # Deploy mode: always run full deployment
-        echo ""
         if [ "$DEPLOY_MODE" = "native" ]; then
-            echo -e "${CYAN}${BOLD}═══ Phase 4 of 5: OpenClaw Native Deployment ═══${RESET}"
+            phase_header "═══ Phase 4 of 5: OpenClaw Native Deployment ═══"
 
             if command -v node &>/dev/null; then
                 setup_native_openclaw_directories
@@ -6207,7 +6639,7 @@ main() {
                 fail "Skipped deployment (Node.js not available)" "Deploy"
             fi
         else
-            echo -e "${CYAN}${BOLD}═══ Phase 4 of 5: OpenClaw Docker Deployment ═══${RESET}"
+            phase_header "═══ Phase 4 of 5: OpenClaw Docker Deployment ═══"
 
             if command -v docker &>/dev/null && docker info &>/dev/null; then
                 setup_openclaw_directories
@@ -6228,8 +6660,7 @@ main() {
 
     # ── Phase 5 of 5: Security Audit (all modes) ──
     reset_phase_counters
-    echo ""
-    echo -e "${CYAN}${BOLD}═══ Phase 5 of 5: Security Audit ═══${RESET}"
+    phase_header "═══ Phase 5 of 5: Security Audit ═══"
 
     run_check "openclaw_running"
 

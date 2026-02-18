@@ -36,12 +36,17 @@ export default function DemoPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch("/api/demo", {
+      const res = await fetch("/api/demo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, company, clusters }),
       });
-      setSubmitted(true);
+      if (res.ok) {
+        setSubmitted(true);
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Something went wrong. Please try again.");
+      }
     } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {

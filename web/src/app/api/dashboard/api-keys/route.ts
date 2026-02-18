@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       .eq("org_id", orgId),
   ]);
 
-  const plan = (orgRes.data?.plan || "free") as "free" | "pro";
+  const plan = (orgRes.data?.plan || "free") as "free" | "pro" | "enterprise";
   const keyCount = keyCountRes.count || 0;
 
   if (!canAddApiKey(plan, keyCount)) {

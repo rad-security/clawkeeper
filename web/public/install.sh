@@ -15,6 +15,7 @@ curl -fsSL "$REPO" -o "$DEST"
 chmod +x "$DEST"
 
 echo "  ✓ Downloaded to $DEST"
+echo "  ℹ gum (styled terminal UI) will be auto-installed on first run"
 
 # --- Add to PATH for this session ---
 case ":$PATH:" in

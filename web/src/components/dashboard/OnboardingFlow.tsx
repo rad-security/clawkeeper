@@ -225,7 +225,7 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
               If the agent is already installed, you can trigger a scan manually
               with{" "}
               <code className="rounded bg-muted px-1.5 py-0.5">
-                clawkeeper scan --upload
+                clawkeeper.sh agent run
               </code>
             </p>
           </CardContent>

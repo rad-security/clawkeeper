@@ -29,9 +29,9 @@ export default async function ActivityPage({
 
   const plan = orgRes.data?.plan || "free";
   const hosts = hostsRes.data || [];
-  const isPro = plan === "pro";
+  const hasAccess = plan === "pro" || plan === "enterprise";
 
-  if (!isPro) {
+  if (!hasAccess) {
     // Blurred mock preview for free users
     const mockEvents: Event[] = [
       {

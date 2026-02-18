@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     .eq("id", orgId)
     .single();
 
-  const plan = (org?.plan || "free") as "free" | "pro";
+  const plan = (org?.plan || "free") as "free" | "pro" | "enterprise";
 
   // Check if host exists or needs to be created
   let isNewHost = false;

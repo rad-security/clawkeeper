@@ -122,7 +122,7 @@ export default function LandingPage() {
                 size="lg"
                 className="btn-rad bg-cyan-500 px-8 text-black font-medium hover:bg-cyan-400"
               >
-                Start free scan
+                Get started free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -347,6 +347,19 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
+
+          {/* CTA after How it works */}
+          <div className="mt-12 text-center">
+            <Link href="/signup">
+              <Button
+                size="lg"
+                className="btn-rad bg-cyan-500 px-8 text-black font-medium hover:bg-cyan-400"
+              >
+                Start your free scan
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -482,7 +495,7 @@ export default function LandingPage() {
                   Hardened Kubernetes Deployment
                 </h3>
                 <p className="text-sm text-zinc-500">
-                  Enterprise — $149/cluster/month
+                  Enterprise — custom pricing
                 </p>
               </div>
             </div>
@@ -802,23 +815,23 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
       <section className="border-t border-white/10 bg-zinc-950 py-16">
         <div className="mx-auto max-w-5xl px-4">
           <h3 className="text-center text-lg font-semibold text-white">
-            Created by RAD Security, the leaders in agent AI security
+            Built by RAD Security — trusted by enterprises for cloud-native runtime protection
           </h3>
           <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-zinc-500">
             RAD Security is the cloud-native runtime security platform built on
-            eBPF. Trusted by enterprises for Kubernetes security posture
-            management, behavioral fingerprinting, and identity threat
-            detection. Clawkeeper extends that expertise to the fastest-growing
-            AI agent framework in the world.
+            eBPF. Their technology protects Kubernetes workloads for Fortune 500
+            companies with behavioral fingerprinting and identity threat
+            detection. Clawkeeper brings that enterprise security expertise to
+            every OpenClaw deployment.
           </p>
 
           {/* Trust stats */}
           <div className="mx-auto mt-8 grid max-w-3xl grid-cols-2 gap-6 sm:grid-cols-4">
             {[
-              { value: "$20M+", label: "RAD Security funding" },
-              { value: "Series A", label: "Backed by top VCs" },
+              { value: "AWS", label: "EKS Add-on Partner" },
               { value: "eBPF", label: "Kernel-level detection" },
-              { value: "AWS", label: "EKS Add-on partner" },
+              { value: "39", label: "Automated security checks" },
+              { value: "SOC 2", label: "Compliance ready" },
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <div className="text-xl font-bold gradient-text">{s.value}</div>
@@ -951,7 +964,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
               <ul className="mt-3 space-y-2 text-sm text-zinc-500">
                 <li>
                   <a
-                    href="https://rad.security"
+                    href="https://www.radsecurity.ai"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-zinc-300"

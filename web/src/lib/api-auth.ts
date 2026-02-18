@@ -38,11 +38,12 @@ export async function validateApiKey(
   }
 
   // Update last_used_at (fire-and-forget)
-  supabase
-    .from("api_keys")
-    .update({ last_used_at: new Date().toISOString() })
-    .eq("id", keyRow.id)
-    .then(() => {});
+  Promise.resolve(
+    supabase
+      .from("api_keys")
+      .update({ last_used_at: new Date().toISOString() })
+      .eq("id", keyRow.id)
+  ).catch((err: unknown) => console.error("Failed to update last_used_at:", err));
 
   return { org_id: keyRow.org_id, key_id: keyRow.id };
 }

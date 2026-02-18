@@ -43,7 +43,6 @@ export function PricingSection() {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
 
   const proPrice = billing === "annual" ? "$24" : "$29";
-  const enterprisePrice = billing === "annual" ? "$119" : "$149";
 
   return (
     <>
@@ -153,16 +152,11 @@ export function PricingSection() {
           <CardHeader>
             <CardTitle className="text-xl text-white">Enterprise</CardTitle>
             <div className="text-4xl font-bold text-white">
-              {enterprisePrice}
-              <span className="text-base font-normal text-zinc-500">
-                /cluster/mo
-              </span>
+              Custom
             </div>
-            {billing === "annual" && (
-              <p className="text-xs text-violet-400">
-                Billed annually — save $360/year vs monthly
-              </p>
-            )}
+            <p className="text-xs text-violet-400">
+              Tailored to your infrastructure and compliance needs
+            </p>
             <CardDescription className="text-zinc-500">
               For organizations deploying hardened OpenClaw in Kubernetes with
               runtime security.

@@ -12,7 +12,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { name, rule_type, config, org_id: orgId } = body;
 
   if (!name || !rule_type || !orgId) {
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
       .eq("org_id", orgId),
   ]);
 
-  const plan = (orgRes.data?.plan || "free") as "free" | "pro";
+  const plan = (orgRes.data?.plan || "free") as "free" | "pro" | "enterprise";
   if (!canAddAlertRule(plan, ruleCountRes.count || 0)) {
     return NextResponse.json(
       { error: "Alert rules are a Pro feature" },
@@ -65,12 +70,24 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { id, ...updates } = body;
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { id, name, rule_type, config, enabled } = body;
 
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
+
+  // Whitelist allowed fields to prevent arbitrary column updates
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) updates.name = name;
+  if (rule_type !== undefined) updates.rule_type = rule_type;
+  if (config !== undefined) updates.config = config;
+  if (enabled !== undefined) updates.enabled = enabled;
 
   const { data, error } = await supabase
     .from("alert_rules")
@@ -99,7 +116,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { id } = body;
 
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });

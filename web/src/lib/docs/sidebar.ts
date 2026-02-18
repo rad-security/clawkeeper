@@ -32,7 +32,6 @@ export const sidebarNav: SidebarSection[] = [
       { title: "Network", href: "/docs/checks/network" },
       { title: "Prerequisites", href: "/docs/checks/prerequisites" },
       { title: "Security Audit", href: "/docs/checks/security_audit" },
-      { title: "Linux", href: "/docs/checks/linux" },
     ],
   },
 ];
