@@ -22,20 +22,15 @@ emit_info "Location data embeds in file metadata that OpenClaw might process or 
 ls_enabled=false
 
 if command -v defaults &>/dev/null; then
-    # Try reading without sudo first
+    # Try reading without elevated access first
     ls_status=$(defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>/dev/null || echo "unknown")
-
-    if [ "$ls_status" = "unknown" ]; then
-        # Need elevated access — try sudo only if available
-        ls_status=$(sudo defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>/dev/null || echo "unknown")
-    fi
 
     if [ "$ls_status" = "1" ]; then
         ls_enabled=true
     elif [ "$ls_status" = "0" ]; then
         ls_enabled=false
     else
-        # Can't determine — check via launchctl as fallback
+        # Can't read the plist without elevated access — use launchctl as fallback
         if launchctl list 2>/dev/null | grep -q "locationd"; then
             # Service is running, likely enabled
             ls_enabled=true

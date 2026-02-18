@@ -22,9 +22,9 @@ emit_info "SSH is useful for managing this machine remotely. Verify it's intenti
 
 ssh_status=$(systemsetup -getremotelogin 2>&1 || echo "unknown")
 
-# If the non-sudo call requires admin privileges, try with sudo
+# If the call requires admin privileges, skip — don't prompt for password
 if echo "$ssh_status" | grep -qi "requires admin\|not authorized\|error"; then
-    ssh_status=$(sudo systemsetup -getremotelogin 2>/dev/null || echo "unknown")
+    ssh_status="unknown"
 fi
 
 if echo "$ssh_status" | grep -qi "off"; then

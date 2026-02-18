@@ -2409,20 +2409,15 @@ emit_info "Location data embeds in file metadata that OpenClaw might process or 
 ls_enabled=false
 
 if command -v defaults &>/dev/null; then
-    # Try reading without sudo first
+    # Try reading without elevated access first
     ls_status=$(defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>/dev/null || echo "unknown")
-
-    if [ "$ls_status" = "unknown" ]; then
-        # Need elevated access — try sudo only if available
-        ls_status=$(sudo defaults read /var/db/locationd/Library/Preferences/ByHost/com.apple.locationd LocationServicesEnabled 2>/dev/null || echo "unknown")
-    fi
 
     if [ "$ls_status" = "1" ]; then
         ls_enabled=true
     elif [ "$ls_status" = "0" ]; then
         ls_enabled=false
     else
-        # Can't determine — check via launchctl as fallback
+        # Can't read the plist without elevated access — use launchctl as fallback
         if launchctl list 2>/dev/null | grep -q "locationd"; then
             # Service is running, likely enabled
             ls_enabled=true
@@ -3094,9 +3089,9 @@ emit_info "SSH is useful for managing this machine remotely. Verify it's intenti
 
 ssh_status=$(systemsetup -getremotelogin 2>&1 || echo "unknown")
 
-# If the non-sudo call requires admin privileges, try with sudo
+# If the call requires admin privileges, skip — don't prompt for password
 if echo "$ssh_status" | grep -qi "requires admin\|not authorized\|error"; then
-    ssh_status=$(sudo systemsetup -getremotelogin 2>/dev/null || echo "unknown")
+    ssh_status="unknown"
 fi
 
 if echo "$ssh_status" | grep -qi "off"; then
@@ -3750,14 +3745,13 @@ print_platform_info() {
 print_banner() {
     echo ""
     echo -e "${CYAN}${BOLD}"
-    echo "   ┌──────────────────────────────────────────────┐"
-    echo "   │                                              │"
-    echo "   │          CLAW Keeper Setup Wizard             │"
-    echo "   │   Harden your host. Deploy OpenClaw securely. │"
-    echo "   │                                              │"
-    echo "   │              by RAD Security                  │"
-    echo "   │                                              │"
-    echo "   └──────────────────────────────────────────────┘"
+    echo "   ┌────────────────────────────────────────┐"
+    echo "   │                                        │"
+    echo "   │        Clawkeeper Setup Wizard         │"
+    echo "   │                                        │"
+    echo "   │   Harden your host. Deploy securely.   │"
+    echo "   │                                        │"
+    echo "   └────────────────────────────────────────┘"
     echo -e "${RESET}"
     print_platform_info
 }
@@ -3765,14 +3759,11 @@ print_banner() {
 print_scan_banner() {
     echo ""
     echo -e "${CYAN}${BOLD}"
-    echo "   ┌──────────────────────────────────────────────┐"
-    echo "   │                                              │"
-    echo "   │          CLAW Keeper Security Scan            │"
-    echo "   │            Host Hardening Audit               │"
-    echo "   │                                              │"
-    echo "   │              by RAD Security                  │"
-    echo "   │                                              │"
-    echo "   └──────────────────────────────────────────────┘"
+    echo "   ┌────────────────────────────────────────┐"
+    echo "   │                                        │"
+    echo "   │       Clawkeeper Security Scan         │"
+    echo "   │                                        │"
+    echo "   └────────────────────────────────────────┘"
     echo -e "${RESET}"
     print_platform_info
 }
@@ -4028,15 +4019,13 @@ agent_install() {
 
     if [ -z "$api_key" ]; then
         echo ""
-        echo -e "  ${GREEN}✓${RESET} No problem — running in ${BOLD}local-only mode${RESET}."
-        echo -e "  ${DIM}Scans will run locally but won't upload to the dashboard.${RESET}"
-        echo -e "  ${DIM}To connect later, run: clawkeeper.sh agent --install${RESET}"
+        echo -e "  ${DIM}No API key entered. To connect later:${RESET}"
+        echo -e "  ${DIM}  1. Sign up at ${RESET}${CYAN}https://clawkeeper.dev/signup${RESET}"
+        echo -e "  ${DIM}  2. Run ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
         echo ""
-
-        # Run a scan right now so they see value immediately
-        local self_path
-        self_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-        exec "$self_path" scan
+        echo -e "  ${DIM}To scan locally without uploading:${RESET} ${CYAN}clawkeeper.sh scan${RESET}"
+        echo ""
+        exit 0
     fi
 
     # Validate key format
@@ -5502,10 +5491,16 @@ print_report() {
         echo -e "  ${CYAN}VPS access:${RESET} ${DIM}ssh -N -L 18789:127.0.0.1:18789 user@${vps_ip}${RESET}"
     fi
 
-    # CTA: agent install if not installed, dashboard if it is
+    # CTA: check if agent is actually connected (has API key), not just config file
     echo ""
+    local has_api_key=false
     if [ -f "$AGENT_CONFIG_FILE" ]; then
-        echo -e "  ${GREEN}✓${RESET} Agent installed — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
+        # shellcheck disable=SC1090
+        (source "$AGENT_CONFIG_FILE" 2>/dev/null && [ -n "${CLAWKEEPER_API_KEY:-}" ]) && has_api_key=true
+    fi
+
+    if [ "$has_api_key" = true ]; then
+        echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
     else
         echo -e "  Track your score over time with a free dashboard:"
         echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"

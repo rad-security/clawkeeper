@@ -7,3 +7,5 @@ dist/
 desktop/node_modules/
 desktop/dist/
 desktop/src-tauri/target/
+.vercel
+.env*.local
