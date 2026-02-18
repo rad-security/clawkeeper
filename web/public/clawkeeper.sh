@@ -4384,15 +4384,22 @@ ensure_sudo() {
     if [ "$SUDO_AUTHENTICATED" = true ]; then
         return 0
     fi
-    echo ""
-    echo -e "  ${YELLOW}Some fixes require administrator privileges.${RESET}"
-    echo -ne "  ${BLUE}→${RESET} Enter your password if prompted: "
-    echo ""
-    if sudo -v 2>/dev/null; then
+    # Check if we already have sudo cached
+    if sudo -n true 2>/dev/null; then
         SUDO_AUTHENTICATED=true
         return 0
+    fi
+    echo ""
+    echo -e "  ${YELLOW}Some fixes require administrator privileges (sudo).${RESET}"
+    echo ""
+    if sudo -v; then
+        SUDO_AUTHENTICATED=true
+        echo ""
+        echo -e "  ${GREEN}✓${RESET} Sudo access granted"
+        return 0
     else
-        echo -e "  ${RED}Could not get sudo access. Some fixes will be skipped.${RESET}"
+        echo ""
+        echo -e "  ${RED}✗${RESET} Could not get sudo access. Some fixes will be skipped."
         return 1
     fi
 }
@@ -5980,6 +5987,11 @@ main() {
             exit 1
             ;;
     esac
+
+    # Pre-cache sudo credentials so remediations don't surprise the user
+    if [ "$SCAN_ONLY" != true ]; then
+        ensure_sudo
+    fi
 
     # ── Phase 1 of 5: Host Hardening ──
     reset_phase_counters
