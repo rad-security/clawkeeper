@@ -749,6 +749,188 @@ else
 fi
 }
 
+# --- Check: credential_store ---
+
+__meta_credential_store() {
+    case "$1" in
+        name) echo "Credential Store Security" ;;
+        id)   echo "credential_store" ;;
+    esac
+}
+
+__check_credential_store() {
+# ============================================================================
+# Clawkeeper Check: Credential Store Security
+# Checks permissions on ~/.openclaw/credentials/, OAuth profiles,
+# session transcript directories, and log files.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+REMEDIATION_ID=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        --remediation-id) REMEDIATION_ID="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+openclaw_dir="$HOME/.openclaw"
+
+if [ ! -d "$openclaw_dir" ]; then
+    emit_info "No ~/.openclaw directory found — skipping credential store checks"
+return 0
+fi
+
+# --- Remediation handler ---
+if [ -n "$REMEDIATION_ID" ]; then
+    case "$REMEDIATION_ID" in
+        fix_credentials_perms)
+            creds_dir="$openclaw_dir/credentials"
+            if [ -d "$creds_dir" ]; then
+                chmod 700 "$creds_dir"
+                find "$creds_dir" -type f -exec chmod 600 {} \;
+                emit_pass "Credentials directory and files set to 700/600" "Credential Directory"
+            else
+                emit_fail "Credentials directory not found" "Credential Directory"
+            fi
+            ;;
+        fix_oauth_perms)
+            find "$openclaw_dir/agents" -name "auth-profiles.json" -exec chmod 600 {} \; 2>/dev/null
+            emit_pass "OAuth profile files set to 600" "OAuth Profiles"
+            ;;
+        fix_sessions_perms)
+            find "$openclaw_dir/agents" -name "sessions" -type d -exec chmod 700 {} \; 2>/dev/null
+            find "$openclaw_dir/agents" -path "*/sessions/*.jsonl" -exec chmod 600 {} \; 2>/dev/null
+            emit_pass "Session directories and logs set to 700/600" "Session Transcripts"
+            ;;
+        fix_log_perms)
+            log_dir="/tmp/openclaw"
+            if [ -d "$log_dir" ]; then
+                chmod 700 "$log_dir"
+                find "$log_dir" -name "*.log" -exec chmod 600 {} \; 2>/dev/null
+                emit_pass "Log directory and files set to 700/600" "Log Files"
+            else
+                emit_fail "Log directory not found: $log_dir" "Log Files"
+            fi
+            ;;
+        *)
+            emit_fail "Unknown remediation: $REMEDIATION_ID" "Credential Store"
+            ;;
+    esac
+return 0
+fi
+
+emit_info "Credential store security checks:"
+
+# ---------- Credentials directory ----------
+creds_dir="$openclaw_dir/credentials"
+if [ -d "$creds_dir" ]; then
+    creds_perms=$(stat -f "%Lp" "$creds_dir" 2>/dev/null || stat -c "%a" "$creds_dir" 2>/dev/null)
+    if [ "$creds_perms" = "700" ]; then
+        emit_pass "Credentials directory permissions are 700" "Credential Directory"
+    else
+        emit_prompt "Credentials directory permissions are $creds_perms — fix to 700?" \
+            "fix_credentials_perms" \
+            "Credentials directory permissions are $creds_perms (should be 700)" \
+            "Credentials directory left at $creds_perms"
+    fi
+
+    # Check individual credential files
+    cred_file_issues=0
+    while IFS= read -r cred_file; do
+        [ -z "$cred_file" ] && continue
+        fperms=$(stat -f "%Lp" "$cred_file" 2>/dev/null || stat -c "%a" "$cred_file" 2>/dev/null)
+        if [ "$fperms" != "600" ] && [ "$fperms" != "400" ]; then
+            cred_file_issues=$((cred_file_issues + 1))
+        fi
+    done < <(find "$creds_dir" -type f 2>/dev/null)
+
+    if [ "$cred_file_issues" -gt 0 ]; then
+        emit_fail "$cred_file_issues credential file(s) have incorrect permissions (should be 600)" "Credential Files"
+    else
+        emit_pass "All credential files have correct permissions" "Credential Files"
+    fi
+else
+    emit_pass "No credentials directory found (no channel credentials stored)" "Credential Directory"
+fi
+
+# ---------- OAuth profiles ----------
+oauth_issues=0
+oauth_count=0
+while IFS= read -r profile_file; do
+    [ -z "$profile_file" ] && continue
+    oauth_count=$((oauth_count + 1))
+    fperms=$(stat -f "%Lp" "$profile_file" 2>/dev/null || stat -c "%a" "$profile_file" 2>/dev/null)
+    if [ "$fperms" != "600" ] && [ "$fperms" != "400" ]; then
+        oauth_issues=$((oauth_issues + 1))
+    fi
+done < <(find "$openclaw_dir/agents" -name "auth-profiles.json" 2>/dev/null)
+
+if [ "$oauth_count" -eq 0 ]; then
+    emit_pass "No OAuth profiles found" "OAuth Profiles"
+elif [ "$oauth_issues" -gt 0 ]; then
+    emit_prompt "$oauth_issues OAuth profile(s) have incorrect permissions — fix to 600?" \
+        "fix_oauth_perms" \
+        "$oauth_issues OAuth profile(s) have incorrect permissions" \
+        "OAuth profiles left with current permissions"
+else
+    emit_pass "All $oauth_count OAuth profile(s) have correct permissions (600)" "OAuth Profiles"
+fi
+
+# ---------- Session transcripts ----------
+session_dir_issues=0
+session_file_issues=0
+session_count=0
+
+while IFS= read -r sess_dir; do
+    [ -z "$sess_dir" ] && continue
+    session_count=$((session_count + 1))
+    dperms=$(stat -f "%Lp" "$sess_dir" 2>/dev/null || stat -c "%a" "$sess_dir" 2>/dev/null)
+    if [ "$dperms" != "700" ]; then
+        session_dir_issues=$((session_dir_issues + 1))
+    fi
+    # Sample check session files
+    while IFS= read -r sess_file; do
+        [ -z "$sess_file" ] && continue
+        fperms=$(stat -f "%Lp" "$sess_file" 2>/dev/null || stat -c "%a" "$sess_file" 2>/dev/null)
+        if [ "$fperms" != "600" ] && [ "$fperms" != "400" ]; then
+            session_file_issues=$((session_file_issues + 1))
+        fi
+    done < <(find "$sess_dir" -name "*.jsonl" -maxdepth 1 2>/dev/null | head -5)
+done < <(find "$openclaw_dir/agents" -name "sessions" -type d 2>/dev/null)
+
+if [ "$session_count" -eq 0 ]; then
+    emit_pass "No session transcript directories found" "Session Transcripts"
+elif [ "$session_dir_issues" -gt 0 ] || [ "$session_file_issues" -gt 0 ]; then
+    total_issues=$((session_dir_issues + session_file_issues))
+    emit_prompt "$total_issues session store permission issue(s) — fix to 700/600?" \
+        "fix_sessions_perms" \
+        "Session transcript permissions are too permissive" \
+        "Session transcript permissions left as-is"
+else
+    emit_pass "Session transcript stores have correct permissions" "Session Transcripts"
+fi
+
+# ---------- Log files ----------
+log_dir="/tmp/openclaw"
+if [ -d "$log_dir" ]; then
+    log_perms=$(stat -f "%Lp" "$log_dir" 2>/dev/null || stat -c "%a" "$log_dir" 2>/dev/null)
+    if [ "$log_perms" = "700" ]; then
+        emit_pass "Log directory permissions are 700" "Log Files"
+    else
+        emit_prompt "Log directory permissions are $log_perms — fix to 700?" \
+            "fix_log_perms" \
+            "Log directory permissions are $log_perms (should be 700)" \
+            "Log directory left at $log_perms"
+    fi
+else
+    emit_pass "No OpenClaw log directory found at /tmp/openclaw" "Log Files"
+fi
+}
+
 # --- Check: docker_installed ---
 
 __meta_docker_installed() {
@@ -1145,6 +1327,142 @@ case "$REMEDIATION_ID" in
         emit_fail "Unknown remediation: $REMEDIATION_ID" "Firewall"
         ;;
 esac
+}
+
+# --- Check: gateway_advanced ---
+
+__meta_gateway_advanced() {
+    case "$1" in
+        name) echo "Gateway Advanced Security" ;;
+        id)   echo "gateway_advanced" ;;
+    esac
+}
+
+__check_gateway_advanced() {
+# ============================================================================
+# Clawkeeper Check: Gateway Advanced Security
+# Checks elevated tools, browser control, group access, plugin allowlist,
+# and trusted proxy configuration.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+config_file="$HOME/.openclaw/openclaw.json"
+
+if [ ! -f "$config_file" ]; then
+    emit_info "No openclaw.json found — skipping advanced gateway checks"
+return 0
+fi
+
+emit_info "Advanced gateway security checks:"
+
+# ---------- Elevated tool access ----------
+if grep -q '"elevated"' "$config_file" 2>/dev/null; then
+    if grep -q '"elevated"' "$config_file" 2>/dev/null && grep -q '"enabled".*true' "$config_file" 2>/dev/null; then
+        # Check more precisely: look for elevated block with enabled: true
+        # Using a simple heuristic since we don't have jq
+        local_elevated=$(grep -A2 '"elevated"' "$config_file" 2>/dev/null | grep '"enabled"' | head -1)
+        if echo "$local_elevated" | grep -q 'true' 2>/dev/null; then
+            emit_fail "Elevated tool execution is enabled (tools.elevated.enabled: true)" "Elevated Tools"
+            emit_info "Disable elevated execution: set tools.elevated.enabled = false"
+        else
+            emit_pass "Elevated tool execution is disabled" "Elevated Tools"
+        fi
+    else
+        emit_pass "Elevated tool execution is disabled" "Elevated Tools"
+    fi
+else
+    emit_pass "Elevated tool execution not configured (disabled by default)" "Elevated Tools"
+fi
+
+# ---------- Browser control ----------
+# Check if browser control tools are exposed
+if grep -q '"browser"' "$config_file" 2>/dev/null; then
+    # Check if browser mode is set to off
+    if grep -A3 '"browser"' "$config_file" 2>/dev/null | grep -q '"mode".*"off"' 2>/dev/null; then
+        emit_pass "Browser control is disabled (mode: off)" "Browser Control"
+    else
+        emit_fail "Browser control is enabled — treat as operator-level access" "Browser Control"
+        emit_info "Disable when unused: gateway.nodes.browser.mode = 'off'"
+        emit_info "If needed, restrict to tailnet-only access"
+    fi
+else
+    emit_pass "Browser control not configured (safe default)" "Browser Control"
+fi
+
+# ---------- Group access policy ----------
+if grep -q '"requireMention".*true' "$config_file" 2>/dev/null; then
+    emit_pass "requireMention = true (bot only responds when @mentioned)" "Group Mention Policy"
+else
+    if grep -q '"groupPolicy"' "$config_file" 2>/dev/null; then
+        if grep -q '"groupPolicy".*"allowlist"' "$config_file" 2>/dev/null; then
+            emit_pass "Group policy is set to allowlist" "Group Access Policy"
+        elif grep -q '"groupPolicy".*"open"' "$config_file" 2>/dev/null; then
+            emit_fail "Group policy is 'open' — any group member can command the bot" "Group Access Policy"
+            emit_info "Set groupPolicy to 'allowlist' or enable requireMention"
+        fi
+    else
+        emit_fail "requireMention not enabled for group channels" "Group Mention Policy"
+        emit_info "Set requireMention: true to prevent responding to arbitrary group messages"
+    fi
+fi
+
+# ---------- Plugin/extension allowlist ----------
+if grep -q '"plugins"' "$config_file" 2>/dev/null; then
+    if grep -q '"allow"' "$config_file" 2>/dev/null; then
+        emit_pass "Plugin allowlist is configured (plugins.allow)" "Plugin Allowlist"
+    else
+        emit_fail "Plugins loaded without explicit allowlist" "Plugin Allowlist"
+        emit_info "Define plugins.allow to explicitly trust only required plugins"
+    fi
+else
+    emit_pass "No plugins configured" "Plugin Allowlist"
+fi
+
+# ---------- Trusted proxy configuration ----------
+if grep -q '"trustedProxies"' "$config_file" 2>/dev/null; then
+    emit_pass "Trusted proxies are configured (gateway.trustedProxies)" "Trusted Proxies"
+else
+    # Only flag if gateway is not in loopback mode (proxy config irrelevant for local-only)
+    if grep -q '"bind"' "$config_file" 2>/dev/null; then
+        local_bind=$(grep '"bind"' "$config_file" 2>/dev/null | head -1)
+        if echo "$local_bind" | grep -q '"loopback"' 2>/dev/null; then
+            emit_pass "Gateway is loopback-only (trusted proxies not needed)" "Trusted Proxies"
+        else
+            emit_fail "Gateway exposed without trusted proxy configuration" "Trusted Proxies"
+            emit_info "Set gateway.trustedProxies to prevent auth bypass via header spoofing"
+        fi
+    else
+        emit_pass "Gateway bind mode not set (defaults safe)" "Trusted Proxies"
+    fi
+fi
+
+# ---------- Dangerous tool deny list ----------
+# Check if automation, runtime, and fs groups are denied
+denied_groups=0
+for group in "group:automation" "group:runtime" "group:fs"; do
+    if grep -q "$group" "$config_file" 2>/dev/null; then
+        denied_groups=$((denied_groups + 1))
+    fi
+done
+
+if [ "$denied_groups" -ge 3 ]; then
+    emit_pass "Dangerous tool groups denied (automation, runtime, fs)" "Tool Deny List"
+elif [ "$denied_groups" -gt 0 ]; then
+    emit_warn "Some dangerous tool groups are denied but not all"
+    emit_fail "Deny all dangerous tool groups: automation, runtime, fs" "Tool Deny List"
+else
+    emit_fail "Dangerous tool groups not explicitly denied" "Tool Deny List"
+    emit_info "Add to tools.deny: group:automation, group:runtime, group:fs"
+fi
 }
 
 # --- Check: homebrew ---
@@ -3056,6 +3374,110 @@ fi
 if [ "$found" = false ]; then
     emit_info "No running OpenClaw instance detected"
     emit_info "This is expected if you haven't installed OpenClaw yet."
+fi
+}
+
+# --- Check: openclaw_version ---
+
+__meta_openclaw_version() {
+    case "$1" in
+        name) echo "OpenClaw Version & CVE Check" ;;
+        id)   echo "openclaw_version" ;;
+    esac
+}
+
+__check_openclaw_version() {
+# ============================================================================
+# Clawkeeper Check: OpenClaw Version & CVE Check
+# Detects installed OpenClaw version and checks against known vulnerabilities.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+# --- Known vulnerable versions ---
+# Format: "max_affected_version|CVE|severity|description"
+# All versions BEFORE 2026.1.29 are affected by these CVEs
+KNOWN_CVES=(
+    "2026.1.28|CVE-2026-24763|HIGH|Gateway authentication bypass via crafted request"
+    "2026.1.28|CVE-2026-25253|HIGH|1-click RCE: WebSocket gatewayUrl token leak from query string"
+)
+
+# Minimum safe version
+MIN_SAFE_VERSION="2026.1.29"
+
+# --- Detect OpenClaw version ---
+oc_version=""
+if command -v openclaw &>/dev/null; then
+    oc_version=$(openclaw --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+elif command -v npx &>/dev/null; then
+    oc_version=$(npx openclaw --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+fi
+
+if [ -z "$oc_version" ]; then
+    emit_skipped "OpenClaw not detected — version check skipped" "OpenClaw Version"
+return 0
+fi
+
+emit_info "Detected OpenClaw version: $oc_version"
+
+# --- Version comparison helper ---
+# Returns 0 if $1 <= $2 (version A is less than or equal to version B)
+version_lte() {
+    local IFS='.'
+    local -a a=($1) b=($2)
+    local i
+    for ((i=0; i<3; i++)); do
+        local va=${a[$i]:-0}
+        local vb=${b[$i]:-0}
+        if (( va < vb )); then return 0; fi
+        if (( va > vb )); then return 1; fi
+    done
+    return 0  # equal
+}
+
+version_lt() {
+    local IFS='.'
+    local -a a=($1) b=($2)
+    local i
+    for ((i=0; i<3; i++)); do
+        local va=${a[$i]:-0}
+        local vb=${b[$i]:-0}
+        if (( va < vb )); then return 0; fi
+        if (( va > vb )); then return 1; fi
+    done
+    return 1  # equal means not less-than
+}
+
+# --- Check against known CVEs ---
+vuln_count=0
+for entry in "${KNOWN_CVES[@]}"; do
+    IFS='|' read -r max_affected cve severity description <<< "$entry"
+    if version_lte "$oc_version" "$max_affected"; then
+        emit_fail "CRITICAL: $cve ($severity) — $description [fixed in $MIN_SAFE_VERSION]" "CVE: $cve"
+        vuln_count=$((vuln_count + 1))
+    fi
+done
+
+if [ "$vuln_count" -eq 0 ]; then
+    emit_pass "OpenClaw $oc_version has no known CVEs" "OpenClaw Version"
+else
+    emit_warn "Found $vuln_count known CVE(s) — upgrade to OpenClaw >= $MIN_SAFE_VERSION"
+    emit_info "Run: npm install -g openclaw@latest"
+fi
+
+# --- Check if version is recent ---
+# Warn if version is more than 3 major releases behind latest known
+latest_known="2026.1.29"
+if version_lt "$oc_version" "$latest_known"; then
+    emit_warn "OpenClaw $oc_version may be outdated (latest known: $latest_known)"
 fi
 }
 

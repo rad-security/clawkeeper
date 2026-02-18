@@ -195,7 +195,7 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
               <div className="h-px flex-1 bg-border" />
             </div>
             <a
-              href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+              href="https://github.com/rad-security/clawkeeper/releases/latest/download/Clawkeeper.dmg"
               className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
             >
               <Apple className="h-4 w-4" />

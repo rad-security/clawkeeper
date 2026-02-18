@@ -1,0 +1,7 @@
+id = "credential_store"
+name = "Credential Store Security"
+phase = "security_audit"
+platform = "all"
+description = "Checks permissions on credential directories, OAuth profiles, and session transcript stores."
+requires_sudo = false
+order = 59

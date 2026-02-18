@@ -71,7 +71,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               Dashboard
             </Link>
             <a
-              href="https://github.com/clawkeeper/clawkeeper"
+              href="https://github.com/rad-security/clawkeeper"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-zinc-400 transition hover:text-white"

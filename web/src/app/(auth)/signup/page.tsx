@@ -98,7 +98,7 @@ export default function SignupPage() {
           {[
             {
               icon: Terminal,
-              text: "39 automated security checks",
+              text: "42 automated security checks",
             },
             {
               icon: Check,

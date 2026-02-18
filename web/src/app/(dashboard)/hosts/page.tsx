@@ -62,7 +62,7 @@ export default async function HostsPage() {
               <div className="h-px flex-1 bg-border" />
             </div>
             <a
-              href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+              href="https://github.com/rad-security/clawkeeper/releases/latest/download/Clawkeeper.dmg"
               className="inline-flex items-center gap-2"
             >
               <Button variant="outline" size="sm">

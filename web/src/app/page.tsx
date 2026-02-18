@@ -31,6 +31,7 @@ import {
   Network,
   Apple,
   Download,
+  Github,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { CopyCommand } from "@/components/landing/CopyCommand";
@@ -74,8 +75,23 @@ export default function LandingPage() {
             >
               Docs
             </Link>
+            <Link
+              href="/security-feed"
+              className="text-sm text-zinc-400 transition hover:text-white"
+            >
+              Security Feed
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/rad-security/clawkeeper"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-zinc-400 transition hover:text-white"
+              aria-label="GitHub"
+            >
+              <Github className="h-5 w-5" />
+            </a>
             <Link href="/login">
               <Button
                 variant="ghost"
@@ -143,7 +159,7 @@ export default function LandingPage() {
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-sm text-zinc-500">
             <a
-              href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+              href="https://github.com/rad-security/clawkeeper/releases/latest/download/Clawkeeper.dmg"
               className="flex items-center gap-1.5 transition hover:text-zinc-300"
             >
               <Apple className="h-3.5 w-3.5" />
@@ -206,7 +222,7 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-zinc-950">
         <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-white/10 sm:grid-cols-4">
           {[
-            { value: "39", label: "Security checks" },
+            { value: "42", label: "Security checks" },
             { value: "180k+", label: "OpenClaw installs at risk" },
             { value: "<60s", label: "Time to first scan" },
             { value: "A–F", label: "Letter grade scoring" },
@@ -316,7 +332,7 @@ export default function LandingPage() {
                 icon: ShieldCheck,
                 title: "Scan",
                 description:
-                  "39 automated checks across 5 phases: host hardening, network, prerequisites, installation, and security audit. Results in under 60 seconds.",
+                  "42 automated checks across 5 phases: host hardening, network, prerequisites, installation, and security audit. Results in under 60 seconds.",
               },
               {
                 step: "03",
@@ -723,7 +739,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
               </CardHeader>
               <CardContent className="flex flex-1 flex-col space-y-3">
                 <a
-                  href="https://github.com/clawkeeper/clawkeeper/releases/latest/download/Clawkeeper.dmg"
+                  href="https://github.com/rad-security/clawkeeper/releases/latest/download/Clawkeeper.dmg"
                   className="btn-rad flex items-center justify-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-cyan-400"
                 >
                   <Apple className="h-4 w-4" />
@@ -830,7 +846,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
             {[
               { value: "AWS", label: "EKS Add-on Partner" },
               { value: "eBPF", label: "Kernel-level detection" },
-              { value: "39", label: "Automated security checks" },
+              { value: "42", label: "Automated security checks" },
               { value: "SOC 2", label: "Compliance ready" },
             ].map((s) => (
               <div key={s.label} className="text-center">
@@ -917,7 +933,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
                 </li>
                 <li>
                   <a
-                    href="https://github.com/clawkeeper/clawkeeper"
+                    href="https://github.com/rad-security/clawkeeper"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-zinc-300"
@@ -935,6 +951,11 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
                 <li>
                   <Link href="/docs" className="hover:text-zinc-300">
                     Documentation
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/security-feed" className="hover:text-zinc-300">
+                    Security Feed
                   </Link>
                 </li>
                 <li>

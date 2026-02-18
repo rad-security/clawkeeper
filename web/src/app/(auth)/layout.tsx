@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Sign Up — Free OpenClaw Security Dashboard",
   description:
-    "Create a free Clawkeeper account. Monitor your OpenClaw deployments with 39 automated security checks, letter grades, and real-time alerts. No credit card required.",
+    "Create a free Clawkeeper account. Monitor your OpenClaw deployments with 42 automated security checks, letter grades, and real-time alerts. No credit card required.",
   openGraph: {
     title: "Sign Up for Clawkeeper",
     description:

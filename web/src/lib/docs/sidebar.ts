@@ -34,4 +34,11 @@ export const sidebarNav: SidebarSection[] = [
       { title: "Security Audit", href: "/docs/checks/security_audit" },
     ],
   },
+  {
+    title: "Compare",
+    items: [
+      { title: "vs ClawSec", href: "/docs/compare/clawsec" },
+      { title: "vs OpenClaw Native", href: "/docs/compare/openclaw-native" },
+    ],
+  },
 ];
