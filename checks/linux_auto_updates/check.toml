@@ -1,0 +1,7 @@
+id = "linux_auto_updates"
+name = "Automatic Security Updates"
+phase = "host_hardening"
+platform = "linux"
+description = "Servers should auto-install security patches to prevent known exploits."
+requires_sudo = true
+order = 4

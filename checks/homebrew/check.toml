@@ -1,0 +1,7 @@
+id = "homebrew"
+name = "Homebrew"
+phase = "prerequisites"
+platform = "macos"
+description = "Package manager needed for installing Docker, Node.js, and other tools."
+requires_sudo = false
+order = 30

@@ -1,0 +1,7 @@
+id = "icloud"
+name = "iCloud"
+phase = "host_hardening"
+platform = "macos"
+description = "iCloud syncs data off-device. A compromised agent's files shouldn't trigger cloud uploads."
+requires_sudo = false
+order = 10

@@ -1,0 +1,7 @@
+id = "credential_exposure"
+name = "Credential Exposure Scan"
+phase = "security_audit"
+platform = "all"
+description = "Scans config files, shell history, MEMORY.md, and session logs for exposed credentials."
+requires_sudo = false
+order = 54

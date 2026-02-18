@@ -1,0 +1,7 @@
+id = "siri"
+name = "Siri"
+phase = "host_hardening"
+platform = "macos"
+description = "Siri indexes files, contacts, and app activity locally."
+requires_sudo = false
+order = 1

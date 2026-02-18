@@ -1,0 +1,7 @@
+id = "native_openclaw"
+name = "OpenClaw (npm)"
+phase = "prerequisites"
+platform = "macos"
+description = "Checks if OpenClaw is available via npm global install or npx."
+requires_sudo = false
+order = 33

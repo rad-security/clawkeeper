@@ -1,0 +1,7 @@
+id = "openclaw_version"
+name = "OpenClaw Version & CVE Check"
+phase = "security_audit"
+platform = "all"
+description = "Checks installed OpenClaw version against known CVEs (gateway auth bypass, 1-click RCE, WebSocket token leak)."
+requires_sudo = false
+order = 49

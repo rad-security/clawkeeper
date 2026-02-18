@@ -1,0 +1,7 @@
+id = "linux_docker"
+name = "Docker Engine"
+phase = "prerequisites"
+platform = "linux"
+description = "Docker provides container isolation for OpenClaw."
+requires_sudo = true
+order = 32

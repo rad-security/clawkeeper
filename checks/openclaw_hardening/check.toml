@@ -1,0 +1,7 @@
+id = "openclaw_hardening"
+name = "OpenClaw Hardening Audit"
+phase = "security_audit"
+platform = "all"
+description = "Advanced configuration checks: sandbox mode, exec host policy, DM scope/policy, filesystem restriction, log redaction."
+requires_sudo = false
+order = 52

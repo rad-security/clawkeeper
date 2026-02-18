@@ -1,0 +1,7 @@
+id = "docker_installed"
+name = "Docker Desktop"
+phase = "prerequisites"
+platform = "macos"
+description = "Container isolation is the most impactful security improvement for OpenClaw."
+requires_sudo = false
+order = 32

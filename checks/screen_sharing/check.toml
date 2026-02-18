@@ -1,0 +1,7 @@
+id = "screen_sharing"
+name = "Screen Sharing"
+phase = "network"
+platform = "macos"
+description = "Screen Sharing should only be enabled if you access this Mac remotely."
+requires_sudo = false
+order = 21

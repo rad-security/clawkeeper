@@ -1,0 +1,7 @@
+id = "linux_disk_encryption"
+name = "Disk Encryption"
+phase = "host_hardening"
+platform = "linux"
+description = "Protects data at rest if the server disk is accessed outside the VM."
+requires_sudo = false
+order = 7

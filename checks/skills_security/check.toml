@@ -1,0 +1,7 @@
+id = "skills_security"
+name = "Skills Security Audit"
+phase = "security_audit"
+platform = "all"
+description = "Scans skills directories for dangerous install commands, secret injection, and data exfiltration patterns."
+requires_sudo = false
+order = 55

@@ -1,0 +1,7 @@
+id = "network_isolation"
+name = "Network Isolation"
+phase = "network"
+platform = "macos"
+description = "Verifies this machine is on an isolated network, not your primary Wi-Fi."
+requires_sudo = false
+order = 20

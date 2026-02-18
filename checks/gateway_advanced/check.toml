@@ -1,0 +1,7 @@
+id = "gateway_advanced"
+name = "Gateway Advanced Security"
+phase = "security_audit"
+platform = "all"
+description = "Checks elevated tool access, browser control, group access policy, plugin allowlist, and trusted proxy configuration."
+requires_sudo = false
+order = 58

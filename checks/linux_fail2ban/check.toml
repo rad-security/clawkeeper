@@ -1,0 +1,7 @@
+id = "linux_fail2ban"
+name = "Fail2ban"
+phase = "host_hardening"
+platform = "linux"
+description = "Blocks IPs after repeated failed login attempts."
+requires_sudo = true
+order = 5

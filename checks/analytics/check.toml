@@ -1,0 +1,7 @@
+id = "analytics"
+name = "Analytics & Telemetry"
+phase = "host_hardening"
+platform = "macos"
+description = "Diagnostic data from this machine shouldn't go to Apple or third parties."
+requires_sudo = true
+order = 5

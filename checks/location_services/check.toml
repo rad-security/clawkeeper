@@ -1,0 +1,7 @@
+id = "location_services"
+name = "Location Services"
+phase = "host_hardening"
+platform = "macos"
+description = "Location data embeds in file metadata that OpenClaw might process or transmit."
+requires_sudo = true
+order = 2
