@@ -12,13 +12,13 @@ export async function ensureOrganization(
   userEmail: string
 ): Promise<string> {
   // Check for existing membership via user-scoped client
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("org_members")
     .select("org_id")
-    .single();
+    .limit(1);
 
-  if (membership) {
-    return membership.org_id;
+  if (memberships && memberships.length > 0) {
+    return memberships[0].org_id;
   }
 
   // No org — create one with the admin client (mirrors handle_new_user trigger)
