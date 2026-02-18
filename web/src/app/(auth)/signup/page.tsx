@@ -124,7 +124,7 @@ export default function SignupPage() {
           ))}
         </div>
         <p className="mt-8 text-xs text-zinc-600">
-          Free forever for 1 host. No credit card required.
+          Free forever for up to 3 hosts. No credit card required.
         </p>
       </div>
 
@@ -137,7 +137,7 @@ export default function SignupPage() {
             </div>
             <CardTitle className="text-2xl font-bold text-white">Create your account</CardTitle>
             <CardDescription className="text-zinc-400">
-              Free forever for 1 host. No credit card required.
+              Free forever for up to 3 hosts. No credit card required.
             </CardDescription>
           </CardHeader>
           <CardContent>

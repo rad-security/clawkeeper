@@ -17,7 +17,7 @@ import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 const comparisonFeatures = [
   { name: "CLI scanner (39 checks)", free: true, pro: true, enterprise: true },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
-  { name: "Dashboard hosts", free: "1", pro: "50", enterprise: "Unlimited" },
+  { name: "Dashboard hosts", free: "3", pro: "50", enterprise: "Unlimited" },
   { name: "Scan history", free: "7 days", pro: "365 days", enterprise: "Unlimited" },
   { name: "API keys", free: "1", pro: "10", enterprise: "Unlimited" },
   { name: "Alert rules", free: false, pro: "20", enterprise: "Unlimited" },

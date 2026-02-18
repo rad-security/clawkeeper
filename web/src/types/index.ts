@@ -129,7 +129,7 @@ export interface Event {
 
 // Tier limits
 export const TIER_LIMITS = {
-  free: { hosts: 1, scan_history_days: 7, alert_rules: 0, api_keys: 1, events_visible: 5 },
+  free: { hosts: 3, scan_history_days: 7, alert_rules: 0, api_keys: 1, events_visible: 5 },
   pro: { hosts: 50, scan_history_days: 365, alert_rules: 20, api_keys: 10, events_visible: -1 },
   enterprise: { hosts: -1, scan_history_days: -1, alert_rules: -1, api_keys: -1, events_visible: -1 },
 } as const;
@@ -169,7 +169,7 @@ export const ENTERPRISE_FEATURES = [
 export const FREE_FEATURES = [
   "Full CLI scanner (35+ checks)",
   "Auto-fix for common issues",
-  "1 host on dashboard",
+  "3 hosts on dashboard",
   "7 days scan history",
   "1 API key",
   "Letter grade & score",

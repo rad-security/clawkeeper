@@ -641,7 +641,15 @@ agent_run() {
         agent_log "Upload failed (HTTP $http_code)"
         echo -e "  ${RED}✗${RESET} Upload failed (HTTP $http_code)"
         if [ -f /tmp/clawkeeper-upload-response.json ]; then
-            agent_log "Response: $(cat /tmp/clawkeeper-upload-response.json)"
+            local err_body
+            err_body=$(cat /tmp/clawkeeper-upload-response.json)
+            agent_log "Response: $err_body"
+            # Try to extract "error" field from JSON response
+            local err_msg
+            err_msg=$(echo "$err_body" | sed -n 's/.*"error" *: *"\([^"]*\)".*/\1/p')
+            if [ -n "$err_msg" ]; then
+                echo -e "  ${DIM}$err_msg${RESET}"
+            fi
         fi
     fi
 
