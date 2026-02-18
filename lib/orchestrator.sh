@@ -565,8 +565,8 @@ agent_run() {
     if grep -q "^Fixed:" "$report_file"; then
         fixed_count=$(grep "^Fixed:" "$report_file" | head -1 | sed 's/Fixed: *//')
     fi
-    if grep -q "^Skipped:" "$report_file"; then
-        skipped_count=$(grep "^Skipped:" "$report_file" | head -1 | sed 's/Skipped: *//')
+    if grep -q "^Accepted risks:" "$report_file"; then
+        skipped_count=$(grep "^Accepted risks:" "$report_file" | head -1 | sed 's/Accepted risks: *//')
     fi
 
     # Calculate grade
@@ -604,32 +604,31 @@ agent_run() {
     done < <(grep -E '^\s*(PASS|FAIL|FIXED|SKIPPED)\s*\|' "$report_file" || true)
     checks_json="$checks_json]"
 
-    # Read raw report
+    # Read raw report — escape for JSON embedding
     local raw_report
-    raw_report=$(cat "$report_file" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' '\\' | sed 's/\\/n/g')
+    raw_report=$(sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' "$report_file" | awk '{printf "%s\\n", $0}' | sed 's/\\n$//')
 
     local scanned_at
     scanned_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
     # Build JSON payload (no jq dependency)
+    # Use heredoc to avoid printf interpretation of % in report content
     local payload
-    payload=$(printf '{
-  "hostname": "%s",
-  "platform": "%s",
-  "os_version": "%s",
-  "score": %d,
-  "grade": "%s",
-  "passed": %d,
-  "failed": %d,
-  "fixed": %d,
-  "skipped": %d,
-  "checks": %s,
-  "raw_report": "%s",
-  "scanned_at": "%s",
-  "agent_version": "%s"
-}' "$hostname" "$platform" "$os_version" "$score" "$grade" \
-   "$passed" "$failed" "$fixed_count" "$skipped_count" \
-   "$checks_json" "$raw_report" "$scanned_at" "$AGENT_VERSION")
+    payload="{
+  \"hostname\": \"$hostname\",
+  \"platform\": \"$platform\",
+  \"os_version\": \"$os_version\",
+  \"score\": $score,
+  \"grade\": \"$grade\",
+  \"passed\": $passed,
+  \"failed\": $failed,
+  \"fixed\": $fixed_count,
+  \"skipped\": $skipped_count,
+  \"checks\": $checks_json,
+  \"raw_report\": \"$raw_report\",
+  \"scanned_at\": \"$scanned_at\",
+  \"agent_version\": \"$AGENT_VERSION\"
+}"
 
     # Upload
     agent_log "Uploading scan to $api_url..."
