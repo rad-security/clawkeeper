@@ -84,8 +84,9 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (hostError || !newHost) {
+      console.error("Host insert error:", hostError);
       return NextResponse.json(
-        { error: "Failed to create host" },
+        { error: "Failed to create host", detail: hostError?.message },
         { status: 500 }
       );
     }
