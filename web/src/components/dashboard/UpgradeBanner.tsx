@@ -18,7 +18,7 @@ export function UpgradeBanner() {
           Upgrade to Pro for fleet monitoring
         </p>
         <p className="text-xs text-cyan-400/70">
-          Monitor up to 50 hosts with alerts, score trends, and 365-day history.
+          CVE intelligence, AI insights, email & webhook alerts, score trends, and 365-day history.
         </p>
       </div>
       <Link href="/upgrade">

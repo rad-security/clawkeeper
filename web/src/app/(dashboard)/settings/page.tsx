@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ApiKeyManager } from "@/components/settings/ApiKeyManager";
 import { BillingPortalButton } from "@/components/settings/BillingPortalButton";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { CopyCommand } from "@/components/landing/CopyCommand";
 import { TIER_LIMITS, type PlanType } from "@/types";
-import { CheckCircle2 } from "lucide-react";
+import { isPaidPlan } from "@/lib/tier";
+import { CheckCircle2, Bell, Zap } from "lucide-react";
 
 export default async function SettingsPage({
   searchParams,
@@ -143,8 +145,12 @@ export default async function SettingsPage({
               </strong>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <span className="text-muted-foreground">Alert Rules</span>
-              <strong>{fmtLimit(limits.alert_rules)} max</strong>
+              <span className="text-muted-foreground">AI Insights</span>
+              {limits.insights === 0 ? (
+                <Link href="/upgrade" className="text-sm font-semibold text-cyan-400 hover:underline">Upgrade to Pro</Link>
+              ) : (
+                <strong>Enabled</strong>
+              )}
             </div>
           </div>
         </CardContent>
@@ -152,6 +158,33 @@ export default async function SettingsPage({
 
       {/* API Keys */}
       <ApiKeyManager orgId={orgId} keys={keys} plan={plan} />
+
+      {/* Notification Settings — Pro/Enterprise only */}
+      {isPaidPlan(plan) ? (
+        <NotificationSettings />
+      ) : (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>Notifications</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Get email and webhook alerts for CVEs, misconfigurations, and grade drops.
+              </p>
+              <Link href="/upgrade?reason=notifications">
+                <Button size="sm" className="gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Upgrade
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

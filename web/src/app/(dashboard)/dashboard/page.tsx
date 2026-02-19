@@ -4,15 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SecurityGradeCard } from "@/components/dashboard/SecurityGradeCard";
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow";
-import { Monitor, Shield, AlertTriangle, Clock } from "lucide-react";
+import { Monitor, Shield, AlertTriangle, Sparkles, Lock } from "lucide-react";
 import { UpgradeBanner } from "@/components/dashboard/UpgradeBanner";
+import { isPaidPlan } from "@/lib/tier";
+import Link from "next/link";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const orgId = await getOrgId(supabase);
 
   // Parallel queries
-  const [hostsRes, recentScansRes, alertEventsRes, orgRes] = await Promise.all([
+  const [hostsRes, recentScansRes, insightsCountRes, orgRes] = await Promise.all([
     supabase
       .from("hosts")
       .select("id, hostname, last_grade, last_score, last_scan_at, platform")
@@ -25,18 +27,18 @@ export default async function DashboardPage() {
       .order("scanned_at", { ascending: false })
       .limit(5),
     supabase
-      .from("alert_events")
-      .select("id, message, notified_at")
+      .from("insights")
+      .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
-      .order("notified_at", { ascending: false })
-      .limit(5),
+      .eq("is_resolved", false),
     supabase.from("organizations").select("plan").eq("id", orgId).single(),
   ]);
 
   const hosts = hostsRes.data || [];
   const recentScans = recentScansRes.data || [];
-  const alertEvents = alertEventsRes.data || [];
+  const activeInsights = insightsCountRes.count || 0;
   const plan = orgRes.data?.plan || "free";
+  const paid = isPaidPlan(plan);
 
   // No hosts yet — show onboarding wizard
   if (hosts.length === 0) {
@@ -46,9 +48,6 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold">Dashboard</h1>
           <p className="text-muted-foreground">
             OpenClaw security overview
-            <Badge variant="outline" className="ml-2">
-              {plan}
-            </Badge>
           </p>
         </div>
         <OnboardingFlow orgId={orgId} />
@@ -74,14 +73,11 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">
           Organization security overview
-          <Badge variant="outline" className="ml-2">
-            {plan}
-          </Badge>
         </p>
       </div>
 
       {/* Upgrade banner for free users */}
-      {plan === "free" && <UpgradeBanner />}
+      {!paid && <UpgradeBanner />}
 
       {/* Stats cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -116,11 +112,18 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Recent Alerts</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Insights</CardTitle>
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{alertEvents.length}</div>
+            {paid ? (
+              <div className="text-2xl font-bold">{activeInsights}</div>
+            ) : (
+              <Link href="/upgrade" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Lock className="h-3.5 w-3.5" />
+                Pro feature
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>

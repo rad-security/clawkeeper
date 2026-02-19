@@ -61,3 +61,17 @@ Clawkeeper has two modes controlled by flags:
 - **Non-interactive** (default for `scan`, also `--non-interactive` flag) — read-only audit, never modifies your system
 
 The agent always runs in non-interactive mode.
+
+## Notification settings
+
+Pro and Enterprise users can configure email and webhook notifications in the dashboard. When the agent reports a scan with critical findings, the system can automatically alert you.
+
+Notifications are configured in [Settings → Notifications](/settings) in the dashboard. See the [Notifications docs](/docs/notifications) for details on supported event types, webhook payload format, and HMAC signing.
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `CLAWKEEPER_API_KEY` | API key for SaaS dashboard reporting. Optional — the CLI works without it. |
+| `NEXT_PUBLIC_APP_URL` | Base URL for the dashboard (used in email links). Defaults to `https://clawkeeper.dev`. |
+| `RESEND_API_KEY` | API key for the Resend email service (server-side only). Required for email notifications. |

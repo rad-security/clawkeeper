@@ -12,11 +12,11 @@ import { CVECard } from "@/components/security-feed/CVECard";
 export const metadata: Metadata = {
   title: "Security Feed — OpenClaw CVE Advisories | Clawkeeper",
   description:
-    "Daily-updated CVE advisories for OpenClaw deployments. Track vulnerabilities in Node.js, Docker, and WebSocket infrastructure with severity scores and remediation guidance.",
+    "Daily-updated CVE and GHSA advisories curated for OpenClaw deployments. Powered by the OpenClawCVEs community repo with severity scores, affected packages, and remediation guidance.",
   openGraph: {
     title: "Security Feed — OpenClaw CVE Advisories",
     description:
-      "Daily-updated CVE advisories for OpenClaw deployments. Track vulnerabilities in Node.js, Docker, and WebSocket infrastructure.",
+      "Daily-updated CVE and GHSA advisories curated for OpenClaw deployments. Powered by the OpenClawCVEs community repo.",
     type: "website",
     url: "https://clawkeeper.dev/security-feed",
   },
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Security Feed — OpenClaw CVE Advisories",
     description:
-      "Daily-updated CVE advisories for OpenClaw deployments.",
+      "Daily-updated CVE and GHSA advisories curated for OpenClaw deployments.",
   },
 };
 
@@ -84,6 +84,12 @@ export default async function SecurityFeedPage() {
             >
               Security Feed
             </Link>
+            <Link
+              href="/tutorials"
+              className="text-sm text-zinc-400 transition hover:text-white"
+            >
+              Tutorials
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login">
@@ -121,10 +127,22 @@ export default async function SecurityFeedPage() {
           </h1>
 
           <p className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400">
-            Daily-updated CVE advisories for the OpenClaw tech stack.
-            Node.js, Docker, and WebSocket vulnerabilities — tracked and
-            scored so you can prioritize what matters.
+            Daily-updated CVE and GHSA advisories curated for the OpenClaw
+            ecosystem. Vulnerabilities tracked, scored, and enriched with
+            affected packages so you can prioritize what matters.
           </p>
+
+          <a
+            href="https://github.com/jgamblin/OpenClawCVEs"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs text-zinc-300 transition hover:border-white/20 hover:text-white"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>
+            Powered by OpenClawCVEs
+          </a>
 
           <div className="mt-6 flex flex-col items-center gap-4">
             <p className="text-sm text-zinc-500">
@@ -255,6 +273,11 @@ export default async function SecurityFeedPage() {
                   </Link>
                 </li>
                 <li>
+                  <Link href="/tutorials" className="hover:text-zinc-300">
+                    Tutorials
+                  </Link>
+                </li>
+                <li>
                   <Link href="/dashboard" className="hover:text-zinc-300">
                     Dashboard
                   </Link>
@@ -306,14 +329,23 @@ export default async function SecurityFeedPage() {
               reserved.
             </p>
             <p className="text-xs text-zinc-600">
-              CVE data sourced from the{" "}
+              CVE data sourced from{" "}
+              <a
+                href="https://github.com/jgamblin/OpenClawCVEs"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-zinc-500 hover:text-zinc-400"
+              >
+                jgamblin/OpenClawCVEs
+              </a>
+              {" "}and the{" "}
               <a
                 href="https://nvd.nist.gov/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-zinc-500 hover:text-zinc-400"
               >
-                National Vulnerability Database
+                NVD
               </a>
               .
             </p>

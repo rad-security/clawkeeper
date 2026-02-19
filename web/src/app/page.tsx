@@ -81,6 +81,12 @@ export default function LandingPage() {
             >
               Security Feed
             </Link>
+            <Link
+              href="/tutorials"
+              className="text-sm text-zinc-400 transition hover:text-white"
+            >
+              Tutorials
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             <a
@@ -222,7 +228,7 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-zinc-950">
         <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-white/10 sm:grid-cols-4">
           {[
-            { value: "42", label: "Security checks" },
+            { value: "43", label: "Security checks" },
             { value: "180k+", label: "OpenClaw installs at risk" },
             { value: "<60s", label: "Time to first scan" },
             { value: "A–F", label: "Letter grade scoring" },
@@ -332,7 +338,7 @@ export default function LandingPage() {
                 icon: ShieldCheck,
                 title: "Scan",
                 description:
-                  "42 automated checks across 5 phases: host hardening, network, prerequisites, installation, and security audit. Results in under 60 seconds.",
+                  "43 automated checks across 4 phases: host hardening, network, prerequisites, and security audit. Results in under 60 seconds.",
               },
               {
                 step: "03",
@@ -346,7 +352,7 @@ export default function LandingPage() {
                 icon: Monitor,
                 title: "Monitor",
                 description:
-                  "Connect to the Pro dashboard to track every host in one view. Get alerts on grade drops, new skills, and config drift across your fleet.",
+                  "Connect to the Pro dashboard to track every host in one view. Get email and webhook alerts on CVEs, grade drops, and misconfigurations across your fleet.",
               },
             ].map((s) => (
               <div key={s.step} className="text-center">
@@ -455,7 +461,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-xl font-bold text-white">Continuous Monitoring</h3>
                 <p className="text-sm text-zinc-500">
-                  Pro — $29/host/month for teams
+                  Pro — $29/month for teams
                 </p>
               </div>
             </div>
@@ -468,8 +474,8 @@ export default function LandingPage() {
                 },
                 {
                   icon: Bell,
-                  title: "Smart Alerts",
-                  desc: "Get notified on grade drops, new skill installs, credential exposures, or score thresholds.",
+                  title: "Email & Webhook Alerts",
+                  desc: "Get email notifications and webhook alerts when CVEs, credential exposures, misconfigurations, or grade drops are detected.",
                 },
                 {
                   icon: BarChart3,
@@ -846,7 +852,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
             {[
               { value: "AWS", label: "EKS Add-on Partner" },
               { value: "eBPF", label: "Kernel-level detection" },
-              { value: "42", label: "Automated security checks" },
+              { value: "43", label: "Automated security checks" },
               { value: "SOC 2", label: "Compliance ready" },
             ].map((s) => (
               <div key={s.label} className="text-center">
@@ -956,6 +962,11 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
                 <li>
                   <Link href="/security-feed" className="hover:text-zinc-300">
                     Security Feed
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/tutorials" className="hover:text-zinc-300">
+                    Tutorials
                   </Link>
                 </li>
                 <li>

@@ -1,0 +1,140 @@
+# Notifications
+
+Clawkeeper can send email and webhook alerts when security issues are detected on your hosts. Notifications are a Pro feature — configure them in [Settings → Notifications](/settings).
+
+## Supported event types
+
+| Event | Description | Default |
+|---|---|---|
+| **CVE vulnerabilities** | A known CVE is found affecting your OpenClaw installation | On |
+| **Critical misconfigurations** | High-severity findings like credential exposure, container escapes, or new regressions | On |
+| **Grade drops** | A host's security grade decreases between scans | On |
+| **New host registered** | A new machine starts reporting scans to your organization | Off |
+
+Each event type can be independently toggled on or off.
+
+## Email alerts
+
+When enabled, Clawkeeper sends formatted HTML emails via [Resend](https://resend.com) with:
+
+- Severity badge (critical, high, medium, low)
+- Finding title and description
+- Affected hosts
+- Step-by-step remediation instructions
+- Links to the insights and settings pages
+
+Emails are sent from `insights@clawkeeper.dev`. Add this address to your allowlist if emails land in spam.
+
+### Rate limiting
+
+Notifications are rate-limited to **1 per insight type per hour** to avoid alert fatigue. If the same type of issue is detected multiple times within an hour, only the first notification is sent.
+
+## Webhook alerts
+
+Webhooks let you integrate Clawkeeper alerts with any external system — Slack, PagerDuty, custom dashboards, SIEM tools, or internal ticketing systems.
+
+### Configuration
+
+1. Go to [Settings → Notifications](/settings)
+2. Enable webhook notifications
+3. Enter your webhook URL (must be HTTPS for production)
+4. Optionally add a signing secret for HMAC verification
+
+### Payload format
+
+Webhooks send a `POST` request with a JSON body:
+
+```json
+{
+  "event": "cve_vulnerability",
+  "severity": "critical",
+  "title": "CVE-2026-25253: Remote Code Execution in OpenClaw",
+  "description": "Your OpenClaw installation (v2026.1.28) is affected by a critical remote code execution vulnerability.",
+  "remediation": "Upgrade OpenClaw to version >= 2026.1.29",
+  "hostname": "prod-server-01",
+  "metadata": {
+    "cve_id": "CVE-2026-25253",
+    "cvss": 9.8,
+    "affected_packages": "openclaw-core",
+    "fix_version": "2026.1.29"
+  },
+  "timestamp": "2026-02-19T12:34:56.789Z"
+}
+```
+
+### Event types in payloads
+
+The `event` field will be one of:
+
+| Value | Trigger |
+|---|---|
+| `cve_vulnerability` | CVE found against installed OpenClaw version |
+| `critical_failure` | Critical or high-severity check failed |
+| `credential_exposure` | Credentials found in config, history, or logs |
+| `grade_degradation` | Host grade dropped |
+| `new_regression` | Previously passing check now fails |
+| `new_host` | New host registered in the organization |
+
+### Headers
+
+Every webhook request includes these headers:
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json` |
+| `User-Agent` | `Clawkeeper-Webhook/1.0` |
+| `X-Clawkeeper-Signature` | HMAC-SHA256 signature (if secret configured) |
+
+### HMAC signature verification
+
+If you configure a webhook secret, every payload is signed with HMAC-SHA256. The signature is sent in the `X-Clawkeeper-Signature` header as `sha256=<hex-digest>`.
+
+To verify in your webhook handler:
+
+```javascript
+const crypto = require('crypto');
+
+function verifySignature(payload, signature, secret) {
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expected)
+  );
+}
+```
+
+```python
+import hmac, hashlib
+
+def verify_signature(payload: bytes, signature: str, secret: str) -> bool:
+    expected = 'sha256=' + hmac.new(
+        secret.encode(), payload, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+```
+
+### Timeouts and retries
+
+- Webhook requests have a **10-second timeout**
+- Failed webhooks are logged server-side but **not retried** (fire-and-forget)
+- If your endpoint is consistently failing, check the URL and ensure it's publicly reachable
+
+## Slack integration
+
+To send alerts to Slack, use a Slack Incoming Webhook URL as your webhook endpoint. Create one at [api.slack.com/messaging/webhooks](https://api.slack.com/messaging/webhooks).
+
+Note: Slack expects a specific payload format. For full Slack formatting, consider using an intermediary service or Slack workflow that transforms the Clawkeeper payload.
+
+## Setup
+
+1. Go to [Settings](/settings) in the dashboard
+2. Scroll to the **Notifications** section
+3. Enable email and/or webhook alerts
+4. Configure your email address or webhook URL
+5. Select which event types to be notified about
+6. Click **Save Notification Settings**
+
+Notifications take effect immediately for the next scan that produces insights.

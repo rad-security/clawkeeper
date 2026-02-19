@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateScanPayload } from "@/lib/report-parser";
 import { canAddHost } from "@/lib/tier";
-import { evaluateAlerts } from "@/lib/alerts";
+import { generateInsights } from "@/lib/insights";
 import { validateApiKey, isAuthError } from "@/lib/api-auth";
 import { generateScanEvents } from "@/lib/events";
 
@@ -59,9 +59,10 @@ export async function POST(request: NextRequest) {
       .eq("org_id", orgId);
 
     if (!canAddHost(plan, count || 0)) {
+      const limit = plan === "free" ? 1 : 10;
       return NextResponse.json(
         {
-          error: `Host limit reached (${plan} plan). Upgrade to Pro for more hosts.`,
+          error: `Host limit reached (${count}/${limit} on ${plan} plan). Upgrade at https://clawkeeper.dev/upgrade?reason=host_limit`,
         },
         { status: 403 }
       );
@@ -143,8 +144,10 @@ export async function POST(request: NextRequest) {
     await supabase.from("scan_checks").insert(checks);
   }
 
-  // Evaluate alert rules
-  await evaluateAlerts(supabase, orgId, host.id, scan.id, data);
+  // Generate AI-powered insights (pro/enterprise only)
+  if (plan !== "free") {
+    await generateInsights(supabase, orgId, host.id, scan.id, data);
+  }
 
   // Generate audit events (fire-and-forget)
   generateScanEvents(supabase, orgId, host.id, scan.id, data.hostname, data, isNewHost);

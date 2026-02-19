@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgId } from "@/lib/get-org-id";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckStatusBadge } from "@/components/dashboard/CheckStatusBadge";
+import { ChecksTable } from "@/components/dashboard/ChecksTable";
 import { DeploymentBadge } from "@/components/dashboard/DeploymentBadge";
 import { GradeHistoryChart } from "@/components/dashboard/GradeHistoryChart";
 import { ZoneCard } from "@/components/dashboard/ZoneCard";
@@ -17,7 +20,27 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventFeed } from "@/components/activity/EventFeed";
 import { analyzeHost, PHASE_LABELS, PHASE_ORDER } from "@/lib/host-analysis";
-import type { Event } from "@/types";
+import { getScanRetentionDays, getMaxEvents, isPaidPlan } from "@/lib/tier";
+import { Lock, TrendingUp, Activity } from "lucide-react";
+import type { Event, PlanType } from "@/types";
+
+function ProFeatureGate({ title, description, icon: Icon }: { title: string; description: string; icon: React.ComponentType<{ className?: string }> }) {
+  return (
+    <Card className="border-dashed border-muted-foreground/30">
+      <CardContent className="py-8 text-center">
+        <Icon className="mx-auto mb-2 h-8 w-8 text-muted-foreground/50" />
+        <h3 className="font-medium text-muted-foreground">{title}</h3>
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground/70">{description}</p>
+        <Link href="/upgrade">
+          <Button size="sm" className="mt-3">
+            <Lock className="mr-1.5 h-3.5 w-3.5" />
+            Upgrade to Pro
+          </Button>
+        </Link>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function HostDetailPage({
   params,
@@ -26,6 +49,20 @@ export default async function HostDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const orgId = await getOrgId(supabase);
+
+  // Get org plan
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("plan")
+    .eq("id", orgId)
+    .single();
+
+  const plan = (org?.plan || "free") as PlanType;
+  const paid = isPaidPlan(plan);
+  const retentionDays = getScanRetentionDays(plan);
+  const maxEvents = getMaxEvents(plan);
+  const eventLimit = maxEvents === -1 ? 20 : Math.min(maxEvents, 20);
 
   const { data: host } = await supabase
     .from("hosts")
@@ -35,20 +72,30 @@ export default async function HostDetailPage({
 
   if (!host) notFound();
 
-  // Get scans for grade history chart + recent events
+  // Enforce scan retention: only fetch scans within plan's retention window
+  const retentionDate = retentionDays === -1
+    ? undefined
+    : new Date(Date.now() - retentionDays * 86_400_000).toISOString();
+
+  let scansQuery = supabase
+    .from("scans")
+    .select("id, score, grade, scanned_at, passed, failed, fixed, skipped")
+    .eq("host_id", id)
+    .order("scanned_at", { ascending: true })
+    .limit(90);
+
+  if (retentionDate) {
+    scansQuery = scansQuery.gte("scanned_at", retentionDate);
+  }
+
   const [{ data: scans }, { data: hostEvents }] = await Promise.all([
-    supabase
-      .from("scans")
-      .select("id, score, grade, scanned_at, passed, failed, fixed, skipped")
-      .eq("host_id", id)
-      .order("scanned_at", { ascending: true })
-      .limit(90),
+    scansQuery,
     supabase
       .from("events")
       .select("*, hosts(hostname)")
       .eq("host_id", id)
       .order("created_at", { ascending: false })
-      .limit(20),
+      .limit(eventLimit),
   ]);
 
   // Get latest scan checks
@@ -116,7 +163,9 @@ export default async function HostDetailPage({
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{scans?.length || 0}</div>
-            <p className="text-xs text-muted-foreground">Total Scans</p>
+            <p className="text-xs text-muted-foreground">
+              Scans {!paid && "(last 7 days)"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -149,22 +198,30 @@ export default async function HostDetailPage({
         </div>
       )}
 
-      {/* Grade history chart */}
-      {scans && scans.length > 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Score History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <GradeHistoryChart
-              data={scans.map((s) => ({
-                date: s.scanned_at,
-                score: s.score,
-                grade: s.grade,
-              }))}
-            />
-          </CardContent>
-        </Card>
+      {/* Grade history chart — Pro only */}
+      {paid ? (
+        scans && scans.length > 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Score History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GradeHistoryChart
+                data={scans.map((s) => ({
+                  date: s.scanned_at,
+                  score: s.score,
+                  grade: s.grade,
+                }))}
+              />
+            </CardContent>
+          </Card>
+        )
+      ) : (
+        <ProFeatureGate
+          icon={TrendingUp}
+          title="Score Trends"
+          description="Track how your security score changes over time with interactive charts. Upgrade to Pro for trend analysis."
+        />
       )}
 
       {/* All Checks by Category */}
@@ -187,30 +244,7 @@ export default async function HostDetailPage({
               </TabsList>
               {activePhaseTabs.map((phase) => (
                 <TabsContent key={phase} value={phase}>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">Status</TableHead>
-                        <TableHead>Check</TableHead>
-                        <TableHead>Detail</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {analysis.phaseGroups[phase].map((check) => (
-                        <TableRow key={check.id}>
-                          <TableCell>
-                            <CheckStatusBadge status={check.status} />
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {check.check_name}
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {check.friendlyDetail}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <ChecksTable checks={analysis.phaseGroups[phase]} />
                 </TabsContent>
               ))}
             </Tabs>
@@ -222,7 +256,12 @@ export default async function HostDetailPage({
       {scans && scans.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Scan History</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Scan History</CardTitle>
+              {!paid && (
+                <span className="text-xs text-muted-foreground">Last 7 days</span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -257,24 +296,40 @@ export default async function HostDetailPage({
                 ))}
               </TableBody>
             </Table>
+            {!paid && (
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                <Link href="/upgrade" className="text-primary hover:underline">
+                  Upgrade to Pro
+                </Link>
+                {" "}for 365 days of scan history
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EventFeed
-            initialEvents={(hostEvents || []) as Event[]}
-            hostId={id}
-            maxEvents={20}
-            showLoadMore={false}
-          />
-        </CardContent>
-      </Card>
+      {/* Recent Activity — Pro only */}
+      {paid ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EventFeed
+              initialEvents={(hostEvents || []) as Event[]}
+              hostId={id}
+              maxEvents={20}
+              showLoadMore={false}
+            />
+          </CardContent>
+        </Card>
+      ) : (
+        <ProFeatureGate
+          icon={Activity}
+          title="Activity Stream"
+          description="See every scan, grade change, and agent event for this host. Upgrade to Pro for full activity history."
+        />
+      )}
     </div>
   );
 }

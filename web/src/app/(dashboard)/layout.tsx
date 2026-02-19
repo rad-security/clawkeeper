@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureOrganization } from "@/lib/ensure-organization";
-import { LogOut, AlertTriangle } from "lucide-react";
+import { LogOut, AlertTriangle, Crown } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SidebarNav, MobileNav } from "@/components/dashboard/SidebarNav";
 
@@ -84,9 +85,17 @@ export default async function DashboardLayout({
         <SidebarNav plan={plan} />
         <Separator />
         <div className="p-4">
-          <p className="mb-2 truncate text-xs text-muted-foreground">
-            {user.email}
-          </p>
+          <div className="mb-2 flex items-center gap-1.5">
+            <p className="truncate text-xs text-muted-foreground">
+              {user.email}
+            </p>
+            {(plan === "pro" || plan === "enterprise") && (
+              <Badge variant="outline" className="shrink-0 border-cyan-500/30 text-cyan-400 text-[10px] px-1.5 py-0">
+                <Crown className="mr-0.5 h-2.5 w-2.5" />
+                Pro
+              </Badge>
+            )}
+          </div>
           <form action="/api/auth/signout" method="POST">
             <Button variant="ghost" size="sm" className="w-full justify-start gap-2">
               <LogOut className="h-4 w-4" />
@@ -98,7 +107,7 @@ export default async function DashboardLayout({
 
       {/* Mobile header */}
       <div className="flex flex-1 flex-col">
-        <MobileNav />
+        <MobileNav plan={plan} />
 
         {/* Main content */}
         <main className="flex-1 overflow-auto p-6">{children}</main>

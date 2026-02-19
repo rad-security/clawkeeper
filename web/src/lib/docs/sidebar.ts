@@ -35,6 +35,14 @@ export const sidebarNav: SidebarSection[] = [
     ],
   },
   {
+    title: "Dashboard",
+    items: [
+      { title: "Features", href: "/docs/dashboard" },
+      { title: "Notifications", href: "/docs/notifications" },
+      { title: "Plans & Pricing", href: "/docs/plans" },
+    ],
+  },
+  {
     title: "Compare",
     items: [
       { title: "vs ClawSec", href: "/docs/compare/clawsec" },

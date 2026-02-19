@@ -1,0 +1,81 @@
+# Dashboard Features
+
+The Clawkeeper web dashboard at [clawkeeper.dev/dashboard](/dashboard) provides fleet monitoring, security intelligence, and alerting for your OpenClaw deployments. The dashboard is optional — the CLI scanner works without it.
+
+## Overview
+
+When you connect the Clawkeeper agent to the dashboard, each scan uploads results automatically. The dashboard then provides:
+
+- **Fleet overview** — see all hosts, their grades, scores, and last scan times at a glance
+- **Host detail pages** — drill into individual hosts to see scan history and check results
+- **Activity stream** — chronological feed of scans, grade changes, check flips, and host registrations
+- **AI-powered insights** — automated security analysis that surfaces critical findings (Pro)
+- **CVE intelligence** — live vulnerability feed cross-referenced against your installations (Pro)
+- **Email & webhook alerts** — get notified when issues are detected (Pro)
+
+## Free tier
+
+Every dashboard account includes:
+
+- Full 43-check CLI scanner with auto-fix
+- Up to 3 hosts on the dashboard
+- 7-day scan history
+- 1 API key
+- Letter grade and score tracking
+
+## Pro features
+
+[Upgrade to Pro](/upgrade) ($29/mo) to unlock:
+
+### CVE vulnerability audit
+
+The dashboard cross-references your scan results with the live [OpenClaw CVE feed](https://github.com/jgamblin/OpenClawCVEs). When a scan detects CVEs affecting your installed version, the dashboard creates insights with:
+
+- CVE ID and link to the NVD entry
+- Severity level and CVSS score
+- Affected packages and version ranges
+- Specific upgrade guidance
+
+### AI-powered insights
+
+The insight engine analyzes every scan and generates actionable findings:
+
+| Insight Type | Description |
+|---|---|
+| **Critical failure** | High-severity checks that failed (privileged mode, credential exposure, container escape) |
+| **Credential exposure** | Secrets found in configs, shell history, MEMORY.md, or session logs |
+| **CVE vulnerability** | Known CVEs matching your installed OpenClaw version |
+| **New regression** | Checks that previously passed but now fail |
+| **Grade degradation** | Host grade dropped since last scan |
+| **Fleet inconsistency** | Same check passes on some hosts but fails on others |
+| **Stale host** | Host hasn't reported a scan in over 7 days |
+| **Quick win** | Easy-to-fix checks with specific remediation steps |
+
+Each insight includes severity, affected hosts, and step-by-step remediation instructions.
+
+### Score trends
+
+Visualize how your security posture changes over time with score history charts on each host detail page. Spot regressions early before they become critical.
+
+### Email & webhook alerts
+
+Configure notifications to alert you when Clawkeeper detects issues. See [Notifications](/docs/notifications) for setup details.
+
+### Extended history
+
+Pro accounts retain 365 days of scan history (vs 7 days on free). Enterprise accounts have unlimited retention.
+
+## Getting started
+
+1. [Create an account](/signup) at clawkeeper.dev
+2. Generate an API key in [Settings](/settings)
+3. Install the agent on your hosts:
+
+```bash
+export CLAWKEEPER_API_KEY="ck_live_..."
+clawkeeper.sh agent --install
+```
+
+4. View results at [clawkeeper.dev/dashboard](/dashboard)
+
+See [Configuration](/docs/configuration) for agent setup details.

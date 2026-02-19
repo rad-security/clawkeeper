@@ -13,17 +13,28 @@ import {
 } from "@/components/ui/table";
 import { CopyCommand } from "@/components/landing/CopyCommand";
 import Link from "next/link";
-import { Download, Apple } from "lucide-react";
+import { Download, Apple, Zap } from "lucide-react";
+import { getLimits, isPaidPlan } from "@/lib/tier";
+import type { PlanType } from "@/types";
 
 export default async function HostsPage() {
   const supabase = await createClient();
   const orgId = await getOrgId(supabase);
 
-  const { data: hosts } = await supabase
-    .from("hosts")
-    .select("*")
-    .eq("org_id", orgId)
-    .order("last_scan_at", { ascending: false });
+  const [{ data: hosts }, { data: org }] = await Promise.all([
+    supabase
+      .from("hosts")
+      .select("*")
+      .eq("org_id", orgId)
+      .order("last_scan_at", { ascending: false }),
+    supabase.from("organizations").select("plan").eq("id", orgId).single(),
+  ]);
+
+  const plan = (org?.plan || "free") as PlanType;
+  const paid = isPaidPlan(plan);
+  const limits = getLimits(plan);
+  const hostCount = hosts?.length || 0;
+  const atLimit = limits.hosts !== -1 && hostCount >= limits.hosts;
 
   const gradeVariant = (grade: string | null) => {
     if (grade === "A" || grade === "B") return "default" as const;
@@ -33,12 +44,49 @@ export default async function HostsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Hosts</h1>
-        <p className="text-muted-foreground">
-          All monitored OpenClaw instances in your organization
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Hosts</h1>
+          <p className="text-muted-foreground">
+            All monitored OpenClaw instances
+            {!paid && (
+              <span className="ml-1.5 text-xs">
+                ({hostCount}/{limits.hosts} {limits.hosts === 1 ? "host" : "hosts"})
+              </span>
+            )}
+          </p>
+        </div>
+        {atLimit && !paid && (
+          <Link href="/upgrade?reason=host_limit">
+            <Button size="sm" className="gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              Add more hosts
+            </Button>
+          </Link>
+        )}
       </div>
+
+      {/* Host limit banner for free users */}
+      {atLimit && !paid && (
+        <Card className="border-cyan-500/20 bg-cyan-500/5">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Zap className="h-5 w-5 shrink-0 text-cyan-400" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">
+                You&apos;ve reached the free plan limit of {limits.hosts} {limits.hosts === 1 ? "host" : "hosts"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Upgrade to Pro for up to 10 hosts, CVE auditing, score trends, and AI-powered insights.
+              </p>
+            </div>
+            <Link href="/upgrade?reason=host_limit">
+              <Button size="sm" variant="outline" className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10">
+                Upgrade
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {!hosts || hosts.length === 0 ? (
         <Card>

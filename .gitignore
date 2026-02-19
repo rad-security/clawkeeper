@@ -9,3 +9,4 @@ desktop/dist/
 desktop/src-tauri/target/
 .vercel
 .env*.local
+web/supabase/.temp/

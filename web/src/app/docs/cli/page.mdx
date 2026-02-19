@@ -20,7 +20,7 @@ Choose [1/2/3]:
 
 ### `setup`
 
-Interactive hardening wizard. Runs all 5 phases of checks with auto-remediation prompts. This is the default experience when you choose option 2 from the menu.
+Interactive hardening wizard. Runs all phases of checks with auto-remediation prompts. This is the default experience when you choose option 2 from the menu.
 
 ```bash
 clawkeeper.sh setup
@@ -86,15 +86,25 @@ During `setup` or `deploy`, Clawkeeper asks you to choose a deployment mode:
 
 ## Scan phases
 
-Every scan runs 5 phases in order:
+Every scan runs checks across 4 phases in order:
 
-1. **Host Hardening** — OS-level security (firewall, encryption, SSH, services)
-2. **Network** — network isolation, exposed services, open ports
-3. **Prerequisites** — required software (Homebrew, Node.js, Docker)
-4. **OpenClaw Installation** — deployment, configuration, connectivity
-5. **Security Audit** — credential exposure, CVEs, malicious skills, hardening
+1. **Host Hardening** (18 checks) — OS-level security (firewall, encryption, SSH, services, user accounts)
+2. **Network** (6 checks) — network isolation, exposed services, open ports, mDNS
+3. **Prerequisites** (7 checks) — required software (Homebrew, Node.js, Docker, OpenClaw installation)
+4. **Security Audit** (12 checks) — credential exposure, CVE vulnerability audit, gateway hardening, SOUL.md integrity, skills analysis
 
 See [Security Checks](/docs/checks) for the full list of what's checked in each phase.
+
+### CVE vulnerability audit
+
+Phase 4 (Security Audit) includes a live CVE vulnerability check. The scanner:
+
+1. Fetches the latest CVE feed from the [OpenClawCVEs](https://github.com/jgamblin/OpenClawCVEs) repository
+2. Detects your installed OpenClaw version
+3. Compares it against known affected version ranges
+4. Reports individual FAILs for each matching CVE with severity, CVSS score, and upgrade guidance
+
+This check requires network access and `python3` for version comparison. It degrades gracefully if either is unavailable (reported as SKIPPED).
 
 ## Report output
 
@@ -109,6 +119,11 @@ Date: 2026-02-17
 Phase 1: Host Hardening
   PASS  macOS Firewall
   FAIL  FileVault Disk Encryption
+  ...
+
+Phase 4: Security Audit
+  FAIL  CVE-2026-25253 (critical, CVSS 9.8): Remote Code Execution
+  PASS  OpenClaw CVE Audit (no known vulnerabilities)
   ...
 
 Score: 72%

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     .eq("id", orgId)
     .single();
 
-  const plan = (org?.plan || "free") as "free" | "pro";
+  const plan = (org?.plan || "free") as "free" | "pro" | "enterprise";
   const maxEvents = TIER_LIMITS[plan].events_visible;
 
   // Parse query params

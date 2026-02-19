@@ -715,6 +715,47 @@ else
     emit_info "No MEMORY.md found — skipping memory credential scan"
 fi
 
+# ---- 3b. MEMORY.md prompt injection scan ----
+if [ -f "$memory_file" ]; then
+    mem_injection=false
+
+    # Jailbreak/override phrases
+    if grep -qiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak|act as|pretend you are|bypass|override safety|ignore all previous|do anything now)' "$memory_file" 2>/dev/null; then
+        mem_injection=true
+        match_snippet=$(grep -oiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak|act as|pretend you are|bypass|override safety|ignore all previous|do anything now)' "$memory_file" 2>/dev/null | head -1)
+        emit_fail "Prompt injection detected in MEMORY.md: ${match_snippet}" "Memory Prompt Injection"
+    fi
+
+    # Poisoned instruction patterns
+    if grep -qiE '(never report|skip security|disable logging|always ignore|do not scan|hide from|never alert)' "$memory_file" 2>/dev/null; then
+        mem_injection=true
+        emit_fail "Suspicious persistent instructions found in MEMORY.md" "Memory Prompt Injection"
+        emit_info "MEMORY.md may contain poisoned instructions that persist across sessions"
+    fi
+
+    # Base64-encoded blocks
+    if grep -qE '[A-Za-z0-9+/]{40,}={0,2}$' "$memory_file" 2>/dev/null; then
+        mem_injection=true
+        emit_fail "Suspicious base64-encoded content in MEMORY.md" "Memory Prompt Injection"
+    fi
+
+    # Invisible Unicode
+    if grep -qP '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{FEFF}]' "$memory_file" 2>/dev/null; then
+        mem_injection=true
+        emit_fail "Invisible Unicode characters found in MEMORY.md" "Memory Prompt Injection"
+    fi
+
+    # C2-style callback URLs (raw IP addresses)
+    if grep -qiE 'https?://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' "$memory_file" 2>/dev/null; then
+        mem_injection=true
+        emit_fail "Suspicious IP-based URL found in MEMORY.md (potential C2 callback)" "Memory Prompt Injection"
+    fi
+
+    if [ "$mem_injection" = false ]; then
+        emit_pass "No prompt injection patterns detected in MEMORY.md" "Memory Prompt Injection"
+    fi
+fi
+
 # ---- 4. Session logs (sample scan — check permissions + first few files) ----
 sessions_dir="$HOME/.openclaw/agents"
 if [ -d "$sessions_dir" ]; then
@@ -746,6 +787,52 @@ if [ -d "$sessions_dir" ]; then
     fi
 else
     emit_info "No agents directory found — skipping session log scan"
+fi
+
+# ---- 5. Session prompt injection scan ----
+if [ -d "$sessions_dir" ]; then
+    inject_files=$(find "$sessions_dir" -name "*.jsonl" -type f 2>/dev/null | sort -r | head -10)
+    if [ -n "$inject_files" ]; then
+        sess_injection=false
+
+        while IFS= read -r sfile; do
+            [ -z "$sfile" ] && continue
+
+            # Extract user message content (lines with "role":"user" or "type":"human")
+            user_content=$(grep -E '"role"\s*:\s*"user"|"type"\s*:\s*"human"' "$sfile" 2>/dev/null | head -500 || true)
+            [ -z "$user_content" ] && continue
+
+            # Jailbreak/override phrases
+            if echo "$user_content" | grep -qiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak|act as|pretend you are|bypass|override safety|ignore all previous|do anything now)'; then
+                sess_injection=true
+                match_snippet=$(echo "$user_content" | grep -oiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak|act as|pretend you are|bypass|override safety|ignore all previous|do anything now)' | head -1)
+                emit_fail "Prompt injection found in session: ${match_snippet}" "Session Prompt Injection"
+                emit_info "File: $sfile"
+                break
+            fi
+
+            # Base64-encoded blocks in user messages
+            if echo "$user_content" | grep -qE '[A-Za-z0-9+/]{40,}={0,2}'; then
+                sess_injection=true
+                emit_fail "Base64-encoded content in session user message" "Session Prompt Injection"
+                emit_info "File: $sfile"
+                break
+            fi
+
+            # Invisible Unicode in user messages
+            if echo "$user_content" | grep -qP '[\x{200B}-\x{200F}\x{202A}-\x{202E}\x{2060}\x{FEFF}]' 2>/dev/null; then
+                sess_injection=true
+                emit_fail "Invisible Unicode in session user message" "Session Prompt Injection"
+                emit_info "File: $sfile"
+                break
+            fi
+
+        done <<< "$inject_files"
+
+        if [ "$sess_injection" = false ]; then
+            emit_pass "No prompt injection patterns in recent sessions" "Session Prompt Injection"
+        fi
+    fi
 fi
 }
 
@@ -928,6 +1015,42 @@ if [ -d "$log_dir" ]; then
     fi
 else
     emit_pass "No OpenClaw log directory found at /tmp/openclaw" "Log Files"
+fi
+
+# ---------- Log file content scan ----------
+if [ -d "$log_dir" ]; then
+    log_files=$(find "$log_dir" -name "*.log" -type f 2>/dev/null | sort -r | head -5)
+    if [ -n "$log_files" ]; then
+        log_content_hit=false
+
+        cred_patterns='(sk-ant-api|sk-[A-Za-z0-9]{20,}|ghp_|xoxb-|AKIA[0-9A-Z]|AIza[A-Za-z0-9]|password\s*[:=]\s*\S+)'
+
+        while IFS= read -r lfile; do
+            [ -z "$lfile" ] && continue
+
+            # Credential patterns in logs
+            l_match=$(grep -oiE "$cred_patterns" "$lfile" 2>/dev/null | head -1 || true)
+            if [ -n "$l_match" ]; then
+                log_content_hit=true
+                truncated=$(echo "$l_match" | cut -c1-4)
+                emit_fail "Credential found in log file (${truncated}****)" "Log File Content"
+                emit_info "File: $lfile"
+            fi
+
+            # Injection/exploitation patterns in logs
+            if grep -qiE '(injection|unauthorized|exploit|payload|reverse.shell|backdoor)' "$lfile" 2>/dev/null; then
+                log_content_hit=true
+                snippet=$(grep -oiE '(injection|unauthorized|exploit|payload|reverse.shell|backdoor)' "$lfile" 2>/dev/null | head -1)
+                emit_fail "Suspicious log entry: ${snippet}" "Log File Content"
+                emit_info "File: $lfile"
+            fi
+
+        done <<< "$log_files"
+
+        if [ "$log_content_hit" = false ]; then
+            emit_pass "No suspicious content detected in log files" "Log File Content"
+        fi
+    fi
 fi
 }
 
@@ -3714,6 +3837,7 @@ for skills_dir in "${skills_dirs[@]}"; do
     install_flagged=false
     secret_flagged=false
     exfil_flagged=false
+    injection_flagged=false
 
     while IFS= read -r skill_file; do
         [ -z "$skill_file" ] && continue
@@ -3756,6 +3880,21 @@ for skills_dir in "${skills_dirs[@]}"; do
             emit_info "Review: $skill_file"
         fi
 
+        # 4. Prompt injection in skill body text
+        if [ -n "$body_content" ]; then
+            if echo "$body_content" | grep -qiE '(you are now|ignore previous|disregard all|forget your instructions|new instructions|system prompt override|jailbreak|ignore your SOUL|override your instructions|act as|pretend you are|do anything now)'; then
+                injection_flagged=true
+                emit_fail "Skill '$skill_name' contains prompt injection language" "Skills Prompt Injection"
+                emit_info "Review body text: $skill_file"
+            fi
+            # Instructions to disable security/logging
+            if echo "$body_content" | grep -qiE '(disable logging|disable security|skip security|never report|hide from|do not log|bypass safety)'; then
+                injection_flagged=true
+                emit_fail "Skill '$skill_name' attempts to disable security features" "Skills Prompt Injection"
+                emit_info "Review: $skill_file"
+            fi
+        fi
+
     done <<< "$skill_files"
 
     if [ "$install_flagged" = false ]; then
@@ -3766,6 +3905,9 @@ for skills_dir in "${skills_dirs[@]}"; do
     fi
     if [ "$exfil_flagged" = false ]; then
         emit_pass "No data exfiltration patterns found" "Skills Data Exfiltration"
+    fi
+    if [ "$injection_flagged" = false ]; then
+        emit_pass "No prompt injection patterns found in skills" "Skills Prompt Injection"
     fi
 done
 
@@ -3942,6 +4084,108 @@ case "$REMEDIATION_ID" in
         emit_fail "Unknown remediation: $REMEDIATION_ID" "SOUL.md Permissions"
         ;;
 esac
+}
+
+# --- Check: session_commands ---
+
+__meta_session_commands() {
+    case "$1" in
+        name) echo "Session Rogue Commands" ;;
+        id)   echo "session_commands" ;;
+    esac
+}
+
+__check_session_commands() {
+# ============================================================================
+# Clawkeeper Check: Session Rogue Commands
+# Scans session JSONL files for suspicious bash commands executed by agents.
+# Detects potential data exfiltration, reverse shells, and privilege escalation.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+sessions_dir="$HOME/.openclaw/agents"
+if [ ! -d "$sessions_dir" ]; then
+    emit_info "No agents directory found — skipping session command scan"
+    return 0
+fi
+
+session_files=$(find "$sessions_dir" -name "*.jsonl" -type f 2>/dev/null | sort -r | head -10)
+if [ -z "$session_files" ]; then
+    emit_info "No session log files found"
+    return 0
+fi
+
+rogue_found=false
+
+while IFS= read -r sfile; do
+    [ -z "$sfile" ] && continue
+
+    # Extract lines referencing bash tool_use / command content
+    cmd_content=$(grep -E '"(tool_use|bash|command)"' "$sfile" 2>/dev/null | head -500 || true)
+    [ -z "$cmd_content" ] && continue
+
+    # Data exfiltration — curl/wget POSTing data
+    if echo "$cmd_content" | grep -qiE 'curl.*(--data|-d |-X POST|--upload)|wget.*--post'; then
+        rogue_found=true
+        snippet=$(echo "$cmd_content" | grep -oiE 'curl.*(--data|-d |-X POST|--upload)|wget.*--post' | head -1 | cut -c1-60)
+        emit_fail "Suspicious data exfil command: ${snippet}" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Reverse shells
+    if echo "$cmd_content" | grep -qiE '(nc|ncat|netcat).* -e.*(bash|sh|/bin)|bash -i.*>&.*/dev/tcp'; then
+        rogue_found=true
+        emit_fail "Reverse shell pattern detected in session commands" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Base64 decode piped to shell
+    if echo "$cmd_content" | grep -qiE 'base64.*(decode|--decode|-d).*\|.*(bash|sh)'; then
+        rogue_found=true
+        emit_fail "Base64-to-shell execution detected" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Privilege escalation
+    if echo "$cmd_content" | grep -qiE 'chmod 777|chmod [+]s|chown root'; then
+        rogue_found=true
+        emit_fail "Privilege escalation command detected (chmod 777/setuid)" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Sensitive file access
+    if echo "$cmd_content" | grep -qiE '(cat|less|head|tail|cp|scp).*/etc/(shadow|passwd)|authorized_keys'; then
+        rogue_found=true
+        emit_fail "Sensitive file access detected (/etc/shadow, /etc/passwd, authorized_keys)" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Download-and-execute
+    if echo "$cmd_content" | grep -qiE '(curl|wget).*\|.*(bash|sh)'; then
+        rogue_found=true
+        emit_fail "Download-and-execute pattern detected (curl|bash)" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # Env dumping to external
+    if echo "$cmd_content" | grep -qiE '(printenv|env|set).*\|.*(curl|wget|nc|ncat)'; then
+        rogue_found=true
+        emit_fail "Environment variable exfiltration detected" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+    # History clearing
+    if echo "$cmd_content" | grep -qiE 'history -c|rm.*(bash_history|zsh_history|history)'; then
+        rogue_found=true
+        emit_fail "History clearing detected" "Session Rogue Commands"
+        emit_info "File: $sfile"
+    fi
+
+done <<< "$session_files"
+
+if [ "$rogue_found" = false ]; then
+    emit_pass "No rogue command patterns detected in recent sessions" "Session Rogue Commands"
+fi
 }
 
 # --- Check: spotlight ---

@@ -87,6 +87,22 @@ export interface AlertEvent {
   created_at: string;
 }
 
+export interface NotificationSettings {
+  id: string;
+  org_id: string;
+  email_enabled: boolean;
+  email_address: string | null;
+  webhook_enabled: boolean;
+  webhook_url: string | null;
+  webhook_secret: string | null;
+  notify_on_cve: boolean;
+  notify_on_critical: boolean;
+  notify_on_grade_drop: boolean;
+  notify_on_new_host: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Scan upload payload from agent
 export interface ScanUploadPayload {
   hostname: string;
@@ -127,29 +143,63 @@ export interface Event {
   hosts?: { hostname: string } | null;
 }
 
+// Insight types
+export type InsightType =
+  | "critical_failure"
+  | "credential_exposure"
+  | "cve_vulnerability"
+  | "prompt_injection"
+  | "new_regression"
+  | "grade_degradation"
+  | "fleet_inconsistency"
+  | "stale_host"
+  | "quick_win";
+
+export type InsightSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+export type InsightCategory = "security" | "compliance" | "drift" | "performance";
+
+export interface Insight {
+  id: string;
+  org_id: string;
+  insight_type: InsightType;
+  severity: InsightSeverity;
+  category: InsightCategory;
+  title: string;
+  description: string;
+  remediation: string;
+  affected_hosts: { host_id: string; hostname: string; detail: string }[];
+  metadata: Record<string, unknown>;
+  is_resolved: boolean;
+  resolved_at: string | null;
+  scan_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Tier limits
 export const TIER_LIMITS = {
-  free: { hosts: 3, scan_history_days: 7, alert_rules: 0, api_keys: 1, events_visible: 5 },
-  pro: { hosts: 50, scan_history_days: 365, alert_rules: 20, api_keys: 10, events_visible: -1 },
-  enterprise: { hosts: -1, scan_history_days: -1, alert_rules: -1, api_keys: -1, events_visible: -1 },
+  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false },
+  pro: { hosts: 10, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true },
+  enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true },
 } as const;
 
 // Pricing (cents) for Stripe integration
 export const PLAN_PRICING = {
   pro: { monthly: 2900, annual: 28800 }, // $29/mo or $24/mo billed annually ($288/yr)
-  enterprise: { monthly: 14900, annual: 142800 }, // $149/mo or $119/mo billed annually ($1428/yr)
 } as const;
 
 // Shared feature lists for pricing cards (used by landing + upgrade pages)
 export const PRO_FEATURES = [
   "Everything in Free",
-  "Up to 50 hosts",
+  "Up to 10 hosts",
   "365 days scan history",
   "10 API keys",
-  "Fleet dashboard",
+  "Live CVE vulnerability audit",
+  "AI-powered security insights",
+  "Score history & trend charts",
+  "Activity stream & fleet monitoring",
   "Email & webhook alerts",
-  "Up to 20 alert rules",
-  "Score history & trends",
   "Priority support",
 ] as const;
 
@@ -167,9 +217,9 @@ export const ENTERPRISE_FEATURES = [
 ] as const;
 
 export const FREE_FEATURES = [
-  "Full CLI scanner (42 checks)",
+  "Full CLI scanner (43 checks)",
   "Auto-fix for common issues",
-  "3 hosts on dashboard",
+  "1 host on dashboard",
   "7 days scan history",
   "1 API key",
   "Letter grade & score",

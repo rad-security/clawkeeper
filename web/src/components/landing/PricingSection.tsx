@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,15 +15,34 @@ import { Check, Minus } from "lucide-react";
 import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 
 const comparisonFeatures = [
-  { name: "CLI scanner (42 checks)", free: true, pro: true, enterprise: true },
+  // Scanning
+  { name: "CLI scanner", free: "43 checks", pro: "43 checks", enterprise: "43 checks", category: "Scanning" },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
-  { name: "Dashboard hosts", free: "3", pro: "50", enterprise: "Unlimited" },
+  { name: "Security grade & score", free: true, pro: true, enterprise: true },
+  { name: "Basic scan report", free: true, pro: true, enterprise: true },
+
+  // CVE & Intelligence
+  { name: "Live CVE vulnerability audit", free: false, pro: true, enterprise: true, category: "CVE Intelligence" },
+  { name: "CVE remediation guidance", free: false, pro: true, enterprise: true },
+  { name: "OpenClaw security feed", free: "View only", pro: "Full audit", enterprise: "Full audit" },
+
+  // Dashboard & Monitoring
+  { name: "Dashboard hosts", free: "1", pro: "10", enterprise: "Unlimited", category: "Dashboard" },
   { name: "Scan history", free: "7 days", pro: "365 days", enterprise: "Unlimited" },
-  { name: "API keys", free: "1", pro: "10", enterprise: "Unlimited" },
-  { name: "Alert rules", free: false, pro: "20", enterprise: "Unlimited" },
-  { name: "Email & webhook alerts", free: false, pro: true, enterprise: true },
   { name: "Score history & trends", free: false, pro: true, enterprise: true },
-  { name: "Hardened Helm charts", free: false, pro: false, enterprise: true },
+  { name: "Activity stream", free: false, pro: true, enterprise: true },
+  { name: "API keys", free: "1", pro: "10", enterprise: "Unlimited" },
+
+  // AI Insights
+  { name: "AI security insights", free: false, pro: true, enterprise: true, category: "Insights" },
+  { name: "CVE vulnerability insights", free: false, pro: true, enterprise: true },
+  { name: "Fleet drift detection", free: false, pro: true, enterprise: true },
+  { name: "Regression detection", free: false, pro: true, enterprise: true },
+  { name: "Remediation guidance", free: false, pro: true, enterprise: true },
+  { name: "Email & webhook alerts", free: false, pro: true, enterprise: true },
+
+  // Enterprise
+  { name: "Hardened Helm charts", free: false, pro: false, enterprise: true, category: "Enterprise" },
   { name: "eBPF runtime detection", free: false, pro: false, enterprise: true },
   { name: "Real-time KSPM", free: false, pro: false, enterprise: true },
   { name: "KBOM inventory", free: false, pro: false, enterprise: true },
@@ -117,7 +136,7 @@ export function PricingSection() {
             <div className="text-4xl font-bold text-white">
               {proPrice}
               <span className="text-base font-normal text-zinc-500">
-                /host/mo
+                /mo
               </span>
             </div>
             {billing === "annual" && (
@@ -126,8 +145,8 @@ export function PricingSection() {
               </p>
             )}
             <CardDescription className="text-zinc-500">
-              For teams running OpenClaw across multiple machines. Fleet
-              visibility and alerts.
+              For teams running OpenClaw across multiple machines. Full
+              security platform with insights and alerts.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
@@ -205,19 +224,28 @@ export function PricingSection() {
               </tr>
             </thead>
             <tbody>
-              {comparisonFeatures.map((f) => (
-                <tr key={f.name} className="border-b border-white/5 last:border-0">
-                  <td className="py-3 pr-4 text-left text-zinc-300">{f.name}</td>
-                  <td className="px-4 py-3 text-center">
-                    <CellValue value={f.free} />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <CellValue value={f.pro} />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <CellValue value={f.enterprise} />
-                  </td>
-                </tr>
+              {comparisonFeatures.map((f, idx) => (
+                <Fragment key={idx}>
+                  {f.category && (
+                    <tr className="border-b border-white/5">
+                      <td colSpan={4} className="pt-5 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        {f.category}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-b border-white/5 last:border-0">
+                    <td className="py-3 pr-4 text-left text-zinc-300">{f.name}</td>
+                    <td className="px-4 py-3 text-center">
+                      <CellValue value={f.free} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <CellValue value={f.pro} />
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <CellValue value={f.enterprise} />
+                    </td>
+                  </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>

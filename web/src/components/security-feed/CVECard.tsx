@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import { ExternalLink, Calendar, ChevronDown, ChevronUp, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { CVEFeedItem } from "@/lib/cve-feed";
 
@@ -61,6 +61,29 @@ export function CVECard({ item }: { item: CVEFeedItem }) {
         </div>
       )}
 
+      {/* Affected packages */}
+      {item.packages && item.packages.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Package className="h-3 w-3 text-zinc-500" />
+          {item.packages.map((pkg) => (
+            <Badge
+              key={pkg}
+              variant="outline"
+              className="border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-[10px]"
+            >
+              {pkg}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Affected versions */}
+      {item.affectedVersions && item.affectedVersions.length > 0 && (
+        <p className="mt-1.5 text-[11px] text-zinc-500">
+          Affected: {item.affectedVersions.join(", ")}
+        </p>
+      )}
+
       {/* Description */}
       <p className="mt-3 text-sm leading-relaxed text-zinc-400">
         {displayDesc}
@@ -82,16 +105,29 @@ export function CVECard({ item }: { item: CVEFeedItem }) {
         </button>
       )}
 
-      {/* NVD link */}
-      <a
-        href={item.nvdUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-3 inline-flex items-center gap-1.5 text-xs text-cyan-400 transition hover:text-cyan-300"
-      >
-        View on NVD
-        <ExternalLink className="h-3 w-3" />
-      </a>
+      {/* Links */}
+      <div className="mt-3 flex flex-wrap items-center gap-4">
+        <a
+          href={item.nvdUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-cyan-400 transition hover:text-cyan-300"
+        >
+          View on NVD
+          <ExternalLink className="h-3 w-3" />
+        </a>
+        {item.ghsaUrl && (
+          <a
+            href={item.ghsaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-violet-400 transition hover:text-violet-300"
+          >
+            View GHSA
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
     </div>
   );
 }

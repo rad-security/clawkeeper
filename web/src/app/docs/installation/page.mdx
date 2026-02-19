@@ -18,10 +18,12 @@ clawkeeper.sh setup       # Interactive hardening wizard
 clawkeeper.sh deploy      # Full install + deployment
 ```
 
+The CLI is free — no account needed. All 43 checks, auto-fix, and local grading work without a dashboard account.
+
 ### Supported platforms
 
-- **macOS** — 11 host hardening checks, 4 network checks, full prereq + audit suite
-- **Linux** — Ubuntu, Debian, RHEL, CentOS, Fedora, Arch. 7 host hardening checks, 2 network checks, full prereq + audit suite
+- **macOS** — 18 host hardening checks, 6 network checks, full prereq + audit suite
+- **Linux** — Ubuntu, Debian, RHEL, CentOS, Fedora, Arch. Host hardening checks, network checks, full prereq + audit suite
 - **Windows** — install WSL2, then run Clawkeeper from within WSL
 
 ## macOS Desktop App
@@ -43,6 +45,21 @@ helm install openclaw clawkeeper/openclaw-stack \
 ```
 
 See the [enterprise section](/#enterprise) on the landing page for details on what's included in the Helm chart.
+
+## Dashboard setup
+
+After installing the CLI, you can optionally connect scans to the web dashboard:
+
+1. Create an account at [clawkeeper.dev/signup](/signup)
+2. Generate an API key in [Settings](/settings)
+3. Install the agent:
+
+```bash
+export CLAWKEEPER_API_KEY="ck_live_..."
+clawkeeper.sh agent --install
+```
+
+The agent runs scheduled scans and uploads results automatically. Free accounts get 3 hosts and 7-day scan history. [Upgrade to Pro](/upgrade) for 10 hosts, CVE intelligence, AI insights, and alerting.
 
 ## Environment variables
 

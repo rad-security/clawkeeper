@@ -5,11 +5,11 @@ import { Shield, Check, X, Minus } from "lucide-react";
 export const metadata: Metadata = {
   title: "Clawkeeper vs OpenClaw Native Security — Comparison",
   description:
-    "Feature comparison between Clawkeeper's 42 checks and OpenClaw's built-in `openclaw security audit`. See the coverage gap.",
+    "Feature comparison between Clawkeeper's 43 checks and OpenClaw's built-in `openclaw security audit`. See the coverage gap.",
   openGraph: {
     title: "Clawkeeper vs OpenClaw Native Security Audit",
     description:
-      "OpenClaw's native audit covers ~10 checks. Clawkeeper covers 42. See the full breakdown.",
+      "OpenClaw's native audit covers ~10 checks. Clawkeeper covers 43. See the full breakdown.",
   },
 };
 
@@ -25,7 +25,7 @@ type Feature = { name: string; ck: "yes" | "no" | "partial"; oc: "yes" | "no" | 
 
 const overview = [
   { label: "Type", ck: "External scanner + fleet dashboard", oc: "Built-in CLI command" },
-  { label: "Checks", ck: "42 automated across 5 phases", oc: "~10-15 (config + permissions)" },
+  { label: "Checks", ck: "43 automated across 4 phases", oc: "~10-15 (config + permissions)" },
   { label: "Scope", ck: "Full-stack: host + network + container + config + credentials", oc: "OpenClaw config and runtime only" },
   { label: "Auto-Fix", ck: "Interactive remediation for 20+ issues", oc: "--fix flag for some issues" },
   { label: "Dashboard", ck: "Web dashboard with history and alerts", oc: "None (terminal output)" },
@@ -135,6 +135,8 @@ const categories: { title: string; features: Feature[] }[] = [
     features: [
       { name: "A-F letter grade + score", ck: "yes" as const, oc: "no" as const },
       { name: "Fleet dashboard", ck: "yes" as const, oc: "no" as const },
+      { name: "AI-powered security insights", ck: "yes" as const, oc: "no" as const },
+      { name: "Score trend tracking", ck: "yes" as const, oc: "no" as const },
       { name: "Historical trending", ck: "yes" as const, oc: "no" as const },
       { name: "Email & webhook alerts", ck: "yes" as const, oc: "no" as const },
       { name: "Team management", ck: "yes" as const, oc: "no" as const },
@@ -294,8 +296,8 @@ export default function OpenClawNativeComparePage() {
         <h2 className="mb-2 text-lg font-bold text-white">Recommendation</h2>
         <p className="text-sm text-zinc-400">
           Use both. Run <code className="rounded bg-white/10 px-1">openclaw security audit</code>{" "}
-          for its built-in checks and live probing. Run Clawkeeper for the 32+ additional
-          checks covering your host OS, containers, network, credentials, and skills.
+          for its built-in checks and live probing. Run Clawkeeper for the 33+ additional
+          checks covering your host OS, containers, network, credentials, CVEs, and skills.
           The CLI is free — there&apos;s no reason not to layer both.
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
@@ -303,7 +305,7 @@ export default function OpenClawNativeComparePage() {
             href="/docs/checks"
             className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5"
           >
-            View all 42 checks
+            View all 43 checks
           </Link>
           <Link
             href="/docs/compare/clawsec"

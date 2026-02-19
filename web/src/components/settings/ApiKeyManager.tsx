@@ -119,7 +119,11 @@ export function ApiKeyManager({
 
         {keys.length >= limit && plan === "free" && (
           <p className="text-sm text-muted-foreground">
-            Free plan is limited to {limit} API key. Upgrade to Pro for more.
+            Free plan is limited to {limit} API key.{" "}
+            <a href="/upgrade" className="text-cyan-400 hover:underline">
+              Upgrade to Pro
+            </a>{" "}
+            for up to 10 keys.
           </p>
         )}
 

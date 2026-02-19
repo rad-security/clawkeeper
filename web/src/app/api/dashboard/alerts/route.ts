@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { canAddAlertRule } from "@/lib/tier";
+// Legacy alerts route — kept for backwards compatibility but no longer used by the UI
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
   ]);
 
   const plan = (orgRes.data?.plan || "free") as "free" | "pro" | "enterprise";
-  if (!canAddAlertRule(plan, ruleCountRes.count || 0)) {
+  const alertRuleLimit = plan === "free" ? 0 : plan === "pro" ? 20 : Infinity;
+  if ((ruleCountRes.count || 0) >= alertRuleLimit) {
     return NextResponse.json(
       { error: "Alert rules are a Pro feature" },
       { status: 403 }

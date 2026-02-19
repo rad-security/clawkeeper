@@ -3064,12 +3064,14 @@ main() {
     phase_header "═══ Phase 5 of 5: Security Audit ═══"
 
     run_check "openclaw_running"
+    run_check "cve_audit"
 
     if [ "$DEPLOY_MODE" = "native" ]; then
         run_check "openclaw_config"
         run_check "openclaw_hardening"
         run_check "env_file"
         run_check "credential_exposure"
+        run_check "session_commands"
         run_check "skills_security"
         run_check "soul_security"
     else
@@ -3078,6 +3080,7 @@ main() {
         run_check "openclaw_hardening"
         run_check "env_file"
         run_check "credential_exposure"
+        run_check "session_commands"
         run_check "skills_security"
         run_check "soul_security"
     fi

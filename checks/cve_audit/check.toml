@@ -1,0 +1,7 @@
+id = "cve_audit"
+name = "OpenClaw CVE Audit"
+phase = "security_audit"
+platform = "all"
+description = "Fetches the live OpenClaw CVE feed and checks installed version against known vulnerabilities with remediation guidance."
+requires_sudo = false
+order = 50

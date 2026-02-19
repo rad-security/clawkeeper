@@ -38,7 +38,7 @@ A fresh macOS machine running Docker mode might score:
 
 Score: `(8+4+1+6) / (8+4+1+6+3+2) * 100` = **79%** = **C**
 
-### After running `--fix`
+### After running `setup`
 
 If you re-run with `setup` and accept all remediations:
 
@@ -59,8 +59,17 @@ When a check fails in interactive mode, Clawkeeper may offer an auto-remediation
 
 If you accept and the fix succeeds, the check is marked **FIXED** instead of FAIL. Fixed checks count the same as passes in the score.
 
+## CVE impact on grading
+
+The CVE vulnerability audit check runs in Phase 4 (Security Audit). Each CVE found against your installed OpenClaw version counts as an individual FAIL. This means a host with multiple known CVEs will see a significant score impact — upgrade your OpenClaw version to resolve them.
+
 ## Dashboard tracking
 
-If you have an API key configured, each scan's grade and score are sent to the [dashboard](/dashboard). The dashboard tracks your grade over time so you can spot regressions and config drift.
+If you have an API key configured, each scan's grade and score are sent to the [dashboard](/dashboard). The dashboard provides:
 
-See [Configuration](/docs/configuration) for how to set up the agent.
+- **Grade history** — track your grade over time to spot regressions and config drift
+- **Score trends** — visualize score changes across scans (Pro)
+- **AI-powered insights** — automatic analysis of scan results to surface critical findings, regressions, credential exposure, CVE vulnerabilities, and quick wins (Pro)
+- **Email & webhook alerts** — get notified when critical issues are detected (Pro)
+
+See [Configuration](/docs/configuration) for how to set up the agent, and [Dashboard Features](/docs/dashboard) for details on Pro features.

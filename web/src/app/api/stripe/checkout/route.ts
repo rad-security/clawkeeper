@@ -14,8 +14,6 @@ function getStripe() {
 const PRICE_ENV_MAP: Record<string, string> = {
   "pro:monthly": "STRIPE_PRO_MONTHLY_PRICE_ID",
   "pro:annual": "STRIPE_PRO_ANNUAL_PRICE_ID",
-  "enterprise:monthly": "STRIPE_ENTERPRISE_MONTHLY_PRICE_ID",
-  "enterprise:annual": "STRIPE_ENTERPRISE_ANNUAL_PRICE_ID",
 };
 
 export async function POST(req: NextRequest) {
@@ -31,12 +29,13 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const plan = body.plan as "pro" | "enterprise";
+    const plan = body.plan as string;
     const billing = (body.billing || "monthly") as "monthly" | "annual";
 
-    if (!plan || !["pro", "enterprise"].includes(plan)) {
+    // Only Pro is self-serve — Enterprise requires contacting sales
+    if (plan !== "pro") {
       return NextResponse.json(
-        { error: "Invalid plan" },
+        { error: "Invalid plan. Only Pro is available for self-serve checkout." },
         { status: 400 }
       );
     }
@@ -78,13 +77,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve Stripe price: check env var first, fall back to inline price_data
-    const envKey = PRICE_ENV_MAP[`${plan}:${billing}`];
+    const envKey = PRICE_ENV_MAP[`pro:${billing}`];
     const priceId = envKey ? process.env[envKey] : undefined;
 
-    const pricing = PLAN_PRICING[plan];
+    const pricing = PLAN_PRICING.pro;
     const amount = billing === "annual" ? pricing.annual : pricing.monthly;
     const interval = billing === "annual" ? "year" : "month";
-    const planLabel = plan === "pro" ? "Clawkeeper Pro" : "Clawkeeper Enterprise";
     const intervalLabel = billing === "annual" ? "annual" : "monthly";
 
     // Build line_items — use pre-created price if available, otherwise inline
@@ -95,7 +93,7 @@ export async function POST(req: NextRequest) {
             price_data: {
               currency: "usd",
               product_data: {
-                name: `${planLabel} (${intervalLabel})`,
+                name: `Clawkeeper Pro (${intervalLabel})`,
               },
               unit_amount: amount,
               recurring: { interval },
@@ -111,7 +109,9 @@ export async function POST(req: NextRequest) {
       line_items: lineItems,
       success_url: `${req.nextUrl.origin}/settings?upgraded=true`,
       cancel_url: `${req.nextUrl.origin}/upgrade`,
-      metadata: { org_id: membership.org_id, plan },
+      allow_promotion_codes: true,
+      tax_id_collection: { enabled: true },
+      metadata: { org_id: membership.org_id, plan: "pro" },
     });
 
     return NextResponse.json({ url: session.url });
