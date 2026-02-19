@@ -86,12 +86,13 @@ During `setup` or `deploy`, Clawkeeper asks you to choose a deployment mode:
 
 ## Scan phases
 
-Every scan runs checks across 4 phases in order:
+Every scan runs checks across 5 phases in order:
 
 1. **Host Hardening** (18 checks) — OS-level security (firewall, encryption, SSH, services, user accounts)
 2. **Network** (6 checks) — network isolation, exposed services, open ports, mDNS
 3. **Prerequisites** (7 checks) — required software (Homebrew, Node.js, Docker, OpenClaw installation)
-4. **Security Audit** (12 checks) — credential exposure, CVE vulnerability audit, gateway hardening, SOUL.md integrity, skills analysis
+4. **OpenClaw Installation** — deployment mode selection and OpenClaw setup
+5. **Security Audit** (13 checks) — credential exposure, prompt injection detection, rogue command scanning, CVE vulnerability audit, gateway hardening, SOUL.md integrity, skills analysis, log file auditing
 
 See [Security Checks](/docs/checks) for the full list of what's checked in each phase.
 

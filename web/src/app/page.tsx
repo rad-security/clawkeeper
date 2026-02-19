@@ -212,6 +212,7 @@ export default function LandingPage() {
   Phase 5: Security Audit
   ✓ OpenClaw v0.42.1 detected     ⚠ CVE-2026-25253 applies
   ✗ API keys in ~/.openclaw/config.yaml
+  ✓ Session logs clean — no injection  ✓ No rogue commands
   ✗ 2 suspicious skills flagged on ClawHub
   ✓ Auth enabled on admin interface
 
@@ -228,7 +229,7 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-zinc-950">
         <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-white/10 sm:grid-cols-4">
           {[
-            { value: "43", label: "Security checks" },
+            { value: "44", label: "Security checks" },
             { value: "180k+", label: "OpenClaw installs at risk" },
             { value: "<60s", label: "Time to first scan" },
             { value: "A–F", label: "Letter grade scoring" },
@@ -338,7 +339,7 @@ export default function LandingPage() {
                 icon: ShieldCheck,
                 title: "Scan",
                 description:
-                  "43 automated checks across 4 phases: host hardening, network, prerequisites, and security audit. Results in under 60 seconds.",
+                  "44 automated checks across 5 phases: host hardening, network, prerequisites, and security audit. Results in under 60 seconds.",
               },
               {
                 step: "03",
@@ -852,7 +853,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
             {[
               { value: "AWS", label: "EKS Add-on Partner" },
               { value: "eBPF", label: "Kernel-level detection" },
-              { value: "43", label: "Automated security checks" },
+              { value: "44", label: "Automated security checks" },
               { value: "SOC 2", label: "Compliance ready" },
             ].map((s) => (
               <div key={s.label} className="text-center">

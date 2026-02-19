@@ -1,0 +1,7 @@
+id = "session_commands"
+name = "Session Rogue Commands"
+phase = "security_audit"
+platform = "all"
+description = "Scans session JSONL files for suspicious bash commands executed by AI agents — detects data exfiltration (curl POST, wget), reverse shells, base64-to-shell execution, privilege escalation (chmod 777, setuid), sensitive file access (/etc/shadow, authorized_keys), download-and-execute patterns, environment variable dumping, and history clearing."
+requires_sudo = false
+order = 56

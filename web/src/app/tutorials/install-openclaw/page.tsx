@@ -201,7 +201,7 @@ export default function InstallOpenClawPage() {
       <TerminalMockup title="clawkeeper scan">
         <div>
           <p className="text-cyan-400">$ npx clawkeeper scan</p>
-          <p className="mt-2 text-zinc-500">Running 43 security checks...</p>
+          <p className="mt-2 text-zinc-500">Running 44 security checks...</p>
           <p className="mt-1">
             <span className="text-emerald-400">PASS</span>{" "}
             <span className="text-zinc-300">homebrew — Homebrew is installed</span>

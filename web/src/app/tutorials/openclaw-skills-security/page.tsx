@@ -194,11 +194,34 @@ return { output: result };`}</pre>
         description="Audits SOUL.md for prompt injection, base64 payloads, and unicode obfuscation"
       />
 
+      {/* Skills Prompt Injection */}
+      <h2 className="mb-4 mt-12 text-xl font-semibold text-white">
+        Skills Prompt Injection
+      </h2>
+      <p className="mb-4 text-sm text-zinc-300">
+        Beyond install commands and network calls, Clawkeeper now scans skill body text for prompt injection.
+        A skill&apos;s instructions could contain jailbreak phrases or commands to disable security features.
+      </p>
+
+      <StepBlock step={5} title="What Clawkeeper detects in skill bodies">
+        <div className="space-y-3">
+          <p><strong className="text-white">Jailbreak language:</strong> &quot;ignore previous instructions&quot;, &quot;you are now&quot;, &quot;override your instructions&quot;</p>
+          <p><strong className="text-white">Security disabling:</strong> &quot;disable logging&quot;, &quot;skip security&quot;, &quot;never report&quot;, &quot;bypass safety&quot;</p>
+          <p><strong className="text-white">DAN-style attacks:</strong> &quot;do anything now&quot;, &quot;pretend you are&quot;, &quot;act as&quot;</p>
+        </div>
+      </StepBlock>
+
+      <TipCallout variant="warning" title="Why skill body injection matters">
+        A skill&apos;s body text is loaded into the agent&apos;s context. Injected instructions there
+        can override SOUL.md guardrails, disable logging, or exfiltrate conversation data.
+      </TipCallout>
+
       <TerminalMockup title="clawkeeper — skills audit">
         <div>
           <p className="text-cyan-400">$ npx clawkeeper scan --check skills_security,soul_security</p>
           <p className="mt-2">
             <span className="block"><span className="text-emerald-400">PASS</span> <span className="text-zinc-300">skills_security — 3 skills scanned, no issues</span></span>
+            <span className="block"><span className="text-emerald-400">PASS</span> <span className="text-zinc-300">Skills Prompt Injection — No prompt injection patterns found</span></span>
             <span className="block"><span className="text-emerald-400">PASS</span> <span className="text-zinc-300">soul_security — SOUL.md integrity verified</span></span>
           </p>
         </div>

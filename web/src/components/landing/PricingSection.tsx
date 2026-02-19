@@ -16,7 +16,7 @@ import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 
 const comparisonFeatures = [
   // Scanning
-  { name: "CLI scanner", free: "43 checks", pro: "43 checks", enterprise: "43 checks", category: "Scanning" },
+  { name: "CLI scanner", free: "44 checks", pro: "44 checks", enterprise: "44 checks", category: "Scanning" },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
   { name: "Security grade & score", free: true, pro: true, enterprise: true },
   { name: "Basic scan report", free: true, pro: true, enterprise: true },

@@ -5,11 +5,11 @@ import { Shield, Check, X, Minus } from "lucide-react";
 export const metadata: Metadata = {
   title: "Clawkeeper vs ClawSec — Comparison",
   description:
-    "Feature-by-feature comparison of Clawkeeper and ClawSec (Prompt Security) for OpenClaw security. See how 43 full-stack checks compare to skill-level advisory monitoring.",
+    "Feature-by-feature comparison of Clawkeeper and ClawSec (Prompt Security) for OpenClaw security. See how 44 full-stack checks compare to skill-level advisory monitoring.",
   openGraph: {
     title: "Clawkeeper vs ClawSec — Full Comparison",
     description:
-      "Clawkeeper covers the full stack with 43 checks. ClawSec focuses on skill advisories. See the detailed breakdown.",
+      "Clawkeeper covers the full stack with 44 checks. ClawSec focuses on skill advisories. See the detailed breakdown.",
   },
 };
 
@@ -23,7 +23,7 @@ function StatusIcon({ status }: { status: "yes" | "no" | "partial" }) {
 
 const overview = [
   { label: "Type", ck: "External scanner + dashboard", cs: "OpenClaw skill (runs inside agent)" },
-  { label: "Checks", ck: "43 automated across 4 phases", cs: "~12 (advisory + reputation + audit)" },
+  { label: "Checks", ck: "44 automated across 5 phases", cs: "~12 (advisory + reputation + audit)" },
   { label: "Scope", ck: "Full-stack: host + network + container + config", cs: "OpenClaw-only: skills + advisories" },
   { label: "Platform", ck: "macOS + Linux (bare metal, Docker, K8s)", cs: "Any OS with Node.js" },
   { label: "Remediation", ck: "Interactive auto-fix for 20+ issues", cs: "Advisory-gated skill removal only" },
@@ -45,6 +45,11 @@ const features = [
   { name: "SOUL.md integrity (injection, steganography, base64)", ck: "yes" as const, cs: "no" as const },
   { name: "Skills static analysis (install cmds, exfiltration)", ck: "yes" as const, cs: "partial" as const },
   { name: ".env file security", ck: "yes" as const, cs: "no" as const },
+  { name: "Session prompt injection detection", ck: "yes" as const, cs: "no" as const },
+  { name: "Session rogue command scanning", ck: "yes" as const, cs: "no" as const },
+  { name: "MEMORY.md prompt injection detection", ck: "yes" as const, cs: "no" as const },
+  { name: "Skills prompt injection detection", ck: "yes" as const, cs: "no" as const },
+  { name: "Log file content scanning", ck: "yes" as const, cs: "no" as const },
   { name: "CVE / version vulnerability check", ck: "yes" as const, cs: "yes" as const },
   { name: "Cryptographic advisory feed", ck: "no" as const, cs: "yes" as const },
   { name: "Skill reputation scoring (7-check system)", ck: "no" as const, cs: "yes" as const },
@@ -264,7 +269,7 @@ export default function ClawsecComparePage() {
             href="/docs/checks"
             className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5"
           >
-            View all 43 checks
+            View all 44 checks
           </Link>
           <Link
             href="/docs/compare/openclaw-native"

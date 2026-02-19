@@ -10,7 +10,7 @@ import { TutorialFooter } from "@/components/tutorials/TutorialFooter";
 export const metadata = tutorialMetadata({
   title: "OpenClaw Security Audit: What to Check and Why",
   description:
-    "Complete OpenClaw security audit guide: version and CVE detection, config review, credential exposure, skills vetting, container security, and all 11 audit checks.",
+    "Complete OpenClaw security audit guide: version and CVE detection, config review, credential exposure, prompt injection detection, rogue command scanning, skills vetting, container security, and all 13 audit checks.",
   slug: "openclaw-security-audit",
 });
 
@@ -21,7 +21,7 @@ export default function SecurityAuditPage() {
         OpenClaw Security Audit
       </h1>
       <p className="mb-8 text-lg text-zinc-400">
-        What to check and why — covering all 11 Clawkeeper security audit checks.
+        What to check and why — covering all 13 Clawkeeper security audit checks.
       </p>
 
       {/* Version & CVE */}
@@ -200,12 +200,59 @@ export default function SecurityAuditPage() {
         />
       </StepBlock>
 
+      {/* Prompt Injection & Rogue Commands */}
+      <h2 className="mb-4 mt-12 text-xl font-semibold text-white">
+        Prompt Injection &amp; Rogue Commands
+      </h2>
+
+      <StepBlock step={9} title="Scan sessions for prompt injection">
+        <p>
+          Clawkeeper scans your most recent session JSONL files for prompt injection attempts
+          in user messages — jailbreak phrases, base64-encoded payloads, and invisible Unicode characters.
+        </p>
+        <CheckReference
+          name="credential_exposure"
+          phase="security_audit"
+          description="Sub-check: Session Prompt Injection — detects injection in session transcripts"
+        />
+      </StepBlock>
+
+      <StepBlock step={10} title="Detect rogue agent commands">
+        <p>
+          Session logs are scanned for suspicious commands executed by AI agents: data exfiltration
+          (curl POST), reverse shells, base64-to-shell execution, privilege escalation, and history clearing.
+        </p>
+        <CheckReference
+          name="session_commands"
+          phase="security_audit"
+          description="Detects rogue bash commands in agent session history"
+        />
+      </StepBlock>
+
+      <StepBlock step={11} title="Check MEMORY.md for poisoned instructions">
+        <p>
+          MEMORY.md persists across sessions and is writable by agents. Clawkeeper checks for
+          injected jailbreak phrases, security-disabling instructions, C2 callback URLs, and encoded content.
+        </p>
+        <CheckReference
+          name="credential_exposure"
+          phase="security_audit"
+          description="Sub-check: Memory Prompt Injection — detects poisoned instructions in MEMORY.md"
+        />
+      </StepBlock>
+
+      <TipCallout variant="warning" title="Why this matters">
+        A compromised MEMORY.md can poison every future conversation. Agents trust its contents
+        implicitly — an attacker who injects &quot;never report security issues&quot; into MEMORY.md
+        can silently disable your security posture.
+      </TipCallout>
+
       {/* Container & Gateway */}
       <h2 className="mb-4 mt-12 text-xl font-semibold text-white">
         Container &amp; Gateway
       </h2>
 
-      <StepBlock step={9} title="Container security">
+      <StepBlock step={12} title="Container security">
         <p>
           If running in Docker, Clawkeeper audits capabilities, read-only filesystem,
           privilege escalation, and resource limits.
@@ -217,7 +264,7 @@ export default function SecurityAuditPage() {
         />
       </StepBlock>
 
-      <StepBlock step={10} title="Gateway configuration">
+      <StepBlock step={13} title="Gateway configuration">
         <p>
           For deployments using an API gateway, Clawkeeper checks TLS settings, rate limiting,
           authentication requirements, and CORS policy.
@@ -229,7 +276,7 @@ export default function SecurityAuditPage() {
         />
       </StepBlock>
 
-      <StepBlock step={11} title="Instance detection">
+      <StepBlock step={14} title="Instance detection">
         <CommandBlock command="npx clawkeeper scan --check openclaw_running" />
         <p>
           Detects all running OpenClaw instances and their process attributes
@@ -257,12 +304,14 @@ export default function SecurityAuditPage() {
               "openclaw_hardening",
               "env_file",
               "credential_exposure",
+              "session_commands",
               "credential_store",
               "skills_security",
               "soul_security",
               "container_security",
               "gateway_advanced",
               "openclaw_running",
+              "cve_audit",
             ].map((name) => (
               <span key={name} className="block">
                 <span className="text-emerald-400">PASS</span>{" "}
@@ -272,7 +321,7 @@ export default function SecurityAuditPage() {
           </p>
           <p className="mt-2 text-zinc-500">─────────────────────────────────</p>
           <p className="mt-1">
-            <span className="text-zinc-300">11/11 checks passed.</span>{" "}
+            <span className="text-zinc-300">13/13 checks passed.</span>{" "}
             <span className="text-emerald-400 font-bold">Grade: A</span>
           </p>
         </div>

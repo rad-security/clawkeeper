@@ -5,11 +5,11 @@ import { Shield, Check, X, Minus } from "lucide-react";
 export const metadata: Metadata = {
   title: "Clawkeeper vs OpenClaw Native Security — Comparison",
   description:
-    "Feature comparison between Clawkeeper's 43 checks and OpenClaw's built-in `openclaw security audit`. See the coverage gap.",
+    "Feature comparison between Clawkeeper's 44 checks and OpenClaw's built-in `openclaw security audit`. See the coverage gap.",
   openGraph: {
     title: "Clawkeeper vs OpenClaw Native Security Audit",
     description:
-      "OpenClaw's native audit covers ~10 checks. Clawkeeper covers 43. See the full breakdown.",
+      "OpenClaw's native audit covers ~10 checks. Clawkeeper covers 44. See the full breakdown.",
   },
 };
 
@@ -25,7 +25,7 @@ type Feature = { name: string; ck: "yes" | "no" | "partial"; oc: "yes" | "no" | 
 
 const overview = [
   { label: "Type", ck: "External scanner + fleet dashboard", oc: "Built-in CLI command" },
-  { label: "Checks", ck: "43 automated across 4 phases", oc: "~10-15 (config + permissions)" },
+  { label: "Checks", ck: "44 automated across 5 phases", oc: "~10-15 (config + permissions)" },
   { label: "Scope", ck: "Full-stack: host + network + container + config + credentials", oc: "OpenClaw config and runtime only" },
   { label: "Auto-Fix", ck: "Interactive remediation for 20+ issues", oc: "--fix flag for some issues" },
   { label: "Dashboard", ck: "Web dashboard with history and alerts", oc: "None (terminal output)" },
@@ -109,6 +109,10 @@ const categories: { title: string; features: Feature[] }[] = [
       { name: "Credential store permissions", ck: "yes" as const, oc: "no" as const },
       { name: "OAuth profile permissions", ck: "yes" as const, oc: "no" as const },
       { name: ".env file permissions", ck: "yes" as const, oc: "no" as const },
+      { name: "Session prompt injection scan", ck: "yes" as const, oc: "no" as const },
+      { name: "Memory prompt injection scan", ck: "yes" as const, oc: "no" as const },
+      { name: "Session rogue command scan", ck: "yes" as const, oc: "no" as const },
+      { name: "Log file content scan", ck: "yes" as const, oc: "no" as const },
       { name: "detect-secrets CI integration", ck: "no" as const, oc: "yes" as const },
     ],
   },
@@ -121,6 +125,7 @@ const categories: { title: string; features: Feature[] }[] = [
       { name: "SOUL.md prompt injection", ck: "yes" as const, oc: "no" as const },
       { name: "SOUL.md base64 / Unicode steganography", ck: "yes" as const, oc: "no" as const },
       { name: "SOUL.md credential leaks", ck: "yes" as const, oc: "no" as const },
+      { name: "Skills prompt injection detection", ck: "yes" as const, oc: "no" as const },
     ],
   },
   {
@@ -305,7 +310,7 @@ export default function OpenClawNativeComparePage() {
             href="/docs/checks"
             className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5"
           >
-            View all 43 checks
+            View all 44 checks
           </Link>
           <Link
             href="/docs/compare/clawsec"

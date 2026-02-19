@@ -71,7 +71,7 @@ const tutorials = [
     icon: Shield,
     title: "OpenClaw Security Audit",
     description:
-      "Audit versions, CVEs, config, credentials, and hardening settings with all 11 security checks.",
+      "Audit versions, CVEs, config, credentials, prompt injection, rogue commands, and hardening settings with all 13 security checks.",
     difficulty: "Intermediate" as const,
     minutes: 20,
   },
