@@ -16,18 +16,23 @@ import Link from "next/link";
 import { Download, Apple, Zap } from "lucide-react";
 import { getLimits, isPaidPlan } from "@/lib/tier";
 import type { PlanType } from "@/types";
+import { AddHostButton } from "@/components/hosts/AddHostButton";
 
 export default async function HostsPage() {
   const supabase = await createClient();
   const orgId = await getOrgId(supabase);
 
-  const [{ data: hosts }, { data: org }] = await Promise.all([
+  const [{ data: hosts }, { data: org }, { count: apiKeyCount }] = await Promise.all([
     supabase
       .from("hosts")
       .select("*")
       .eq("org_id", orgId)
       .order("last_scan_at", { ascending: false }),
     supabase.from("organizations").select("plan").eq("id", orgId).single(),
+    supabase
+      .from("api_keys")
+      .select("*", { count: "exact", head: true })
+      .eq("org_id", orgId),
   ]);
 
   const plan = (org?.plan || "free") as PlanType;
@@ -56,14 +61,12 @@ export default async function HostsPage() {
             )}
           </p>
         </div>
-        {atLimit && !paid && (
-          <Link href="/upgrade?reason=host_limit">
-            <Button size="sm" className="gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              Add more hosts
-            </Button>
-          </Link>
-        )}
+        <AddHostButton
+          orgId={orgId}
+          existingKeyCount={apiKeyCount ?? 0}
+          hostCount={hostCount}
+          plan={plan}
+        />
       </div>
 
       {/* Host limit banner for free users */}
@@ -76,7 +79,7 @@ export default async function HostsPage() {
                 You&apos;ve reached the free plan limit of {limits.hosts} {limits.hosts === 1 ? "host" : "hosts"}
               </p>
               <p className="text-xs text-muted-foreground">
-                Upgrade to Pro for up to 10 hosts, CVE auditing, score trends, and AI-powered insights.
+                Upgrade to Pro for up to 15 hosts, CVE auditing, score trends, and AI-powered insights.
               </p>
             </div>
             <Link href="/upgrade?reason=host_limit">
@@ -126,7 +129,7 @@ export default async function HostsPage() {
               >
                 Go to the setup wizard
               </Link>{" "}
-              to generate one.
+              to generate one, or use the guided <strong>Add Host</strong> button above.
             </p>
           </CardContent>
         </Card>

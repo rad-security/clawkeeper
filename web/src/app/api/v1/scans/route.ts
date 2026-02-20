@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateScanPayload } from "@/lib/report-parser";
 import { canAddHost } from "@/lib/tier";
+import { TIER_LIMITS } from "@/types";
 import { generateInsights } from "@/lib/insights";
 import { validateApiKey, isAuthError } from "@/lib/api-auth";
 import { generateScanEvents } from "@/lib/events";
+import { checkAndDeductCredit } from "@/lib/credits";
 
 export async function POST(request: NextRequest) {
   // Validate API key
@@ -41,6 +43,19 @@ export async function POST(request: NextRequest) {
 
   const plan = (org?.plan || "free") as "free" | "pro" | "enterprise";
 
+  // Check and deduct scan credit
+  const creditResult = await checkAndDeductCredit(supabase, orgId);
+  if (!creditResult.allowed) {
+    return NextResponse.json(
+      {
+        error: "No scan credits remaining. Upgrade at https://clawkeeper.dev/upgrade or wait for your monthly refill.",
+        credits_remaining: 0,
+        credits_monthly_cap: creditResult.credits_monthly_cap,
+      },
+      { status: 402 }
+    );
+  }
+
   // Check if host exists or needs to be created
   let isNewHost = false;
   let { data: host } = await supabase
@@ -59,7 +74,7 @@ export async function POST(request: NextRequest) {
       .eq("org_id", orgId);
 
     if (!canAddHost(plan, count || 0)) {
-      const limit = plan === "free" ? 1 : 10;
+      const limit = TIER_LIMITS[plan].hosts;
       return NextResponse.json(
         {
           error: `Host limit reached (${count}/${limit} on ${plan} plan). Upgrade at https://clawkeeper.dev/upgrade?reason=host_limit`,
@@ -156,5 +171,7 @@ export async function POST(request: NextRequest) {
     ok: true,
     host_id: host.id,
     scan_id: scan.id,
+    credits_remaining: creditResult.credits_remaining,
+    credits_monthly_cap: creditResult.credits_monthly_cap,
   });
 }

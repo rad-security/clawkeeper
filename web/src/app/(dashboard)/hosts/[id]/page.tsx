@@ -22,6 +22,7 @@ import { EventFeed } from "@/components/activity/EventFeed";
 import { analyzeHost, PHASE_LABELS, PHASE_ORDER } from "@/lib/host-analysis";
 import { getScanRetentionDays, getMaxEvents, isPaidPlan } from "@/lib/tier";
 import { Lock, TrendingUp, Activity } from "lucide-react";
+import { ShareScanCard } from "@/components/dashboard/ShareScanCard";
 import type { Event, PlanType } from "@/types";
 
 function ProFeatureGate({ title, description, icon: Icon }: { title: string; description: string; icon: React.ComponentType<{ className?: string }> }) {
@@ -148,6 +149,15 @@ export default async function HostDetailPage({
             </Badge>
           )}
         </div>
+        {latestScan && (
+          <div className="ml-auto">
+            <ShareScanCard
+              scanId={latestScan.id}
+              grade={latestScan.grade}
+              score={latestScan.score}
+            />
+          </div>
+        )}
       </div>
 
       {/* Stats */}

@@ -17,6 +17,9 @@ import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 const comparisonFeatures = [
   // Scanning
   { name: "CLI scanner", free: "44 checks", pro: "44 checks", enterprise: "44 checks", category: "Scanning" },
+  { name: "Monthly scan credits", free: "10", pro: "200", enterprise: "Unlimited" },
+  { name: "Unused credits roll over", free: false, pro: true, enterprise: true },
+  { name: "Referral bonus credits", free: "+5 per referral", pro: "+5 per referral", enterprise: "N/A" },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
   { name: "Security grade & score", free: true, pro: true, enterprise: true },
   { name: "Basic scan report", free: true, pro: true, enterprise: true },
@@ -27,7 +30,7 @@ const comparisonFeatures = [
   { name: "OpenClaw security feed", free: "View only", pro: "Full audit", enterprise: "Full audit" },
 
   // Dashboard & Monitoring
-  { name: "Dashboard hosts", free: "1", pro: "10", enterprise: "Unlimited", category: "Dashboard" },
+  { name: "Dashboard hosts", free: "1", pro: "15", enterprise: "Unlimited", category: "Dashboard" },
   { name: "Scan history", free: "7 days", pro: "365 days", enterprise: "Unlimited" },
   { name: "Score history & trends", free: false, pro: true, enterprise: true },
   { name: "Activity stream", free: false, pro: true, enterprise: true },
@@ -61,7 +64,7 @@ function CellValue({ value }: { value: boolean | string }) {
 export function PricingSection() {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
 
-  const proPrice = billing === "annual" ? "$24" : "$29";
+  const proPrice = billing === "annual" ? "$16" : "$20";
 
   return (
     <>
@@ -87,7 +90,7 @@ export function PricingSection() {
         >
           Annual
           <Badge className="ml-2 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
-            Save 17%
+            Save 20%
           </Badge>
         </button>
       </div>
@@ -105,8 +108,8 @@ export function PricingSection() {
               </span>
             </div>
             <CardDescription className="text-zinc-500">
-              For individual developers securing their own OpenClaw
-              installation.
+              Scan your OpenClaw setup and see your security grade. No account
+              needed for the CLI.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
@@ -141,12 +144,12 @@ export function PricingSection() {
             </div>
             {billing === "annual" && (
               <p className="text-xs text-cyan-400">
-                Billed annually — save $60/year vs monthly
+                Billed annually ($192/yr) — save 20% vs monthly
               </p>
             )}
             <CardDescription className="text-zinc-500">
-              For teams running OpenClaw across multiple machines. Full
-              security platform with insights and alerts.
+              Stop worrying about credits. Monitor up to 15 hosts with full
+              CVE intelligence, AI insights, and alerts.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">

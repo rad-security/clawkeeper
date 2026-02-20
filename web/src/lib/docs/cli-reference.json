@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-02-19T19:07:02.188Z",
+  "generatedAt": "2026-02-20T02:38:38.920Z",
   "commands": [
     {
       "name": "setup",
@@ -59,22 +59,6 @@
     }
   ],
   "gradeThresholds": [
-    {
-      "grade": "A",
-      "min": 95
-    },
-    {
-      "grade": "B",
-      "min": 85
-    },
-    {
-      "grade": "C",
-      "min": 70
-    },
-    {
-      "grade": "D",
-      "min": 50
-    },
     {
       "grade": "F",
       "min": 0

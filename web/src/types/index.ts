@@ -5,8 +5,42 @@ export interface Organization {
   name: string;
   plan: PlanType;
   stripe_customer_id: string | null;
+  credits_balance: number;
+  credits_monthly_cap: number;
+  credits_last_refill_at: string;
+  referred_by_code: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ReferralCode {
+  id: string;
+  code: string;
+  org_id: string;
+  user_id: string;
+  max_uses: number;
+  use_count: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface ReferralEvent {
+  id: string;
+  referral_code: string;
+  referrer_org_id: string;
+  referee_org_id: string;
+  referrer_credits: number;
+  referee_credits: number;
+  created_at: string;
+}
+
+export interface SharedScan {
+  id: string;
+  scan_id: string;
+  org_id: string;
+  share_code: string;
+  is_public: boolean;
+  created_at: string;
 }
 
 export interface OrgMember {
@@ -179,20 +213,21 @@ export interface Insight {
 
 // Tier limits
 export const TIER_LIMITS = {
-  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false },
-  pro: { hosts: 10, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true },
-  enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true },
+  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false, credits_monthly: 10, credits_signup_bonus: 5, credits_rollover: false },
+  pro: { hosts: 15, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: 200, credits_signup_bonus: 0, credits_rollover: true },
+  enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: true },
 } as const;
 
 // Pricing (cents) for Stripe integration
 export const PLAN_PRICING = {
-  pro: { monthly: 2900, annual: 28800 }, // $29/mo or $24/mo billed annually ($288/yr)
+  pro: { monthly: 2000, annual: 19200 }, // $20/mo or $16/mo billed annually ($192/yr)
 } as const;
 
 // Shared feature lists for pricing cards (used by landing + upgrade pages)
 export const PRO_FEATURES = [
   "Everything in Free",
-  "Up to 10 hosts",
+  "200 scans/month (unused roll over)",
+  "Up to 15 hosts",
   "365 days scan history",
   "10 API keys",
   "Live CVE vulnerability audit",
@@ -218,6 +253,7 @@ export const ENTERPRISE_FEATURES = [
 
 export const FREE_FEATURES = [
   "Full CLI scanner (44 checks)",
+  "10 scans/month + referral bonuses",
   "Auto-fix for common issues",
   "1 host on dashboard",
   "7 days scan history",

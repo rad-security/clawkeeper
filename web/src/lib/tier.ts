@@ -45,3 +45,11 @@ export function canViewScoreTrends(plan: Plan): boolean {
 export function isPaidPlan(plan: Plan): boolean {
   return plan === "pro" || plan === "enterprise";
 }
+
+export function getMonthlyCredits(plan: Plan): number {
+  return getLimits(plan).credits_monthly;
+}
+
+export function hasUnlimitedCredits(plan: Plan): boolean {
+  return getLimits(plan).credits_monthly === -1;
+}

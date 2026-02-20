@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ApiKeyManager } from "@/components/settings/ApiKeyManager";
 import { BillingPortalButton } from "@/components/settings/BillingPortalButton";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { ReferralSection } from "@/components/settings/ReferralSection";
 import { CopyCommand } from "@/components/landing/CopyCommand";
 import { TIER_LIMITS, type PlanType } from "@/types";
 import { isPaidPlan } from "@/lib/tier";
@@ -155,6 +156,9 @@ export default async function SettingsPage({
           </div>
         </CardContent>
       </Card>
+
+      {/* Referral */}
+      <ReferralSection />
 
       {/* API Keys */}
       <ApiKeyManager orgId={orgId} keys={keys} plan={plan} />

@@ -38,7 +38,7 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
   host_limit: {
     title: "You've reached your host limit",
     subtitle:
-      "Upgrade to Pro to monitor up to 10 hosts with full security insights.",
+      "Upgrade to Pro to monitor up to 15 hosts with full security insights.",
   },
   insights: {
     title: "Unlock AI-powered security insights",
@@ -65,7 +65,7 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
 const defaultHeader = {
   title: "Unlock your full security posture",
   subtitle:
-    "Get CVE auditing, AI insights, score trends, alerts, and up to 10 hosts.",
+    "200 scans/month with rollover, CVE auditing, AI insights, alerts, and up to 15 hosts — from $16/mo.",
 };
 
 export function UpgradeContent({
@@ -181,7 +181,7 @@ export function UpgradeContent({
           >
             Annual
             <Badge className="ml-2 bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
-              Save $60/yr
+              Save 20%
             </Badge>
           </button>
         </div>
@@ -197,24 +197,24 @@ export function UpgradeContent({
               <CardTitle>Pro</CardTitle>
             </div>
             <div className="text-3xl font-bold">
-              {billing === "annual" ? "$24" : "$29"}
+              {billing === "annual" ? "$16" : "$20"}
               <span className="text-base font-normal text-muted-foreground">
                 /mo
               </span>
             </div>
             {billing === "annual" && (
               <p className="text-sm text-cyan-400">
-                $288/year — save $60 vs monthly
+                $192/year — save 20% vs monthly
               </p>
             )}
             {billing === "monthly" && (
               <p className="text-sm text-muted-foreground">
-                Switch to annual and save $60/year
+                Switch to annual and save 20%
               </p>
             )}
             <CardDescription>
-              Full security platform with insights, alerts, and fleet monitoring
-              for up to 10 hosts.
+              200 scans/month with rollover, full security platform with insights,
+              alerts, and fleet monitoring for up to 15 hosts.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -297,11 +297,11 @@ export function UpgradeContent({
               What happens if I downgrade?
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Your scan data is preserved. Free tier limits (3 hosts, 7-day history) are reapplied. Hosts beyond the limit stop receiving new scans.
+              Your scan data is preserved. Free tier limits (1 host, 7-day history) are reapplied. Hosts beyond the limit stop receiving new scans.
             </p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-sm font-medium">Need more than 10 hosts?</p>
+            <p className="text-sm font-medium">Need more than 15 hosts?</p>
             <p className="mt-1 text-xs text-muted-foreground">
               Enterprise includes unlimited hosts plus Kubernetes, eBPF, and SSO.{" "}
               <Link href="/demo" className="text-violet-400 underline">

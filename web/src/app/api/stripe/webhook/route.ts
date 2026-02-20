@@ -1,11 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { TIER_LIMITS } from "@/types";
+import type { PlanType } from "@/types";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
   return new Stripe(key);
+}
+
+function getCustomerId(subscription: Stripe.Subscription): string {
+  return typeof subscription.customer === "string"
+    ? subscription.customer
+    : subscription.customer.id;
+}
+
+/** Downgrade org to free: set plan, cap credits at free tier limit. */
+async function downgradeToFree(
+  admin: ReturnType<typeof createAdminClient>,
+  customerId: string
+) {
+  const freeCap = TIER_LIMITS.free.credits_monthly;
+
+  // Read current balance so we can cap it
+  const { data: org } = await admin
+    .from("organizations")
+    .select("credits_balance")
+    .eq("stripe_customer_id", customerId)
+    .single();
+
+  const cappedBalance = Math.min(org?.credits_balance ?? 0, freeCap);
+
+  await admin
+    .from("organizations")
+    .update({
+      plan: "free",
+      credits_monthly_cap: freeCap,
+      credits_balance: cappedBalance,
+    })
+    .eq("stripe_customer_id", customerId);
 }
 
 export async function POST(req: NextRequest) {
@@ -37,11 +71,29 @@ export async function POST(req: NextRequest) {
       const plan = session.metadata?.plan;
 
       if (orgId && plan) {
+        const newCredits = TIER_LIMITS[plan as PlanType]?.credits_monthly ?? 10;
+
+        // Read current balance to preserve existing credits (rollover-aware)
+        const { data: currentOrg } = await admin
+          .from("organizations")
+          .select("credits_balance")
+          .eq("id", orgId)
+          .single();
+
+        const existingBalance = currentOrg?.credits_balance ?? 0;
+        const newBalance =
+          newCredits === -1
+            ? 0 // Enterprise: unlimited, balance unused
+            : Math.min(existingBalance + newCredits, newCredits * 2);
+
         await admin
           .from("organizations")
           .update({
             plan,
             stripe_customer_id: session.customer as string,
+            credits_balance: newBalance,
+            credits_monthly_cap: newCredits === -1 ? 0 : newCredits,
+            credits_last_refill_at: new Date().toISOString(),
           })
           .eq("id", orgId);
       }
@@ -50,10 +102,7 @@ export async function POST(req: NextRequest) {
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      const customerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer.id;
+      const customerId = getCustomerId(subscription);
 
       if (subscription.status === "active") {
         // Plan stays active — no change needed
@@ -61,26 +110,15 @@ export async function POST(req: NextRequest) {
         subscription.status === "canceled" ||
         subscription.status === "unpaid"
       ) {
-        // Downgrade to free
-        await admin
-          .from("organizations")
-          .update({ plan: "free" })
-          .eq("stripe_customer_id", customerId);
+        await downgradeToFree(admin, customerId);
       }
       break;
     }
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      const customerId =
-        typeof subscription.customer === "string"
-          ? subscription.customer
-          : subscription.customer.id;
-
-      await admin
-        .from("organizations")
-        .update({ plan: "free" })
-        .eq("stripe_customer_id", customerId);
+      const customerId = getCustomerId(subscription);
+      await downgradeToFree(admin, customerId);
       break;
     }
   }

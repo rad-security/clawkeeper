@@ -193,4 +193,5 @@ done <<< "$audit_results"
 if [ "$vuln_count" -gt 0 ]; then
     emit_warn "Found $vuln_count CVE(s) affecting OpenClaw $oc_version"
     emit_info "Run: npm install -g openclaw@latest  (or update your Docker image)"
+    emit_info "Docker users: consider the Minimus hardened image (99% fewer CVEs): us-docker.pkg.dev/prod-375107/minimus-public/openclaw:latest"
 fi

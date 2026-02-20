@@ -24,9 +24,17 @@ const navItems = [
   { href: "/docs", label: "Docs", icon: BookOpen },
 ];
 
-export function SidebarNav({ plan }: { plan?: string }) {
+interface SidebarNavProps {
+  plan?: string;
+  creditsRemaining?: number;
+  creditsCap?: number;
+}
+
+export function SidebarNav({ plan, creditsRemaining, creditsCap }: SidebarNavProps) {
   const pathname = usePathname();
   const isFree = plan === "free";
+  const isEnterprise = plan === "enterprise";
+  const showCredits = creditsRemaining !== undefined && creditsCap !== undefined;
 
   return (
     <nav className="flex-1 space-y-1 p-2">
@@ -54,6 +62,35 @@ export function SidebarNav({ plan }: { plan?: string }) {
         );
       })}
 
+      {/* Credit meter */}
+      {showCredits && (
+        <div className="mt-3 rounded-md border border-white/5 bg-muted/50 px-3 py-2.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">Scan credits</span>
+            {isEnterprise || creditsCap === -1 ? (
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-violet-500/30 text-violet-400">
+                Unlimited
+              </Badge>
+            ) : (
+              <span className="font-medium">{creditsRemaining}/{creditsCap}</span>
+            )}
+          </div>
+          {!isEnterprise && creditsCap !== -1 && creditsCap > 0 && (
+            <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  creditsRemaining <= 2 ? "bg-red-500" : creditsRemaining <= 5 ? "bg-yellow-500" : "bg-cyan-500"
+                )}
+                style={{
+                  width: `${Math.min(100, (creditsRemaining / creditsCap) * 100)}%`,
+                }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Upgrade CTA for free users */}
       {isFree && (
         <Link
@@ -69,7 +106,7 @@ export function SidebarNav({ plan }: { plan?: string }) {
   );
 }
 
-export function MobileNav({ plan }: { plan?: string }) {
+export function MobileNav({ plan }: SidebarNavProps) {
   const pathname = usePathname();
   const isFree = plan === "free";
 

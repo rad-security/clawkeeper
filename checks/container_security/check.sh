@@ -148,3 +148,15 @@ if [ "$mount_issue" = false ]; then
 else
     emit_fail "Sensitive host paths are mounted into the container" "Volume Mounts"
 fi
+
+# ---------- Check 11: Image source (hardened vs official) ----------
+image_name=$(docker inspect --format='{{.Config.Image}}' openclaw 2>/dev/null || echo "unknown")
+if echo "$image_name" | grep -qi "minimus"; then
+    emit_pass "Using Minimus hardened image (99% fewer CVEs)" "Container Image"
+elif echo "$image_name" | grep -qi "ghcr.io/openclaw"; then
+    emit_warn "Using official OpenClaw image — consider switching to the Minimus hardened image for 99% fewer CVEs"
+    emit_info "Image: us-docker.pkg.dev/prod-375107/minimus-public/openclaw:latest"
+    emit_info "Details: https://www.minimus.io"
+else
+    emit_info "Using custom image: $image_name"
+fi

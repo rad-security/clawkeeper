@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureOrganization } from "@/lib/ensure-organization";
+import { getCreditBalance } from "@/lib/credits";
 import { LogOut, AlertTriangle, Crown } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ export default async function DashboardLayout({
   let orgError: string | null = null;
   try {
     const admin = createAdminClient();
-    await ensureOrganization(supabase, admin, user.id, user.email ?? "user");
+    await ensureOrganization(supabase, admin, user.id, user.email ?? "user", user.user_metadata);
   } catch (err) {
     orgError =
       err instanceof Error ? err.message : "Failed to initialize organization";
@@ -60,12 +61,15 @@ export default async function DashboardLayout({
     );
   }
 
-  // Get plan for sidebar upgrade CTA
+  // Get plan + credits for sidebar
+  const admin2 = createAdminClient();
   const { data: membership } = await supabase
     .from("org_members")
     .select("org_id")
     .single();
   let plan = "free";
+  let creditsRemaining = 0;
+  let creditsCap = 10;
   if (membership) {
     const { data: orgData } = await supabase
       .from("organizations")
@@ -73,6 +77,9 @@ export default async function DashboardLayout({
       .eq("id", membership.org_id)
       .single();
     plan = orgData?.plan || "free";
+    const credits = await getCreditBalance(admin2, membership.org_id);
+    creditsRemaining = credits.credits_remaining;
+    creditsCap = credits.credits_monthly_cap;
   }
 
   return (
@@ -82,7 +89,7 @@ export default async function DashboardLayout({
         <div className="flex h-14 items-center border-b px-4">
           <Logo />
         </div>
-        <SidebarNav plan={plan} />
+        <SidebarNav plan={plan} creditsRemaining={creditsRemaining} creditsCap={creditsCap} />
         <Separator />
         <div className="p-4">
           <div className="mb-2 flex items-center gap-1.5">

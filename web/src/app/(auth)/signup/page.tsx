@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,29 +20,63 @@ import {
   Monitor,
   Bell,
   BarChart3,
+  Gift,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref") || "";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [referralCode, setReferralCode] = useState(refCode);
+  const [referralValid, setReferralValid] = useState<boolean | null>(null);
+  const [referralChecking, setReferralChecking] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
+  const validateRef = useCallback(async (code: string) => {
+    if (!code || !/^CK[A-Z2-9]{6}$/i.test(code)) {
+      setReferralValid(null);
+      return;
+    }
+    setReferralChecking(true);
+    try {
+      const res = await fetch(`/api/referral/validate?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      setReferralValid(data.valid);
+    } catch {
+      setReferralValid(null);
+    } finally {
+      setReferralChecking(false);
+    }
+  }, []);
+
+  // Validate on mount if ref param provided
+  useEffect(() => {
+    if (refCode) validateRef(refCode);
+  }, [refCode, validateRef]);
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    const metadata: Record<string, string> = { full_name: fullName };
+    if (referralCode && referralValid) {
+      metadata.referral_code = referralCode.toUpperCase();
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: metadata,
         emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
@@ -177,6 +211,32 @@ export default function SignupPage() {
                   className="border-white/10 bg-white/5 text-white placeholder:text-zinc-500"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="referral" className="text-zinc-300">Invite code <span className="text-zinc-500">(optional)</span></Label>
+                <Input
+                  id="referral"
+                  placeholder="CKXXXXXX"
+                  value={referralCode}
+                  onChange={(e) => {
+                    setReferralCode(e.target.value);
+                    validateRef(e.target.value);
+                  }}
+                  maxLength={8}
+                  className="border-white/10 bg-white/5 text-white placeholder:text-zinc-500 uppercase"
+                />
+                {referralChecking && (
+                  <p className="text-xs text-zinc-500">Checking...</p>
+                )}
+                {referralValid === true && (
+                  <p className="flex items-center gap-1 text-xs text-green-400">
+                    <Gift className="h-3 w-3" />
+                    Valid! You&apos;ll get +5 bonus scan credits
+                  </p>
+                )}
+                {referralValid === false && referralCode.length >= 8 && (
+                  <p className="text-xs text-red-400">Invalid or expired code</p>
+                )}
+              </div>
               {error && (
                 <p className="text-sm text-destructive">{error}</p>
               )}
@@ -198,5 +258,13 @@ export default function SignupPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

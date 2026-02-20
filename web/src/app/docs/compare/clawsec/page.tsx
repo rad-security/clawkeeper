@@ -29,7 +29,7 @@ const overview = [
   { label: "Remediation", ck: "Interactive auto-fix for 20+ issues", cs: "Advisory-gated skill removal only" },
   { label: "Dashboard", ck: "Pro web dashboard with fleet monitoring", cs: "None (CLI output only)" },
   { label: "Deployment", ck: "Independent bash script (zero deps)", cs: "Installed as OpenClaw skill" },
-  { label: "Pricing", ck: "Free CLI / $29 Pro / Enterprise", cs: "Free (open source)" },
+  { label: "Pricing", ck: "Free CLI / from $16 Pro / Enterprise", cs: "Free (open source)" },
 ];
 
 const features = [

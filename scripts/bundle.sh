@@ -5,6 +5,16 @@
 #
 # Usage: bash scripts/bundle.sh
 # Output: dist/clawkeeper.sh
+#
+# Concatenation order:
+#   1. helpers.sh    — JSON output helpers
+#   2. ui.sh         — colors, formatting, output helpers
+#   3. scanner.sh    — check runner, detection, reporting
+#   4. agent.sh      — SaaS agent management
+#   5. deploy.sh     — OpenClaw deployment (native + Docker)
+#   6. uninstall.sh  — secure removal
+#   7. checks/       — extracted security checks
+#   8. orchestrator.sh — CLI entrypoint (main, usage, platform detect)
 # ============================================================================
 
 set -euo pipefail
@@ -41,6 +51,36 @@ HEADER
 
     # --- Inline lib/helpers.sh (strip shebang) ---
     sed '1{/^#!/d;}' "$LIB_DIR/helpers.sh"
+
+    echo ""
+    echo "# === UI (colors, formatting, output) ====================================="
+    echo ""
+
+    cat "$LIB_DIR/ui.sh"
+
+    echo ""
+    echo "# === Scanner (check runner, detection, reporting) ========================"
+    echo ""
+
+    cat "$LIB_DIR/scanner.sh"
+
+    echo ""
+    echo "# === Agent (SaaS integration) ============================================"
+    echo ""
+
+    cat "$LIB_DIR/agent.sh"
+
+    echo ""
+    echo "# === Deploy (OpenClaw installation) ======================================"
+    echo ""
+
+    cat "$LIB_DIR/deploy.sh"
+
+    echo ""
+    echo "# === Uninstall (secure removal) =========================================="
+    echo ""
+
+    cat "$LIB_DIR/uninstall.sh"
 
     echo ""
     echo "# === Extracted Checks ===================================================="
@@ -113,10 +153,10 @@ METAFUNC
         fi
     done
 
-    echo "# === Orchestrator ========================================================"
+    echo "# === Orchestrator (entrypoint) ==========================================="
     echo ""
 
-    # --- Inline lib/orchestrator.sh (strip shebang — already stripped) ---
+    # --- Inline lib/orchestrator.sh (entrypoint — must be last) ---
     cat "$LIB_DIR/orchestrator.sh"
 
 } > "$OUTPUT"
@@ -125,5 +165,6 @@ chmod +x "$OUTPUT"
 
 # Count stats
 check_count=$(find "$CHECKS_DIR" -name "check.sh" 2>/dev/null | wc -l | tr -d ' ')
+lib_count=$(find "$LIB_DIR" -name "*.sh" 2>/dev/null | wc -l | tr -d ' ')
 line_count=$(wc -l < "$OUTPUT" | tr -d ' ')
-echo "Done: $OUTPUT ($line_count lines, $check_count extracted checks)"
+echo "Done: $OUTPUT ($line_count lines, $lib_count lib modules, $check_count extracted checks)"

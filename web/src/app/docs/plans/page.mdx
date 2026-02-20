@@ -7,9 +7,11 @@ Clawkeeper offers three tiers. The CLI scanner is free and unlimited — the das
 | Feature | Free | Pro | Enterprise |
 |---|---|---|---|
 | **CLI scanner** | 44 checks | 44 checks | 44 checks |
+| **Monthly scan credits** | 10 | 200 | Unlimited |
+| **Credits roll over** | — | Yes | Yes |
 | **Auto-fix remediation** | Yes | Yes | Yes |
 | **Letter grade + score** | Yes | Yes | Yes |
-| **Dashboard hosts** | 3 | 10 | Unlimited |
+| **Dashboard hosts** | 1 | 15 | Unlimited |
 | **Scan history** | 7 days | 365 days | Unlimited |
 | **API keys** | 1 | 10 | Unlimited |
 | **Activity stream** | Last 5 events | Full history | Full history |
@@ -31,19 +33,21 @@ Clawkeeper offers three tiers. The CLI scanner is free and unlimited — the das
 The free tier gives you everything you need for personal use or evaluating Clawkeeper:
 
 - Full 44-check CLI scanner with auto-fix
-- 3 hosts on the dashboard
+- 10 scan credits/month (+ bonus credits via referrals)
+- 1 host on the dashboard
 - 7-day scan history retention
 - 1 API key
 - Letter grade and score on every scan
 - Last 5 events in the activity stream
 
-The CLI scanner runs locally with zero dependencies and zero limitations. You can scan as many machines as you want — the host limit only applies to dashboard monitoring.
+The CLI scanner runs locally with zero dependencies and zero limitations. You can scan as many machines as you want — the credit limit only applies to dashboard uploads.
 
-## Pro — $29/month
+## Pro — $20/month
 
-Pro is designed for teams and serious security monitoring. Everything in Free, plus:
+Pro is designed for anyone who wants continuous monitoring without worrying about credit limits. Everything in Free, plus:
 
-- **10 hosts** on the dashboard
+- **200 scan credits/month** with unused credits rolling over (up to 2x cap)
+- **15 hosts** on the dashboard
 - **365 days** scan history retention
 - **10 API keys** for team members and CI/CD
 - **CVE vulnerability audit** — live feed cross-referenced against your installations
@@ -53,7 +57,7 @@ Pro is designed for teams and serious security monitoring. Everything in Free, p
 - **Full activity stream** — complete history of scans, grade changes, and check flips
 - **Priority support**
 
-Annual billing: $24/month ($288/year) — save 17%.
+Annual billing: $16/month ($192/year) — save 20%.
 
 [Upgrade to Pro →](/upgrade)
 
@@ -62,7 +66,7 @@ Annual billing: $24/month ($288/year) — save 17%.
 For organizations running OpenClaw in production Kubernetes clusters. Everything in Pro, plus:
 
 - **Unlimited hosts and clusters**
-- **Unlimited scan history**
+- **Unlimited scan credits and history**
 - **Hardened Helm charts** for Kubernetes deployment
 - **eBPF runtime detection** via RAD Security integration
 - **Real-time KSPM** (Kubernetes Security Posture Management)
@@ -84,9 +88,13 @@ No. The CLI scanner is free and unlimited. You can run all 44 checks, use auto-f
 
 The agent will still run scans locally, but new hosts won't appear on the dashboard. Upgrade your plan to add more hosts.
 
+### Do unused credits roll over?
+
+On Pro and Enterprise, yes. Unused scan credits carry forward to the next month, up to 2x your monthly allowance. Free tier credits reset each month.
+
 ### Can I try Pro before buying?
 
-The free tier gives you access to the full scanner. Upgrade when you need more hosts, extended history, or the intelligence features (CVEs, insights, alerts).
+The free tier gives you access to the full scanner plus 10 dashboard scans/month. Upgrade when you need more scans, more hosts, or the intelligence features (CVEs, insights, alerts).
 
 ### How do I upgrade?
 

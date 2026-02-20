@@ -462,7 +462,7 @@ export default function LandingPage() {
               <div>
                 <h3 className="text-xl font-bold text-white">Continuous Monitoring</h3>
                 <p className="text-sm text-zinc-500">
-                  Pro — $29/month for teams
+                  Pro — from $16/month
                 </p>
               </div>
             </div>
