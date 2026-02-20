@@ -2,12 +2,28 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { processReferral } from "./referral";
 
 /**
+ * Looks up an existing owner membership for the user.
+ * Returns the org_id if found, null otherwise.
+ */
+async function findExistingOrg(
+  admin: SupabaseClient,
+  userId: string
+): Promise<string | null> {
+  const { data } = await admin
+    .from("org_members")
+    .select("org_id")
+    .eq("user_id", userId)
+    .limit(1);
+  return data && data.length > 0 ? data[0].org_id : null;
+}
+
+/**
  * Guarantees the authenticated user has an organization.
  * If no org_members row exists, creates a new organization + membership
  * using the admin (service-role) client to bypass RLS.
  *
- * Uses advisory locks via Postgres RPC to prevent race conditions where
- * concurrent requests both see "no membership" and create duplicate orgs.
+ * Handles race conditions (concurrent requests after email verification)
+ * by catching the unique constraint violation and retrying the lookup.
  */
 export async function ensureOrganization(
   supabase: SupabaseClient,
@@ -17,15 +33,8 @@ export async function ensureOrganization(
   userMetadata?: Record<string, unknown>
 ): Promise<string> {
   // Check for existing membership via admin client (avoids RLS edge cases)
-  const { data: memberships } = await admin
-    .from("org_members")
-    .select("org_id")
-    .eq("user_id", userId)
-    .limit(1);
-
-  if (memberships && memberships.length > 0) {
-    return memberships[0].org_id;
-  }
+  const existing = await findExistingOrg(admin, userId);
+  if (existing) return existing;
 
   // No org — create one with the admin client
   const orgName = userEmail.split("@")[0] + "'s Org";
@@ -37,6 +46,9 @@ export async function ensureOrganization(
     .single();
 
   if (orgError || !org) {
+    // Org creation failed — check if another request already finished the job
+    const fallback = await findExistingOrg(admin, userId);
+    if (fallback) return fallback;
     throw new Error("Failed to create organization: " + (orgError?.message ?? "unknown"));
   }
 
@@ -47,20 +59,23 @@ export async function ensureOrganization(
   });
 
   if (memberError) {
-    // Race condition: another request created a membership between our check
-    // and insert. Clean up the orphaned org and return the existing membership.
+    // Clean up orphaned org first (this org has no members)
+    await admin.from("organizations").delete().eq("id", org.id);
+
     if (memberError.code === "23505") {
-      // Unique constraint violation — membership already exists
-      await admin.from("organizations").delete().eq("id", org.id);
-      const { data: existing } = await admin
-        .from("org_members")
-        .select("org_id")
-        .eq("user_id", userId)
-        .limit(1);
-      if (existing && existing.length > 0) {
-        return existing[0].org_id;
-      }
+      // Race condition: another request created a membership between our check
+      // and insert. Wait briefly for the winning transaction to commit, then
+      // look up the membership it created.
+      await new Promise((r) => setTimeout(r, 200));
+      const raceWinner = await findExistingOrg(admin, userId);
+      if (raceWinner) return raceWinner;
+
+      // One more retry after a longer delay
+      await new Promise((r) => setTimeout(r, 500));
+      const retried = await findExistingOrg(admin, userId);
+      if (retried) return retried;
     }
+
     throw new Error("Failed to create membership: " + memberError.message);
   }
 
