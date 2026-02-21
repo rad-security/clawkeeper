@@ -53,3 +53,7 @@ export function getMonthlyCredits(plan: Plan): number {
 export function hasUnlimitedCredits(plan: Plan): boolean {
   return getLimits(plan).credits_monthly === -1;
 }
+
+export function canUseRuntimeShield(plan: Plan): boolean {
+  return plan === "pro" || plan === "enterprise";
+}

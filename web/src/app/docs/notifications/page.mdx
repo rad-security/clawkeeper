@@ -10,6 +10,7 @@ Clawkeeper can send email and webhook alerts when security issues are detected o
 | **Critical misconfigurations** | High-severity findings like credential exposure, prompt injection, rogue commands, container escapes, or new regressions | On |
 | **Grade drops** | A host's security grade decreases between scans | On |
 | **New host registered** | A new machine starts reporting scans to your organization | Off |
+| **Shield blocks** | Runtime Shield blocks a prompt injection attempt | On |
 
 Each event type can be independently toggled on or off.
 
@@ -74,6 +75,7 @@ The `event` field will be one of:
 | `grade_degradation` | Host grade dropped |
 | `new_regression` | Previously passing check now fails |
 | `new_host` | New host registered in the organization |
+| `shield_block` | Runtime Shield blocked a prompt injection attempt |
 
 ### Headers
 

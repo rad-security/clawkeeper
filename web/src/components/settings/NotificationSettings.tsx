@@ -15,6 +15,7 @@ interface Settings {
   notify_on_critical: boolean;
   notify_on_grade_drop: boolean;
   notify_on_new_host: boolean;
+  notify_on_shield_block: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -27,6 +28,7 @@ const DEFAULT_SETTINGS: Settings = {
   notify_on_critical: true,
   notify_on_grade_drop: true,
   notify_on_new_host: false,
+  notify_on_shield_block: true,
 };
 
 export function NotificationSettings() {
@@ -236,6 +238,22 @@ export function NotificationSettings() {
                 <span className="text-sm">New host registered</span>
                 <p className="text-xs text-muted-foreground">
                   When a new machine starts reporting scans
+                </p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 rounded-md border p-3">
+              <input
+                type="checkbox"
+                checked={settings.notify_on_shield_block}
+                onChange={(e) =>
+                  setSettings({ ...settings, notify_on_shield_block: e.target.checked })
+                }
+                className="h-4 w-4 rounded border-border accent-cyan-500"
+              />
+              <div>
+                <span className="text-sm">Shield blocks</span>
+                <p className="text-xs text-muted-foreground">
+                  When Runtime Shield blocks prompt injection attempts
                 </p>
               </div>
             </label>

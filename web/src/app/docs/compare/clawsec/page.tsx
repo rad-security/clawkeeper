@@ -5,11 +5,11 @@ import { Shield, Check, X, Minus } from "lucide-react";
 export const metadata: Metadata = {
   title: "Clawkeeper vs ClawSec — Comparison",
   description:
-    "Feature-by-feature comparison of Clawkeeper and ClawSec (Prompt Security) for OpenClaw security. See how 44 full-stack checks compare to skill-level advisory monitoring.",
+    "Feature-by-feature comparison of Clawkeeper and ClawSec (Prompt Security) for OpenClaw security. See how 39 full-stack checks compare to skill-level advisory monitoring.",
   openGraph: {
     title: "Clawkeeper vs ClawSec — Full Comparison",
     description:
-      "Clawkeeper covers the full stack with 44 checks. ClawSec focuses on skill advisories. See the detailed breakdown.",
+      "Clawkeeper covers the full stack with 39 checks. ClawSec focuses on skill advisories. See the detailed breakdown.",
   },
 };
 
@@ -23,7 +23,7 @@ function StatusIcon({ status }: { status: "yes" | "no" | "partial" }) {
 
 const overview = [
   { label: "Type", ck: "External scanner + dashboard", cs: "OpenClaw skill (runs inside agent)" },
-  { label: "Checks", ck: "44 automated across 5 phases", cs: "~12 (advisory + reputation + audit)" },
+  { label: "Checks", ck: "39 automated across 5 phases", cs: "~12 (advisory + reputation + audit)" },
   { label: "Scope", ck: "Full-stack: host + network + container + config", cs: "OpenClaw-only: skills + advisories" },
   { label: "Platform", ck: "macOS + Linux (bare metal, Docker, K8s)", cs: "Any OS with Node.js" },
   { label: "Remediation", ck: "Interactive auto-fix for 20+ issues", cs: "Advisory-gated skill removal only" },
@@ -269,7 +269,7 @@ export default function ClawsecComparePage() {
             href="/docs/checks"
             className="rounded-md border border-white/10 px-4 py-2 text-sm text-zinc-300 transition hover:bg-white/5"
           >
-            View all 44 checks
+            View all 39 checks
           </Link>
           <Link
             href="/docs/compare/openclaw-native"

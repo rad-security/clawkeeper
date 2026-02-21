@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | Clawkeeper",
   },
   description:
-    "Your OpenClaw AI agents are exposed. Clawkeeper scans for misconfigurations, exposed credentials, malicious skills, and CVEs in 60 seconds. Free CLI, Pro monitoring dashboard, and Enterprise Kubernetes hardening with eBPF runtime detection. By RAD Security.",
+    "Deploy, harden, and monitor OpenClaw AI agents with Clawkeeper. 39 automated security checks, guided deployment with secure defaults, and continuous fleet monitoring. Free CLI, Pro dashboard, and Enterprise Kubernetes hardening. By RAD Security.",
   keywords: [
     "OpenClaw security",
     "AI agent security",

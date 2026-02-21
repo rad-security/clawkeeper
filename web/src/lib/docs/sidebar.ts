@@ -38,6 +38,7 @@ export const sidebarNav: SidebarSection[] = [
     title: "Dashboard",
     items: [
       { title: "Features", href: "/docs/dashboard" },
+      { title: "Runtime Shield", href: "/docs/runtime-shield" },
       { title: "Notifications", href: "/docs/notifications" },
       { title: "Plans & Pricing", href: "/docs/plans" },
     ],

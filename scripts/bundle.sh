@@ -83,6 +83,12 @@ HEADER
     cat "$LIB_DIR/uninstall.sh"
 
     echo ""
+    echo "# === Shield (Runtime Shield management) =================================="
+    echo ""
+
+    cat "$LIB_DIR/shield.sh"
+
+    echo ""
     echo "# === Extracted Checks ===================================================="
     echo ""
 

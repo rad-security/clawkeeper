@@ -40,6 +40,7 @@ export const tutorialSidebarNav: SidebarSection[] = [
     items: [
       { title: "Skills Security", href: "/tutorials/openclaw-skills-security" },
       { title: "Continuous Monitoring", href: "/tutorials/continuous-monitoring" },
+      { title: "Runtime Shield Setup", href: "/tutorials/runtime-shield-setup" },
     ],
   },
 ];

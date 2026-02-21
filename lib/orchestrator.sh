@@ -107,6 +107,7 @@ usage() {
             "| \`scan\` | Read-only security audit (no changes, just a report) |" \
             "| \`uninstall\` | Securely remove OpenClaw and wipe sensitive data |" \
             "| \`agent\` | Manage the Clawkeeper SaaS agent |" \
+            "| \`shield\` | Manage the Runtime Shield skill |" \
             "| \`help\` | Show this help |" \
             "" \
             "## Options" \
@@ -130,6 +131,7 @@ usage() {
         echo "  scan        Read-only security audit (no changes, just a report)"
         echo "  uninstall   Securely remove OpenClaw and wipe sensitive data"
         echo "  agent       Manage the Clawkeeper SaaS agent"
+        echo "  shield      Manage the Runtime Shield skill"
         echo "  help        Show this help"
         echo ""
         echo "Deployment modes (chosen interactively):"
@@ -273,6 +275,10 @@ main() {
             ;;
         agent)
             agent_main "${agent_args[@]+"${agent_args[@]}"}"
+            exit 0
+            ;;
+        shield|--shield)
+            shield_main "${agent_args[@]+"${agent_args[@]}"}"
             exit 0
             ;;
         help|--help|-h)

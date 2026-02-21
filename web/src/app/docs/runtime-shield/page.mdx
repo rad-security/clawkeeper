@@ -1,0 +1,180 @@
+# Runtime Shield
+
+Runtime Shield is a Pro feature that provides **real-time prompt injection defense** for your OpenClaw agents. It installs as an OpenClaw skill and monitors every message and tool result through 5 detection layers, blocking threats locally and reporting to your Clawkeeper dashboard for fleet-wide visibility.
+
+## Overview
+
+While Clawkeeper's static checks scan files at scan time, Runtime Shield adds continuous, real-time protection during active OpenClaw sessions. Raw user messages **never leave your machine** — only SHA-256 hashed inputs, detection metadata, and verdicts are sent to the dashboard.
+
+## Installation
+
+```bash
+clawkeeper.sh shield install
+```
+
+This installs the Runtime Shield skill into `~/.openclaw/skills/runtime-shield/`. The skill activates automatically on the next OpenClaw session.
+
+### Prerequisites
+
+- OpenClaw installed and configured
+- Node.js / npm available
+- Clawkeeper API key (for dashboard connectivity; optional for local-only mode)
+
+## Detection Layers
+
+Runtime Shield runs 5 detection layers in sequence on every input:
+
+### Layer 1: Regex (30+ patterns)
+
+Pattern-based detection for known injection techniques:
+
+- Persona hijack (`you are now...`, `pretend to be...`)
+- Instruction override (`ignore previous instructions`)
+- Boundary escape (XML tags, markdown separators, special tokens)
+- Social engineering (urgency, authority claims)
+- Encoding/obfuscation (base64 blocks, zero-width characters, homoglyphs)
+- Tool/data exfiltration (`curl`, `wget`, `send all data`)
+- Command injection (shell injection, path traversal)
+
+### Layer 2: Semantic (weighted anomaly scoring)
+
+Weighted signal analysis across 5 categories:
+
+| Signal | Weight |
+|---|---|
+| Persona hijack | 0.30 |
+| Instruction overwrite | 0.25 |
+| Boundary escape | 0.20 |
+| Social engineering | 0.15 |
+| Encoding obfuscation | 0.10 |
+
+Flags when combined score exceeds 0.20.
+
+### Layer 3: Context Integrity
+
+Validates turn types and detects impersonation:
+
+- Tool response impersonation in user messages
+- System message markers in user input
+- Multi-role conversation injection (user/assistant markers in one message)
+
+### Layer 4: Blacklist
+
+Exact match plus fuzzy matching (Levenshtein distance ≤ 2):
+
+- 19 default entries covering common injection phrases
+- Custom entries configurable via dashboard or `/shield blacklist` command
+- Fuzzy matching catches typo-based evasion attempts
+
+### Layer 5: Entropy Heuristic
+
+Statistical analysis for obfuscation detection:
+
+- Shannon entropy analysis (default threshold: 4.5)
+- Base64 block detection
+- Context flooding (inputs exceeding max length)
+- Repetition/low-diversity detection
+
+## Security Levels
+
+| Level | Block when | Warn when | Pass when |
+|---|---|---|---|
+| **Paranoid** | Any single layer flags | — | All layers clean |
+| **Strict** (default) | 2+ layers flag OR any critical | 1 layer flags (non-critical) | All layers clean |
+| **Moderate** | 2+ layers AND (critical or high) | Single critical/high flag | Everything else |
+| **Minimal** | Explicit blacklist match or critical regex | High severity match | Everything else |
+
+## Dashboard
+
+The Runtime Shield dashboard at [/shield](/shield) shows:
+
+- **Stats** — total events, blocked, warned, passed, unique patterns
+- **Timeline** — stacked area chart of events over 24h or 7d
+- **Top patterns** — most common attack patterns with severity
+- **Policy panel** — security level, blacklist, trusted sources
+- **Event feed** — paginated, filterable event stream
+
+### Policy Management
+
+Configure shield behavior centrally from the dashboard:
+
+1. Go to [Runtime Shield](/shield)
+2. Adjust security level, blacklist, and trusted sources
+3. Click **Save Policy**
+
+Agents sync policy from the dashboard every 5 minutes.
+
+## Slash Commands
+
+Use these inside any OpenClaw session with Runtime Shield installed:
+
+| Command | Description |
+|---|---|
+| `/shield status` | Current level, session stats, dashboard connection status |
+| `/shield level <level>` | Override security level locally |
+| `/shield blacklist add/remove/list` | Manage local blacklist |
+| `/shield log [count]` | Show recent events from local log |
+| `/shield sync` | Force policy re-sync from dashboard |
+| `/shield stats` | Detection statistics since startup |
+
+## API Reference
+
+### POST /api/v1/shield/events
+
+Upload detection events from the skill to the dashboard.
+
+```bash
+curl -X POST https://clawkeeper.dev/api/v1/shield/events \
+  -H "Authorization: Bearer ck_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"events": [{"hostname": "my-host", "detection_layer": "regex", "verdict": "blocked", "severity": "critical", "security_level": "strict", "input_hash": "abc123..."}]}'
+```
+
+### GET /api/v1/shield/policy
+
+Pull the current shield policy for your organization.
+
+```bash
+curl https://clawkeeper.dev/api/v1/shield/policy \
+  -H "Authorization: Bearer ck_live_..."
+```
+
+### POST /api/v1/shield/heartbeat
+
+Signal that the shield is active on a host.
+
+```bash
+curl -X POST https://clawkeeper.dev/api/v1/shield/heartbeat \
+  -H "Authorization: Bearer ck_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"hostname": "my-host", "shield_version": "1.0.0"}'
+```
+
+## Insights
+
+Runtime Shield generates 3 insight types on the Insights page:
+
+- **Attack Surge** — 10+ blocked events in 1 hour across your fleet
+- **Targeted Host** — single host receives 5+ blocks in 1 hour
+- **New Pattern** — previously unseen attack pattern detected
+
+## Privacy
+
+- Raw user messages **never** leave your machine
+- Only SHA-256 hashes, metadata, and verdicts are transmitted
+- Local logs stored in `~/.clawkeeper/shield-logs/` (daily rotation, JSONL format)
+- Dashboard connection is optional — the shield works fully offline
+
+## FAQ
+
+**Does Runtime Shield slow down my agent?**
+No. Detection runs in under 1ms for typical messages. The 5 layers use pattern matching and scoring — no network calls or ML inference in the detection path.
+
+**Does it consume scan credits?**
+No. Shield events are gated by plan tier (Pro/Enterprise), not credits.
+
+**What happens if the dashboard is unreachable?**
+Events are logged locally and queued for upload. The shield continues protecting your agent with the last-synced policy.
+
+**Can I use it without a Clawkeeper account?**
+Yes. Install the skill and it works in local-only mode. You won't get fleet analytics or centralized policy, but all 5 detection layers run locally.

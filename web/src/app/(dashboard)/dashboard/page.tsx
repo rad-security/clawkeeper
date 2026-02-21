@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SecurityGradeCard } from "@/components/dashboard/SecurityGradeCard";
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow";
-import { Monitor, Shield, AlertTriangle, Sparkles, Lock } from "lucide-react";
+import { Monitor, Shield, ShieldCheck, AlertTriangle, Sparkles, Lock } from "lucide-react";
 import { UpgradeBanner } from "@/components/dashboard/UpgradeBanner";
 import { isPaidPlan } from "@/lib/tier";
 import Link from "next/link";
@@ -14,10 +14,10 @@ export default async function DashboardPage() {
   const orgId = await getOrgId(supabase);
 
   // Parallel queries
-  const [hostsRes, recentScansRes, insightsCountRes, orgRes] = await Promise.all([
+  const [hostsRes, recentScansRes, insightsCountRes, orgRes, shieldActiveRes] = await Promise.all([
     supabase
       .from("hosts")
-      .select("id, hostname, last_grade, last_score, last_scan_at, platform")
+      .select("id, hostname, last_grade, last_score, last_scan_at, platform, shield_active")
       .eq("org_id", orgId)
       .order("last_scan_at", { ascending: false }),
     supabase
@@ -32,6 +32,11 @@ export default async function DashboardPage() {
       .eq("org_id", orgId)
       .eq("is_resolved", false),
     supabase.from("organizations").select("plan").eq("id", orgId).single(),
+    supabase
+      .from("hosts")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("shield_active", true),
   ]);
 
   const hosts = hostsRes.data || [];
@@ -39,6 +44,7 @@ export default async function DashboardPage() {
   const activeInsights = insightsCountRes.count || 0;
   const plan = orgRes.data?.plan || "free";
   const paid = isPaidPlan(plan);
+  const shieldActiveCount = shieldActiveRes.count || 0;
 
   // No hosts yet — show onboarding wizard
   if (hosts.length === 0) {
@@ -80,7 +86,7 @@ export default async function DashboardPage() {
       {!paid && <UpgradeBanner />}
 
       {/* Stats cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Instances</CardTitle>
@@ -118,6 +124,22 @@ export default async function DashboardPage() {
           <CardContent>
             {paid ? (
               <div className="text-2xl font-bold">{activeInsights}</div>
+            ) : (
+              <Link href="/upgrade" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+                <Lock className="h-3.5 w-3.5" />
+                Pro feature
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Shield Active</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {paid ? (
+              <div className="text-2xl font-bold">{shieldActiveCount}</div>
             ) : (
               <Link href="/upgrade" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Lock className="h-3.5 w-3.5" />

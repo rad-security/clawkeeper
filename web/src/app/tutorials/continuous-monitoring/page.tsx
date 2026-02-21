@@ -269,7 +269,10 @@ WantedBy=timers.target`}</pre>
         </TipCallout>
       </StepBlock>
 
-      <TutorialFooter />
+      <TutorialFooter
+        nextHref="/tutorials/runtime-shield-setup"
+        nextLabel="Runtime Shield Setup"
+      />
     </div>
   );
 }

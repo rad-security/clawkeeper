@@ -4,7 +4,7 @@ import type { NotificationSettings, InsightSeverity } from "@/types";
 import crypto from "crypto";
 
 interface NotificationPayload {
-  type: "cve_vulnerability" | "critical_failure" | "credential_exposure" | "grade_degradation" | "new_regression" | "new_host";
+  type: "cve_vulnerability" | "critical_failure" | "credential_exposure" | "grade_degradation" | "new_regression" | "new_host" | "shield_block";
   severity: InsightSeverity;
   title: string;
   description: string;
@@ -42,6 +42,7 @@ function shouldNotify(settings: NotificationSettings, payload: NotificationPaylo
   ) {
     return true;
   }
+  if (payload.type === "shield_block" && settings.notify_on_shield_block) return true;
   return false;
 }
 

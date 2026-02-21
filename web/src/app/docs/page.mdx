@@ -1,6 +1,6 @@
 # Clawkeeper Documentation
 
-Clawkeeper is an open-source security scanner and hardening tool for [OpenClaw](https://github.com/openclaw/openclaw) AI agent deployments. It runs 44 automated checks across host hardening, network security, prerequisites, and runtime configuration — then gives you a letter grade (A–F) and auto-fixes what it can.
+Clawkeeper is an open-source security scanner and hardening tool for [OpenClaw](https://github.com/openclaw/openclaw) AI agent deployments. It runs 39 automated checks across host hardening, network security, prerequisites, and runtime configuration — then gives you a letter grade (A–F) and auto-fixes what it can.
 
 ## Quick start
 
@@ -19,12 +19,13 @@ That's it. No account, no dependencies, no configuration. The installer drops a 
 5. **Detects CVEs** by checking your OpenClaw version against a live vulnerability feed
 6. **Generates insights** — AI-powered security analysis that identifies regressions, credential exposure, fleet drift, and quick wins (Pro)
 7. **Sends alerts** — email and webhook notifications when critical issues are detected (Pro)
+8. **Runtime Shield** — real-time prompt injection defense with 5 detection layers and fleet-wide analytics (Pro)
 
 ## Plans
 
 The CLI scanner is free and always will be. The web dashboard has three tiers:
 
-- **Free** — full 44-check CLI scanner, auto-fix, 10 scans/month, 1 host, 7-day scan history
+- **Free** — full 39-check CLI scanner, auto-fix, 10 scans/month, 1 host, 7-day scan history
 - **Pro** (from $16/mo) — 200 scans/month with rollover, 15 hosts, 365-day history, CVE audit, AI insights, alerts
 - **Enterprise** — unlimited everything, Kubernetes hardening, eBPF runtime detection, SSO/SAML
 
@@ -39,10 +40,11 @@ See [Plans & Pricing](/docs/plans) for the full comparison.
 
 ### Usage
 - [Grading](/docs/grading) — scoring formula, grade thresholds, how SKIPPED and FIXED checks are handled
-- [Security Checks](/docs/checks) — full reference of all 44 checks, grouped by phase
+- [Security Checks](/docs/checks) — full reference of all 39 checks, grouped by phase
 
 ### Dashboard
 - [Dashboard Features](/docs/dashboard) — fleet monitoring, insights, CVE intelligence, score trends
+- [Runtime Shield](/docs/runtime-shield) — real-time prompt injection defense, 5 detection layers, fleet analytics
 - [Notifications](/docs/notifications) — email and webhook alert configuration
 - [Plans & Pricing](/docs/plans) — free vs Pro vs Enterprise feature comparison
 

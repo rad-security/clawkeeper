@@ -20,8 +20,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventFeed } from "@/components/activity/EventFeed";
 import { analyzeHost, PHASE_LABELS, PHASE_ORDER } from "@/lib/host-analysis";
-import { getScanRetentionDays, getMaxEvents, isPaidPlan } from "@/lib/tier";
+import { getScanRetentionDays, getMaxEvents, isPaidPlan, canUseRuntimeShield } from "@/lib/tier";
 import { Lock, TrendingUp, Activity } from "lucide-react";
+import { ShieldStatusCard } from "@/components/shield/ShieldStatusCard";
 import { ShareScanCard } from "@/components/dashboard/ShareScanCard";
 import type { Event, PlanType } from "@/types";
 
@@ -89,7 +90,8 @@ export default async function HostDetailPage({
     scansQuery = scansQuery.gte("scanned_at", retentionDate);
   }
 
-  const [{ data: scans }, { data: hostEvents }] = await Promise.all([
+  const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString();
+  const [{ data: scans }, { data: hostEvents }, shieldBlocksRes] = await Promise.all([
     scansQuery,
     supabase
       .from("events")
@@ -97,7 +99,16 @@ export default async function HostDetailPage({
       .eq("host_id", id)
       .order("created_at", { ascending: false })
       .limit(eventLimit),
+    canUseRuntimeShield(plan)
+      ? supabase
+          .from("shield_events")
+          .select("id", { count: "exact", head: true })
+          .eq("host_id", id)
+          .eq("verdict", "blocked")
+          .gte("created_at", oneDayAgo)
+      : Promise.resolve({ count: 0 }),
   ]);
+  const recentBlocks = shieldBlocksRes.count || 0;
 
   // Get latest scan checks
   const latestScan = scans && scans.length > 0 ? scans[scans.length - 1] : null;
@@ -206,6 +217,16 @@ export default async function HostDetailPage({
             ))}
           </div>
         </div>
+      )}
+
+      {/* Shield Status — Pro only */}
+      {canUseRuntimeShield(plan) && (
+        <ShieldStatusCard
+          shieldActive={host.shield_active}
+          shieldLastSeenAt={host.shield_last_seen_at}
+          recentBlocks={recentBlocks}
+          hostId={id}
+        />
       )}
 
       {/* Grade history chart — Pro only */}

@@ -71,6 +71,8 @@ export interface Host {
   last_score: number | null;
   last_scan_at: string | null;
   agent_version: string | null;
+  shield_active: boolean;
+  shield_last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -133,6 +135,7 @@ export interface NotificationSettings {
   notify_on_critical: boolean;
   notify_on_grade_drop: boolean;
   notify_on_new_host: boolean;
+  notify_on_shield_block: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -163,7 +166,9 @@ export type EventType =
   | "agent.installed"
   | "agent.started"
   | "agent.stopped"
-  | "agent.uninstalled";
+  | "agent.uninstalled"
+  | "shield.blocked"
+  | "shield.warned";
 
 export interface Event {
   id: string;
@@ -187,7 +192,10 @@ export type InsightType =
   | "grade_degradation"
   | "fleet_inconsistency"
   | "stale_host"
-  | "quick_win";
+  | "quick_win"
+  | "shield_attack_surge"
+  | "shield_targeted_host"
+  | "shield_new_pattern";
 
 export type InsightSeverity = "critical" | "high" | "medium" | "low" | "info";
 
@@ -213,9 +221,9 @@ export interface Insight {
 
 // Tier limits
 export const TIER_LIMITS = {
-  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false, credits_monthly: 10, credits_signup_bonus: 5, credits_rollover: false },
-  pro: { hosts: 15, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: 200, credits_signup_bonus: 0, credits_rollover: true },
-  enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: true },
+  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false, credits_monthly: 10, credits_signup_bonus: 5, credits_rollover: false, runtime_shield: false },
+  pro: { hosts: 15, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: 200, credits_signup_bonus: 0, credits_rollover: true, runtime_shield: true },
+  enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: true, runtime_shield: true },
 } as const;
 
 // Pricing (cents) for Stripe integration
@@ -235,6 +243,7 @@ export const PRO_FEATURES = [
   "Score history & trend charts",
   "Activity stream & fleet monitoring",
   "Email & webhook alerts",
+  "Runtime Shield: real-time prompt injection defense",
   "Priority support",
 ] as const;
 
@@ -252,11 +261,59 @@ export const ENTERPRISE_FEATURES = [
 ] as const;
 
 export const FREE_FEATURES = [
-  "Full CLI scanner (44 checks)",
+  "Full CLI scanner & deployment wizard",
   "10 scans/month + referral bonuses",
-  "Auto-fix for common issues",
+  "Auto-remediation & secure defaults",
   "1 host on dashboard",
   "7 days scan history",
   "1 API key",
   "Letter grade & score",
 ] as const;
+
+// Shield types
+export type ShieldDetectionLayer = "regex" | "semantic" | "context_integrity" | "blacklist" | "entropy_heuristic";
+export type ShieldVerdict = "blocked" | "warned" | "passed";
+export type ShieldSecurityLevel = "paranoid" | "strict" | "moderate" | "minimal";
+
+export interface ShieldEvent {
+  id: string;
+  org_id: string;
+  host_id: string | null;
+  hostname: string;
+  detection_layer: ShieldDetectionLayer;
+  verdict: ShieldVerdict;
+  severity: "critical" | "high" | "medium" | "low";
+  security_level: string;
+  pattern_name: string | null;
+  input_hash: string;
+  input_length: number | null;
+  confidence: number | null;
+  context: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ShieldPolicy {
+  id: string;
+  org_id: string;
+  security_level: ShieldSecurityLevel;
+  custom_blacklist: string[];
+  trusted_sources: string[];
+  entropy_threshold: number;
+  max_input_length: number;
+  auto_block: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShieldEventPayload {
+  hostname: string;
+  detection_layer: ShieldDetectionLayer;
+  verdict: ShieldVerdict;
+  severity: "critical" | "high" | "medium" | "low";
+  security_level: string;
+  pattern_name?: string;
+  input_hash: string;
+  input_length?: number;
+  confidence?: number;
+  context?: Record<string, unknown>;
+}

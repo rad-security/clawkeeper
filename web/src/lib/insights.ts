@@ -701,7 +701,7 @@ async function autoResolve(
 /** Map insight types to notification payload types */
 function toNotificationType(
   insightType: InsightType
-): "cve_vulnerability" | "critical_failure" | "credential_exposure" | "grade_degradation" | "new_regression" | "new_host" {
+): "cve_vulnerability" | "critical_failure" | "credential_exposure" | "grade_degradation" | "new_regression" | "new_host" | "shield_block" {
   switch (insightType) {
     case "cve_vulnerability":
       return "cve_vulnerability";
@@ -713,6 +713,10 @@ function toNotificationType(
       return "grade_degradation";
     case "new_regression":
       return "new_regression";
+    case "shield_attack_surge":
+    case "shield_targeted_host":
+    case "shield_new_pattern":
+      return "shield_block";
     default:
       return "critical_failure";
   }

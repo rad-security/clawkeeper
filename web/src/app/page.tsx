@@ -123,19 +123,20 @@ export default function LandingPage() {
       <section className="hero-gradient grid-bg relative overflow-hidden">
         <div className="mx-auto flex max-w-4xl flex-col items-center px-4 pb-28 pt-24 text-center">
           <Badge className="mb-6 border-white/10 bg-white/5 text-zinc-300 backdrop-blur">
-            Created by RAD Security, the leaders in agent AI security
+            Built by RAD Security, the leaders in AI agent security
           </Badge>
 
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
-            Your OpenClaw agents
+            Deploy OpenClaw
             <br />
-            <span className="gradient-text">are&nbsp;exposed.</span>
+            <span className="gradient-text">the&nbsp;secure&nbsp;way.</span>
           </h1>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
-            OpenClaw has 180,000+ stars and zero built&#8209;in security.
-            Exposed API keys, malicious skills from ClawHub, unpatched RCE
-            vulnerabilities — one scan reveals what attackers already see.
+            Clawkeeper sets up, hardens, and monitors OpenClaw so you
+            don&apos;t have to bolt on security after the fact. One CLI to
+            deploy with secure defaults, catch misconfigurations before they
+            ship, and keep your agents locked down in production.
           </p>
 
           <div className="mt-10 flex flex-col gap-4 sm:flex-row">
@@ -154,7 +155,7 @@ export default function LandingPage() {
                 size="lg"
                 className="btn-rad border-white/10 px-8 text-zinc-300 hover:border-white/20 hover:text-white"
               >
-                Enterprise K8s security
+                See the enterprise stack
               </Button>
             </a>
           </div>
@@ -219,7 +220,7 @@ export default function LandingPage() {
   Security Grade: C  (68/100)
   ── 14 passed  2 fixed  5 failed  2 skipped ──
 
-  Run clawkeeper scan --fix to auto-remediate.`}
+  Run clawkeeper setup to deploy with hardened defaults.`}
             </pre>
           </div>
         </div>
@@ -229,10 +230,10 @@ export default function LandingPage() {
       <section className="border-y border-white/10 bg-zinc-950">
         <div className="mx-auto grid max-w-6xl grid-cols-2 divide-x divide-white/10 sm:grid-cols-4">
           {[
-            { value: "44", label: "Security checks" },
-            { value: "180k+", label: "OpenClaw installs at risk" },
-            { value: "<60s", label: "Time to first scan" },
-            { value: "A–F", label: "Letter grade scoring" },
+            { value: "39", label: "Automated security checks" },
+            { value: "5", label: "Hardening phases" },
+            { value: "<60s", label: "Install to first scan" },
+            { value: "A–F", label: "Security grade scoring" },
           ].map((s) => (
             <div key={s.label} className="px-6 py-6 text-center">
               <div className="text-2xl font-bold text-white">{s.value}</div>
@@ -247,19 +248,19 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4">
           <div className="mx-auto max-w-3xl text-center">
             <Badge className="mb-4 border-white/10 bg-white/5 text-zinc-400">
-              The problem
+              The challenge
             </Badge>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              OpenClaw wasn&apos;t built to be secure.
+              OpenClaw is powerful out of the box.
               <br />
               <span className="text-zinc-500">
-                Every installation is a liability.
+                Secure out of the box? Not yet.
               </span>
             </h2>
             <p className="mt-4 text-lg text-zinc-400">
               AI agents run with broad system access, execute arbitrary code, and
-              pull skills from an unvetted marketplace. Without hardening, every
-              OpenClaw instance is an open door.
+              pull skills from an unvetted marketplace. OpenClaw ships fast and
+              leaves security configuration to you. Clawkeeper fills that gap.
             </p>
           </div>
 
@@ -269,28 +270,28 @@ export default function LandingPage() {
                 icon: KeyRound,
                 title: "Exposed Credentials",
                 description:
-                  "API keys, tokens, and secrets stored in plain text config files. One leaked key compromises your entire infrastructure.",
+                  "API keys, tokens, and secrets sit in plain text config files by default. Clawkeeper detects them and guides you to secure storage.",
                 color: "text-red-400",
               },
               {
                 icon: Bug,
-                title: "Malicious Skills",
+                title: "Unvetted Skills",
                 description:
-                  "ClawHub skills run with full agent permissions. No vetting, no sandboxing, no integrity checks. Supply chain attacks are trivial.",
+                  "ClawHub skills run with full agent permissions and no built-in vetting. Clawkeeper scans installed skills against a curated threat intelligence feed.",
                 color: "text-orange-400",
               },
               {
                 icon: AlertTriangle,
                 title: "Unpatched CVEs",
                 description:
-                  "CVE-2026-25253 enables WebSocket RCE on any OpenClaw instance. Most deployments are still running vulnerable versions.",
+                  "New vulnerabilities like CVE-2026-25253 affect most running instances. Clawkeeper flags outdated versions and walks you through the upgrade.",
                 color: "text-yellow-400",
               },
               {
                 icon: Eye,
                 title: "Config Drift",
                 description:
-                  "Developers change settings, disable auth, open ports. Without monitoring, secure configs quietly become insecure over weeks.",
+                  "Settings change, auth gets disabled, ports open up. Without continuous monitoring, secure configs quietly degrade. Clawkeeper's agent catches it.",
                 color: "text-cyan-400",
               },
             ].map((p) => (
@@ -318,10 +319,10 @@ export default function LandingPage() {
               How it works
             </Badge>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Secure in 60 seconds
+              From install to production in four steps
             </h2>
             <p className="mt-4 text-zinc-400">
-              One command. No agents, no dependencies, no account required.
+              One CLI. Scan first, deploy when ready, monitor continuously.
             </p>
           </div>
 
@@ -332,28 +333,28 @@ export default function LandingPage() {
                 icon: Terminal,
                 title: "Install",
                 description:
-                  "One curl command downloads the scanner. Pure bash — runs on any macOS or Linux machine. Nothing to configure.",
+                  "One curl command. Pure bash, zero dependencies. Works on any macOS or Linux machine. No account required to start.",
               },
               {
                 step: "02",
                 icon: ShieldCheck,
-                title: "Scan",
+                title: "Scan & Harden",
                 description:
-                  "44 automated checks across 5 phases: host hardening, network, prerequisites, and security audit. Results in under 60 seconds.",
+                  "39 checks across 5 phases audit your host, network, and OpenClaw config. Auto-remediation fixes common issues in place. Get a letter grade from A to F.",
               },
               {
                 step: "03",
                 icon: Zap,
-                title: "Fix",
+                title: "Deploy",
                 description:
-                  "Get a letter grade (A–F), a prioritized fix list, and auto-remediation for common issues. Run --fix to patch what can be patched automatically.",
+                  "The guided setup wizard installs OpenClaw with hardened defaults — locked-down configs, secure environment files, and proper service isolation. Docker or native.",
               },
               {
                 step: "04",
                 icon: Monitor,
                 title: "Monitor",
                 description:
-                  "Connect to the Pro dashboard to track every host in one view. Get email and webhook alerts on CVEs, grade drops, and misconfigurations across your fleet.",
+                  "Install the Clawkeeper agent for hourly scans uploaded to your dashboard. Track every host, get alerts on CVEs and grade drops, catch config drift before it matters.",
               },
             ].map((s) => (
               <div key={s.step} className="text-center">
@@ -378,7 +379,7 @@ export default function LandingPage() {
                 size="lg"
                 className="btn-rad bg-cyan-500 px-8 text-black font-medium hover:bg-cyan-400"
               >
-                Start your free scan
+                Get started free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
@@ -391,14 +392,15 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4">
           <div className="mx-auto max-w-3xl text-center">
             <Badge className="mb-4 border-white/10 bg-white/5 text-zinc-400">
-              Features
+              Capabilities
             </Badge>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Security that scales with you
+              From first scan to fleet management
             </h2>
             <p className="mt-4 text-lg text-zinc-400">
-              Start with a free CLI scan. Add monitoring as you grow. Deploy
-              hardened K8s clusters when you go to production.
+              Start with the free CLI to scan and harden a single host. Add
+              continuous monitoring for your team. Go to production on hardened
+              Kubernetes when you&apos;re ready.
             </p>
           </div>
 
@@ -409,7 +411,7 @@ export default function LandingPage() {
                 <Terminal className="h-5 w-5 text-zinc-400" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Instant Security Scan</h3>
+                <h3 className="text-xl font-bold text-white">Scan & Deploy</h3>
                 <p className="text-sm text-zinc-500">
                   Free forever — no account required
                 </p>
@@ -423,19 +425,19 @@ export default function LandingPage() {
                   desc: "Single curl command. Pure bash, zero dependencies. Works on macOS and Linux.",
                 },
                 {
-                  icon: Bug,
-                  title: "Malicious Skill Detection",
-                  desc: "Scans installed skills against a curated threat intelligence feed from ClawHub.",
+                  icon: ShieldCheck,
+                  title: "39-Check Security Audit",
+                  desc: "Five-phase scan covers host hardening, network, prerequisites, deployment, and security posture.",
                 },
                 {
-                  icon: KeyRound,
-                  title: "Credential Exposure",
-                  desc: "Finds leaked API keys, tokens, and secrets in configs, env vars, and skill data.",
+                  icon: Zap,
+                  title: "Guided Deployment",
+                  desc: "Interactive wizard installs OpenClaw with secure defaults. Docker or native, hardened from the start.",
                 },
                 {
                   icon: ShieldAlert,
-                  title: "CVE Detection",
-                  desc: "Detects outdated versions with known vulnerabilities like CVE-2026-25253 (WebSocket RCE).",
+                  title: "Auto-Remediation",
+                  desc: "Finds leaked credentials, flags CVEs, and fixes common misconfigurations. One command to go from failing to passing.",
                 },
               ].map((f) => (
                 <Card key={f.title} className="border-white/10 bg-zinc-900/50">
@@ -460,7 +462,7 @@ export default function LandingPage() {
                 <Monitor className="h-5 w-5 text-cyan-400" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Continuous Monitoring</h3>
+                <h3 className="text-xl font-bold text-white">Fleet Monitoring</h3>
                 <p className="text-sm text-zinc-500">
                   Pro — from $16/month
                 </p>
@@ -507,6 +509,71 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Runtime Shield — Pro highlight */}
+          <div className="mt-20">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10">
+                <ShieldCheck className="h-5 w-5 text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-white">Runtime Shield</h3>
+                <p className="text-sm text-zinc-500">
+                  Pro — real-time prompt injection defense
+                </p>
+              </div>
+              <Badge className="ml-auto border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                New
+              </Badge>
+            </div>
+            <p className="mb-6 max-w-2xl text-sm text-zinc-400">
+              While static scans catch misconfigurations, Runtime Shield defends your agents in real time.
+              5 detection layers monitor every message for prompt injection, with fleet-wide analytics
+              and centralized policy management that no single-agent skill can match.
+            </p>
+            <div className="grid gap-6 sm:grid-cols-3">
+              {[
+                {
+                  icon: Eye,
+                  title: "Fleet Visibility",
+                  desc: "See every blocked injection attempt across all hosts in one dashboard. Spot attack patterns and targeted hosts instantly.",
+                },
+                {
+                  icon: ShieldCheck,
+                  title: "Centralized Policy",
+                  desc: "Set security levels, blacklists, and thresholds once — all agents sync automatically. No per-host configuration.",
+                },
+                {
+                  icon: BarChart3,
+                  title: "Deep Analytics",
+                  desc: "Timeline charts, pattern analysis, and severity trends. Know exactly what's targeting your agents and how defenses are holding.",
+                },
+              ].map((f) => (
+                <Card
+                  key={f.title}
+                  className="border-cyan-500/20 bg-cyan-500/5"
+                >
+                  <CardHeader className="pb-2">
+                    <f.icon className="mb-1 h-5 w-5 text-cyan-400" />
+                    <CardTitle className="text-sm text-white">{f.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-xs leading-relaxed text-zinc-500">
+                      {f.desc}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            <div className="mt-6">
+              <Link href="/upgrade?reason=shield">
+                <Button variant="outline" className="border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10">
+                  Get Runtime Shield
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+
           {/* Tier 3: Enterprise */}
           <div className="mt-20">
             <div className="mb-8 flex items-center gap-3">
@@ -515,7 +582,7 @@ export default function LandingPage() {
               </div>
               <div>
                 <h3 className="text-xl font-bold text-white">
-                  Hardened Kubernetes Deployment
+                  Production Kubernetes
                 </h3>
                 <p className="text-sm text-zinc-500">
                   Enterprise — custom pricing
@@ -578,18 +645,20 @@ export default function LandingPage() {
               <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 OpenClaw + RAD Security.
                 <br />
-                <span className="gradient-text">One Helm chart.</span>
+                <span className="gradient-text">Production-ready from day one.</span>
               </h2>
               <p className="mt-6 text-lg leading-relaxed text-zinc-400">
-                In production, your AI agents run in Kubernetes. The Clawkeeper
-                Helm chart deploys OpenClaw bundled with RAD Security&apos;s
-                runtime protection — so you get a hardened agent deployment and
-                continuous security monitoring from a single install.
+                When your AI agents move to Kubernetes, Clawkeeper moves with
+                them. The enterprise Helm chart deploys OpenClaw bundled with
+                RAD Security&apos;s runtime protection — hardened containers,
+                behavioral monitoring, and security posture management in a
+                single install.
               </p>
               <p className="mt-4 leading-relaxed text-zinc-500">
-                No separate security tooling to configure. No bolting things on
-                after the fact. One chart gives you the AI agent and the
-                security layer it needs, working together from day one.
+                No separate security stack to integrate. No post-deployment
+                hardening checklists. One chart gives you the agent and the
+                security layer it needs, configured to work together from the
+                first pod.
               </p>
 
               <div className="glow-magenta mt-8 w-full max-w-md overflow-hidden rounded-xl border border-white/10 bg-black">
@@ -696,11 +765,11 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
               Deploy
             </Badge>
             <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              One product, three ways to deploy
+              One platform, three ways to run
             </h2>
             <p className="mt-4 text-zinc-400">
-              Same security checks. Same dashboard. Choose the deployment
-              method that fits your environment.
+              Same hardening. Same dashboard. Pick the deployment model that
+              fits your stack.
             </p>
           </div>
           <div className="mx-auto mt-12 grid gap-6 lg:grid-cols-3">
@@ -853,7 +922,7 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
             {[
               { value: "AWS", label: "EKS Add-on Partner" },
               { value: "eBPF", label: "Kernel-level detection" },
-              { value: "44", label: "Automated security checks" },
+              { value: "39", label: "Automated security checks" },
               { value: "SOC 2", label: "Compliance ready" },
             ].map((s) => (
               <div key={s.label} className="text-center">
@@ -870,13 +939,14 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
         <div className="grid-bg absolute inset-0 opacity-50" />
         <div className="relative mx-auto max-w-3xl px-4 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Start securing your AI agents
+            Deploy your first agent
             <br />
-            <span className="gradient-text">in 60 seconds.</span>
+            <span className="gradient-text">in under a minute.</span>
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-lg text-zinc-400">
-            One command to scan. One dashboard to monitor. One platform to
-            harden. No matter where you are on the journey, start now.
+            One command to scan and harden. One dashboard to monitor your
+            fleet. One Helm chart for production Kubernetes. Start wherever
+            you are.
           </p>
 
           <div className="mx-auto mt-8 max-w-lg">
@@ -889,19 +959,19 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
                 size="lg"
                 className="btn-rad bg-cyan-500 px-8 text-black font-medium hover:bg-cyan-400"
               >
-                Create free account
+                Get started free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/demo">
+            <a href="#enterprise">
               <Button
                 variant="outline"
                 size="lg"
                 className="btn-rad border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
               >
-                Talk to enterprise sales
+                See the enterprise stack
               </Button>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -914,8 +984,8 @@ $ helm install openclaw clawkeeper/openclaw-stack \\
             <div>
               <Logo className="text-white" />
               <p className="mt-3 text-sm text-zinc-500">
-                Security scanner and hardening platform for OpenClaw AI agent
-                deployments.
+                The secure deployment and monitoring platform for OpenClaw AI
+                agents.
               </p>
             </div>
 

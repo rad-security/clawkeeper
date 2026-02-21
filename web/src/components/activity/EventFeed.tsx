@@ -10,6 +10,8 @@ import {
   Play,
   Square,
   Trash2,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -72,6 +74,18 @@ const EVENT_CONFIG: Record<
     color: "text-red-600",
     bgColor: "bg-red-500/10",
     category: "Agent",
+  },
+  "shield.blocked": {
+    icon: ShieldAlert,
+    color: "text-red-600",
+    bgColor: "bg-red-500/10",
+    category: "Shield",
+  },
+  "shield.warned": {
+    icon: ShieldCheck,
+    color: "text-yellow-600",
+    bgColor: "bg-yellow-500/10",
+    category: "Shield",
   },
 };
 

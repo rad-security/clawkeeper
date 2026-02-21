@@ -16,7 +16,7 @@ import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 
 const comparisonFeatures = [
   // Scanning
-  { name: "CLI scanner", free: "44 checks", pro: "44 checks", enterprise: "44 checks", category: "Scanning" },
+  { name: "CLI scanner", free: "39 checks", pro: "39 checks", enterprise: "39 checks", category: "Scanning" },
   { name: "Monthly scan credits", free: "10", pro: "200", enterprise: "Unlimited" },
   { name: "Unused credits roll over", free: false, pro: true, enterprise: true },
   { name: "Referral bonus credits", free: "+5 per referral", pro: "+5 per referral", enterprise: "N/A" },
@@ -108,7 +108,7 @@ export function PricingSection() {
               </span>
             </div>
             <CardDescription className="text-zinc-500">
-              Scan your OpenClaw setup and see your security grade. No account
+              Scan, harden, and deploy OpenClaw with secure defaults. No account
               needed for the CLI.
             </CardDescription>
           </CardHeader>

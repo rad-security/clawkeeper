@@ -369,7 +369,8 @@ agent_run() {
   \"checks\": $checks_json,
   \"raw_report\": \"$raw_report\",
   \"scanned_at\": \"$scanned_at\",
-  \"agent_version\": \"$AGENT_VERSION\"
+  \"agent_version\": \"$AGENT_VERSION\",
+  \"shield_active\": $([ -d "$HOME/.openclaw/skills/runtime-shield" ] && echo "true" || echo "false")
 }"
 
     # Upload

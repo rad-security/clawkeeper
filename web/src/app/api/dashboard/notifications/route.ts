@@ -46,6 +46,7 @@ export async function GET() {
       notify_on_critical: true,
       notify_on_grade_drop: true,
       notify_on_new_host: false,
+      notify_on_shield_block: true,
     }
   );
 }
@@ -109,6 +110,7 @@ export async function PUT(request: Request) {
     notify_on_critical: body.notify_on_critical !== false,
     notify_on_grade_drop: body.notify_on_grade_drop !== false,
     notify_on_new_host: !!body.notify_on_new_host,
+    notify_on_shield_block: body.notify_on_shield_block !== false,
     updated_at: new Date().toISOString(),
   };
 
