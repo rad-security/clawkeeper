@@ -1,0 +1,24 @@
+apiVersion: v2
+name: openclaw-stack
+description: Hardened OpenClaw with optional RAD Security runtime protection
+type: application
+version: 0.1.0
+appVersion: "0.42.1"
+home: https://clawkeeper.dev
+sources:
+  - https://github.com/clawkeeper/clawkeeper
+keywords:
+  - openclaw
+  - security
+  - kubernetes
+  - rad-security
+  - ebpf
+maintainers:
+  - name: Clawkeeper
+    url: https://clawkeeper.dev
+dependencies:
+  - name: rad-plugins
+    version: ">=2.0.0"
+    repository: "https://charts.rad.security/stable"
+    condition: rad.enabled
+    alias: rad

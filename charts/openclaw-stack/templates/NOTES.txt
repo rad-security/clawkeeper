@@ -1,0 +1,30 @@
+OpenClaw deployed with security-first defaults:
+  ✓ Non-root container (uid 1000)
+  ✓ Read-only root filesystem
+  ✓ All capabilities dropped
+  ✓ NetworkPolicy restricting egress
+  ✓ Resource limits: {{ .Values.resources.limits.cpu }} CPU, {{ .Values.resources.limits.memory }} memory
+
+Access the gateway:
+  kubectl port-forward svc/{{ include "openclaw-stack.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+{{- if not .Values.clawkeeper.agent.enabled }}
+
+Connect to Clawkeeper dashboard:
+  helm upgrade {{ .Release.Name }} clawkeeper/openclaw-stack \
+    --set clawkeeper.agent.enabled=true \
+    --set clawkeeper.agent.apiKey=YOUR_KEY
+
+  Get your API key: https://clawkeeper.dev/settings
+{{- end }}
+
+{{- if not .Values.rad.enabled }}
+
+Enable RAD Security runtime protection:
+  helm upgrade {{ .Release.Name }} clawkeeper/openclaw-stack \
+    --set rad.enabled=true \
+    --set rad.base64AccessKeyId=YOUR_KEY \
+    --set rad.base64SecretKey=YOUR_SECRET
+
+  Get credentials: https://www.radsecurity.ai/trial?ref=clawkeeper
+{{- end }}

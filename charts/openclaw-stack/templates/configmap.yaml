@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+data:
+  openclaw.json: |
+    {
+      "gateway": {
+        "port": {{ .Values.openclaw.gateway.port }},
+        "bind": {{ .Values.openclaw.gateway.bind | quote }},
+        "auth": {
+          "mode": {{ .Values.openclaw.gateway.auth.mode | quote }}
+        },
+        "controlUI": {{ .Values.openclaw.gateway.controlUI }},
+        "discover": {
+          "mode": {{ .Values.openclaw.gateway.discover.mode | quote }}
+        }
+      },
+      "exec": {
+        "ask": {{ .Values.openclaw.exec.ask | quote }}
+      },
+      "tools": {
+        "applyPatch": {
+          "workspaceOnly": {{ .Values.openclaw.tools.applyPatch.workspaceOnly }}
+        }
+      },
+      "logging": {
+        "redactSensitive": {{ .Values.openclaw.logging.redactSensitive | quote }}
+      }
+    }

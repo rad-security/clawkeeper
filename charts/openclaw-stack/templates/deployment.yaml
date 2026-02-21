@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.openclaw.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "openclaw-stack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+      labels:
+        {{- include "openclaw-stack.labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "openclaw-stack.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      containers:
+        - name: openclaw
+          image: "{{ .Values.openclaw.image.repository }}:{{ .Values.openclaw.image.tag }}"
+          imagePullPolicy: {{ .Values.openclaw.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.security.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: gateway
+              containerPort: {{ .Values.openclaw.gateway.port }}
+              protocol: TCP
+          env:
+            - name: OPENCLAW_DISABLE_BONJOUR
+              value: "1"
+            {{- range $key, $value := .Values.openclaw.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "openclaw-stack.fullname" . }}
+                optional: true
+          volumeMounts:
+            - name: config
+              mountPath: /home/node/.openclaw/openclaw.json
+              subPath: openclaw.json
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: npm-cache
+              mountPath: /home/node/.npm
+            {{- if .Values.openclaw.persistence.enabled }}
+            - name: workspace
+              mountPath: /home/node/.openclaw/workspace
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: gateway
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: gateway
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "openclaw-stack.fullname" . }}
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
+        - name: npm-cache
+          emptyDir:
+            medium: Memory
+            sizeLimit: 100Mi
+        {{- if .Values.openclaw.persistence.enabled }}
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: {{ include "openclaw-stack.fullname" . }}
+        {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- if .Values.openclaw.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.openclaw.persistence.accessModes | nindent 4 }}
+  {{- if .Values.openclaw.persistence.storageClass }}
+  storageClassName: {{ .Values.openclaw.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.openclaw.persistence.size }}
+{{- end }}

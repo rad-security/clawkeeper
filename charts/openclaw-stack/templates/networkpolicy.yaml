@@ -1,0 +1,27 @@
+{{- if .Values.security.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "openclaw-stack.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    {{- toYaml .Values.security.networkPolicy.ingress | nindent 4 }}
+  egress:
+    {{- toYaml .Values.security.networkPolicy.egress | nindent 4 }}
+    {{- if .Values.clawkeeper.agent.enabled }}
+    - ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+    {{- with .Values.security.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

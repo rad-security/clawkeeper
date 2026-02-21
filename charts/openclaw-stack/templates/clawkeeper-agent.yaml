@@ -1,0 +1,83 @@
+{{- if .Values.clawkeeper.agent.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}-agent
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  schedule: {{ .Values.clawkeeper.agent.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 600
+      template:
+        metadata:
+          labels:
+            {{- include "openclaw-stack.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: agent
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "openclaw-stack.serviceAccountName" . }}
+          securityContext:
+            {{- toYaml .Values.security.podSecurityContext | nindent 12 }}
+          containers:
+            - name: clawkeeper-agent
+              image: "{{ .Values.clawkeeper.agent.image.repository }}:{{ .Values.clawkeeper.agent.image.tag }}"
+              imagePullPolicy: {{ .Values.clawkeeper.agent.image.pullPolicy }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+                seccompProfile:
+                  type: RuntimeDefault
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  clawkeeper scan --non-interactive --output json > /tmp/scan-result.json &&
+                  curl -sf -X POST "${API_URL}/scans" \
+                    -H "Authorization: Bearer ${API_KEY}" \
+                    -H "Content-Type: application/json" \
+                    -d @/tmp/scan-result.json
+              env:
+                - name: API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "openclaw-stack.fullname" . }}-agent
+                      key: api-key
+                - name: API_URL
+                  value: {{ .Values.clawkeeper.agent.apiUrl | quote }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+          volumes:
+            - name: tmp
+              emptyDir:
+                medium: Memory
+                sizeLimit: 50Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}-agent
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+type: Opaque
+stringData:
+  api-key: {{ .Values.clawkeeper.agent.apiKey | quote }}
+{{- end }}

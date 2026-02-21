@@ -1,0 +1,13 @@
+{{- if .Values.security.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "openclaw-stack.fullname" . }}
+  labels:
+    {{- include "openclaw-stack.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.security.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "openclaw-stack.selectorLabels" . | nindent 6 }}
+{{- end }}

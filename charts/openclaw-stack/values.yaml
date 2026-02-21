@@ -1,0 +1,136 @@
+# OpenClaw Stack — Hardened defaults, security ON by default
+# Users opt OUT of protections, never opt IN.
+
+# --- OpenClaw Application ---
+openclaw:
+  image:
+    repository: ghcr.io/openclaw/openclaw
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  gateway:
+    port: 18789
+    bind: "loopback"
+    auth:
+      mode: "token"
+    controlUI: false
+    discover:
+      mode: "off"
+  exec:
+    ask: "on"
+  tools:
+    applyPatch:
+      workspaceOnly: true
+  logging:
+    redactSensitive: "tools"
+  env: {}
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+
+# --- Security Hardening (ALL ON by default) ---
+security:
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - NET_BIND_SERVICE
+    seccompProfile:
+      type: RuntimeDefault
+  networkPolicy:
+    enabled: true
+    egress:
+      - ports:
+          - port: 53
+            protocol: UDP
+          - port: 53
+            protocol: TCP
+      - ports:
+          - port: 443
+            protocol: TCP
+    extraEgress: []
+    ingress:
+      - from:
+          - podSelector: {}
+  pdb:
+    enabled: true
+    minAvailable: 1
+
+# --- Resources (match deploy.sh limits) ---
+resources:
+  limits:
+    cpu: "2"
+    memory: 4Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# --- Autoscaling ---
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# --- Service & Ingress ---
+service:
+  type: ClusterIP
+  port: 18789
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# --- RAD Security (BYOC — bring your own credentials) ---
+rad:
+  enabled: false
+  runtime:
+    enabled: true
+  guard:
+    enabled: false
+  sbom:
+    enabled: false
+  sync:
+    enabled: false
+  watch:
+    enabled: false
+  base64AccessKeyId: ""
+  base64SecretKey: ""
+
+# --- Clawkeeper Agent (phones home to dashboard) ---
+clawkeeper:
+  agent:
+    enabled: false
+    apiKey: ""
+    apiUrl: "https://clawkeeper.dev/api/v1"
+    schedule: "0 * * * *"
+    image:
+      repository: ghcr.io/rad-security/clawkeeper-agent
+      tag: "latest"
+      pullPolicy: IfNotPresent
+
+# --- Misc ---
+imagePullSecrets: []
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+namespace:
+  create: false
+  name: "openclaw"

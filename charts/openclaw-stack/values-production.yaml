@@ -1,0 +1,30 @@
+# Production overrides — strict security, HA, autoscaling
+openclaw:
+  replicas: 2
+  image:
+    pullPolicy: Always
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 60
+
+security:
+  pdb:
+    minAvailable: 1
+
+resources:
+  limits:
+    cpu: "4"
+    memory: 8Gi
+  requests:
+    cpu: "1"
+    memory: 2Gi
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels: {}

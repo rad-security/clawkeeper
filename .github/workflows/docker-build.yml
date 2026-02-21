@@ -1,0 +1,97 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docker/**"
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - "docker/**"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: rad-security/openclaw-hardened
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - dockerfile: docker/Dockerfile
+            suffix: ""
+          - dockerfile: docker/Dockerfile.standard
+            suffix: "-standard"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image
+        if: github.event_name != 'pull_request'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}@${DIGEST}
+
+      - name: Generate SBOM
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Attach SBOM to image
+        if: github.event_name != 'pull_request'
+        run: |
+          cosign attach sbom --sbom sbom.spdx.json \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.suffix }}@${{ steps.build.outputs.digest }}

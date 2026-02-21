@@ -1,0 +1,26 @@
+# Development overrides — relaxed for minikube/kind
+openclaw:
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+  persistence:
+    enabled: false
+
+security:
+  containerSecurityContext:
+    readOnlyRootFilesystem: false
+  networkPolicy:
+    enabled: false
+  pdb:
+    enabled: false
+
+resources:
+  limits:
+    cpu: "1"
+    memory: 2Gi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false

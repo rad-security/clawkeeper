@@ -1,0 +1,6 @@
+dependencies:
+- name: rad-plugins
+  repository: https://charts.rad.security/stable
+  version: 2.4.1
+digest: sha256:1a2bb384e8a414b4f39bdbbaddd8de6bf661bf6b5726bfe74a16977ecc15590f
+generated: "2026-02-21T11:28:29.015673-07:00"
