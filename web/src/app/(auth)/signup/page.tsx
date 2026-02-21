@@ -23,6 +23,7 @@ import {
   Gift,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 
 function SignupForm() {
   const searchParams = useSearchParams();
@@ -175,6 +176,11 @@ function SignupForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <SocialAuthButtons referralCode={referralCode} />
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div>
+              <div className="relative flex justify-center text-xs"><span className="bg-zinc-900 px-2 text-zinc-500">or continue with email</span></div>
+            </div>
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-zinc-300">Full name</Label>

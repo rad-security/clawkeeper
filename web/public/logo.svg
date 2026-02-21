@@ -1,0 +1,13 @@
+<svg viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="60" y1="40" x2="196" y2="216" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#0a0a0c"/>
+  <!-- Three bold claw slashes -->
+  <line x1="80" y1="52" x2="60" y2="204" stroke="url(#g)" stroke-width="18" stroke-linecap="round"/>
+  <line x1="128" y1="40" x2="128" y2="216" stroke="url(#g)" stroke-width="20" stroke-linecap="round"/>
+  <line x1="176" y1="52" x2="196" y2="204" stroke="url(#g)" stroke-width="18" stroke-linecap="round"/>
+</svg>

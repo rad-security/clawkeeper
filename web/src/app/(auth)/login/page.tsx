@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
+import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -72,6 +73,11 @@ export default function LoginPage() {
           <CardDescription className="text-zinc-400">Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
+          <SocialAuthButtons />
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div>
+            <div className="relative flex justify-center text-xs"><span className="bg-zinc-900 px-2 text-zinc-500">or continue with email</span></div>
+          </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-zinc-300">Email</Label>

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { SidebarNav, MobileNav } from "@/components/dashboard/SidebarNav";
+import { PendingReferralProcessor } from "@/components/dashboard/PendingReferralProcessor";
 
 export default async function DashboardLayout({
   children,
@@ -118,6 +119,7 @@ export default async function DashboardLayout({
 
         {/* Main content */}
         <main className="flex-1 overflow-auto p-6">{children}</main>
+        <PendingReferralProcessor />
       </div>
     </div>
   );
