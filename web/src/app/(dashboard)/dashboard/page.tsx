@@ -4,17 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SecurityGradeCard } from "@/components/dashboard/SecurityGradeCard";
 import { OnboardingFlow } from "@/components/dashboard/OnboardingFlow";
-import { Monitor, Shield, ShieldCheck, AlertTriangle, Sparkles, Lock } from "lucide-react";
+import { Monitor, Shield, ShieldCheck, AlertTriangle, Sparkles, Lock, Gift } from "lucide-react";
 import { UpgradeBanner } from "@/components/dashboard/UpgradeBanner";
 import { isPaidPlan } from "@/lib/tier";
 import Link from "next/link";
+import { ReferralSection } from "@/components/settings/ReferralSection";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const orgId = await getOrgId(supabase);
 
   // Parallel queries
-  const [hostsRes, recentScansRes, insightsCountRes, orgRes, shieldActiveRes] = await Promise.all([
+  const [hostsRes, recentScansRes, insightsCountRes, orgRes, shieldActiveRes, referralsRes] = await Promise.all([
     supabase
       .from("hosts")
       .select("id, hostname, last_grade, last_score, last_scan_at, platform, shield_active")
@@ -37,6 +38,10 @@ export default async function DashboardPage() {
       .select("id", { count: "exact", head: true })
       .eq("org_id", orgId)
       .eq("shield_active", true),
+    supabase
+      .from("referral_events")
+      .select("id, referrer_credits")
+      .eq("referrer_org_id", orgId),
   ]);
 
   const hosts = hostsRes.data || [];
@@ -45,6 +50,9 @@ export default async function DashboardPage() {
   const plan = orgRes.data?.plan || "free";
   const paid = isPaidPlan(plan);
   const shieldActiveCount = shieldActiveRes.count || 0;
+  const referralEvents = referralsRes.data || [];
+  const referralCount = referralEvents.length;
+  const referralCredits = referralEvents.reduce((sum, e) => sum + (e.referrer_credits || 0), 0);
 
   // No hosts yet — show onboarding wizard
   if (hosts.length === 0) {
@@ -76,7 +84,13 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <Badge variant="outline" className="gap-1.5 text-xs">
+            <Gift className="h-3 w-3 text-cyan-400" />
+            {referralCount} referral{referralCount === 1 ? "" : "s"} • +{referralCredits} credits
+          </Badge>
+        </div>
         <p className="text-muted-foreground">
           Organization security overview
         </p>
@@ -125,7 +139,7 @@ export default async function DashboardPage() {
             {paid ? (
               <div className="text-2xl font-bold">{activeInsights}</div>
             ) : (
-              <Link href="/upgrade" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link href="/upgrade?reason=insights" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Lock className="h-3.5 w-3.5" />
                 Pro feature
               </Link>
@@ -141,7 +155,7 @@ export default async function DashboardPage() {
             {paid ? (
               <div className="text-2xl font-bold">{shieldActiveCount}</div>
             ) : (
-              <Link href="/upgrade" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <Link href="/upgrade?reason=shield" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Lock className="h-3.5 w-3.5" />
                 Pro feature
               </Link>
@@ -212,6 +226,27 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {recentScans.length > 0 && referralCount === 0 && (
+        <Card className="border-cyan-500/20 bg-cyan-500/5">
+          <CardContent className="flex items-center justify-between gap-3 py-4">
+            <div>
+              <p className="text-sm font-medium text-cyan-300">Earn +5 credits per referral</p>
+              <p className="text-xs text-cyan-400/80">
+                Share your referral link after your first scans to grow your free scan credits.
+              </p>
+            </div>
+            <Link href="/settings#referrals">
+              <Badge className="cursor-pointer bg-cyan-500 text-black hover:bg-cyan-400">
+                Open referrals
+              </Badge>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Viral growth loop: surface referrals in the core dashboard */}
+      <ReferralSection />
     </div>
   );
 }

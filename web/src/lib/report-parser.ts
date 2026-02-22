@@ -2,6 +2,12 @@ import { ScanUploadPayload } from "@/types";
 
 const VALID_STATUSES = ["PASS", "FAIL", "FIXED", "SKIPPED"];
 const VALID_GRADES = ["A", "B", "C", "D", "F"];
+const MAX_HOSTNAME_LENGTH = 255;
+const MAX_PLATFORM_LENGTH = 64;
+const MAX_CHECK_NAME_LENGTH = 200;
+const MAX_CHECK_DETAIL_LENGTH = 2_000;
+const MAX_OS_VERSION_LENGTH = 128;
+const MAX_AGENT_VERSION_LENGTH = 64;
 
 export function validateScanPayload(
   body: unknown
@@ -15,8 +21,20 @@ export function validateScanPayload(
   if (!b.hostname || typeof b.hostname !== "string") {
     return { valid: false, error: "hostname is required (string)" };
   }
+  if (b.hostname.length > MAX_HOSTNAME_LENGTH) {
+    return { valid: false, error: `hostname exceeds ${MAX_HOSTNAME_LENGTH} characters` };
+  }
   if (!b.platform || typeof b.platform !== "string") {
     return { valid: false, error: "platform is required (string)" };
+  }
+  if (b.platform.length > MAX_PLATFORM_LENGTH) {
+    return { valid: false, error: `platform exceeds ${MAX_PLATFORM_LENGTH} characters` };
+  }
+  if (typeof b.os_version === "string" && b.os_version.length > MAX_OS_VERSION_LENGTH) {
+    return { valid: false, error: `os_version exceeds ${MAX_OS_VERSION_LENGTH} characters` };
+  }
+  if (typeof b.agent_version === "string" && b.agent_version.length > MAX_AGENT_VERSION_LENGTH) {
+    return { valid: false, error: `agent_version exceeds ${MAX_AGENT_VERSION_LENGTH} characters` };
   }
   if (typeof b.score !== "number" || b.score < 0 || b.score > 100) {
     return { valid: false, error: "score must be a number 0-100" };
@@ -47,6 +65,18 @@ export function validateScanPayload(
     }
     if (!c.check_name || typeof c.check_name !== "string") {
       return { valid: false, error: `checks[${i}].check_name is required` };
+    }
+    if (c.check_name.length > MAX_CHECK_NAME_LENGTH) {
+      return {
+        valid: false,
+        error: `checks[${i}].check_name exceeds ${MAX_CHECK_NAME_LENGTH} characters`,
+      };
+    }
+    if (typeof c.detail === "string" && c.detail.length > MAX_CHECK_DETAIL_LENGTH) {
+      return {
+        valid: false,
+        error: `checks[${i}].detail exceeds ${MAX_CHECK_DETAIL_LENGTH} characters`,
+      };
     }
   }
 

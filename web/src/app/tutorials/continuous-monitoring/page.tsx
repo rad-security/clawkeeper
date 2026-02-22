@@ -2,10 +2,10 @@ import { tutorialMetadata } from "@/lib/tutorials/metadata";
 import { StepBlock } from "@/components/tutorials/StepBlock";
 import { CommandBlock } from "@/components/tutorials/CommandBlock";
 import { PlatformTabs } from "@/components/tutorials/PlatformTabs";
-import { CheckReference } from "@/components/tutorials/CheckReference";
 import { TipCallout } from "@/components/tutorials/TipCallout";
 import { TerminalMockup } from "@/components/tutorials/TerminalMockup";
 import { TutorialFooter } from "@/components/tutorials/TutorialFooter";
+import Link from "next/link";
 
 export const metadata = tutorialMetadata({
   title: "Continuous Security Monitoring for OpenClaw",
@@ -37,7 +37,7 @@ export default function ContinuousMonitoringPage() {
         </p>
         <TipCallout variant="info" title="API key required">
           You need a Clawkeeper API key. Generate one at{" "}
-          <a href="/dashboard" className="text-cyan-400 underline">Settings &rarr; API Keys</a>.
+          <Link href="/dashboard" className="text-cyan-400 underline">Settings &rarr; API Keys</Link>.
         </TipCallout>
       </StepBlock>
 
@@ -191,7 +191,7 @@ WantedBy=timers.target`}</pre>
         </p>
         <TipCallout variant="tip" title="Pro feature">
           Grade history and trend charts require a{" "}
-          <a href="/#pricing" className="text-cyan-400 underline">Pro plan</a>.
+          <Link href="/#pricing" className="text-cyan-400 underline">Pro plan</Link>.
           Free users see their latest scan only.
         </TipCallout>
       </StepBlock>
@@ -207,7 +207,7 @@ WantedBy=timers.target`}</pre>
         </ul>
         <p className="mt-2">
           Configure alerts at{" "}
-          <a href="/dashboard" className="text-cyan-400 underline">Dashboard &rarr; Settings &rarr; Alerts</a>.
+          <Link href="/dashboard" className="text-cyan-400 underline">Dashboard &rarr; Settings &rarr; Alerts</Link>.
         </p>
       </StepBlock>
 
@@ -265,7 +265,7 @@ WantedBy=timers.target`}</pre>
         />
         <TipCallout variant="info" title="Enterprise feature">
           Fleet-wide dashboards, role-based access, and SSO are available on the{" "}
-          <a href="/#pricing" className="text-cyan-400 underline">Enterprise plan</a>.
+          <Link href="/#pricing" className="text-cyan-400 underline">Enterprise plan</Link>.
         </TipCallout>
       </StepBlock>
 

@@ -1,6 +1,5 @@
 import { tutorialMetadata } from "@/lib/tutorials/metadata";
 import { StepBlock } from "@/components/tutorials/StepBlock";
-import { CommandBlock } from "@/components/tutorials/CommandBlock";
 import { CheckReference } from "@/components/tutorials/CheckReference";
 import { ComparisonBlock } from "@/components/tutorials/ComparisonBlock";
 import { TipCallout } from "@/components/tutorials/TipCallout";

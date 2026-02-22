@@ -355,7 +355,7 @@ async function scenario2_firstScan(): Promise<string> {
     .from("scan_checks")
     .select("*", { count: "exact" })
     .eq("scan_id", scanId);
-  assert(count === 26, `26 scan_checks (got ${count})`);
+  assert(count === MACOS_DOCKER_CHECKS.length, `${MACOS_DOCKER_CHECKS.length} scan_checks (got ${count})`);
 
   // Spot-check a few statuses
   const firewallCheck = checks!.find((c: { check_name: string }) => c.check_name === "Firewall");
@@ -420,66 +420,50 @@ async function scenario3_gradeChange(): Promise<string> {
 
 async function scenario4_secondHost(): Promise<string> {
   const { status, body } = await apiPost("/api/v1/scans", LINUX_SCAN, apiKey);
-  assert(status === 200, `HTTP 200 (got ${status}: ${JSON.stringify(body)})`);
+  assert(
+    status === 403,
+    `Second host blocked by free tier (got ${status}: ${JSON.stringify(body)})`
+  );
+  assert(
+    typeof body.error === "string" && (body.error as string).toLowerCase().includes("host limit"),
+    "Error mentions host limit"
+  );
 
-  const hostId = body.host_id as string;
-  const scanId = body.scan_id as string;
-  hostIds.push(hostId);
-  scanIds.push(scanId);
-
-  // Different host_id
-  assert(hostId !== hostIds[0], "New host_id (different from macOS host)");
-
-  // Verify host
-  const { data: host } = await sb.from("hosts").select("*").eq("id", hostId).single();
-  assert(host!.hostname === "e2e-ubuntu-native.internal", "Linux hostname matches");
-  assert(host!.platform === "linux", "Platform is linux");
-  assert(host!.last_grade === "A", `Grade is A (got ${host!.last_grade})`);
-
-  // Org now has 2 hosts
+  // Free plan should remain capped at one host
   const { count } = await sb
     .from("hosts")
     .select("id", { count: "exact", head: true })
     .eq("org_id", orgId);
-  assert(count === 2, `Org has 2 hosts (got ${count})`);
+  assert(count === 1, `Org remains at 1 host (got ${count})`);
 
-  // Wait for events
-  await sleep(500);
-  const { data: events } = await sb
-    .from("events")
-    .select("event_type")
-    .eq("org_id", orgId)
-    .eq("host_id", hostId);
-  const eventTypes = events!.map((e: { event_type: string }) => e.event_type);
-  assert(eventTypes.includes("host.registered"), "host.registered event");
-  assert(eventTypes.includes("scan.completed"), "scan.completed event");
-
-  return "new host, 2 hosts total";
+  return "second host correctly blocked on free plan";
 }
 
 async function scenario5_tierLimit(): Promise<string> {
-  // 3rd host should succeed (free tier limit is 3)
+  // Additional host attempts should be blocked on free plan (1 host max)
   const { status: thirdStatus, body: thirdBody } = await apiPost("/api/v1/scans", THIRD_HOST_SCAN, apiKey);
-  assert(thirdStatus === 200, `3rd host accepted (got ${thirdStatus}: ${JSON.stringify(thirdBody)})`);
-  hostIds.push(thirdBody.host_id as string);
-  scanIds.push(thirdBody.scan_id as string);
+  assert(thirdStatus === 403, `2nd host attempt blocked (got ${thirdStatus})`);
+  assert(
+    typeof thirdBody.error === "string" && (thirdBody.error as string).toLowerCase().includes("host limit"),
+    "Error mentions host limit"
+  );
 
-  // 4th host should be blocked
+  // Repeated attempts should also be blocked
   const { status: fourthStatus, body: fourthBody } = await apiPost("/api/v1/scans", FOURTH_HOST_SCAN, apiKey);
-  assert(fourthStatus === 403, `4th host blocked with 403 (got ${fourthStatus})`);
+  assert(fourthStatus === 403, `repeat host attempt blocked with 403 (got ${fourthStatus})`);
   assert(
     typeof fourthBody.error === "string" && (fourthBody.error as string).toLowerCase().includes("limit"),
     "Error mentions limit"
   );
 
-  // Verify org still has exactly 3 hosts
+  // Verify org still has exactly 1 host
   const { count } = await sb
     .from("hosts")
     .select("id", { count: "exact", head: true })
     .eq("org_id", orgId);
-  assert(count === 3, `Still 3 hosts (got ${count})`);
+  assert(count === 1, `Still 1 host (got ${count})`);
 
-  return "3rd allowed, 4th blocked (403)";
+  return "additional hosts blocked at free-tier cap";
 }
 
 async function scenario6_agentEvents(): Promise<string> {
@@ -552,30 +536,24 @@ async function scenario7_invalidPayloads(): Promise<string> {
 async function scenario8_dashboardData(): Promise<string> {
   const verifications: string[] = [];
 
-  // Hosts: 3 total with correct grades
+  // Hosts: 1 total with correct grade
   const { data: hosts } = await sb
     .from("hosts")
     .select("hostname, last_grade, last_score")
     .eq("org_id", orgId)
     .order("hostname");
 
-  assert(hosts!.length === 3, `3 hosts (got ${hosts!.length})`);
-  verifications.push("3 hosts");
+  assert(hosts!.length === 1, `1 host (got ${hosts!.length})`);
+  verifications.push("1 host");
 
-  // Find each host
+  // Find host
   const macHost = hosts!.find((h: { hostname: string }) => h.hostname === "e2e-macbook-docker.local");
-  const linuxHost = hosts!.find((h: { hostname: string }) => h.hostname === "e2e-ubuntu-native.internal");
-  const thirdHost = hosts!.find((h: { hostname: string }) => h.hostname === "e2e-third-host.local");
 
   assert(macHost?.last_grade === "D", `macOS host grade=D (got ${macHost?.last_grade})`);
-  assert(linuxHost?.last_grade === "A", `Linux host grade=A (got ${linuxHost?.last_grade})`);
-  assert(thirdHost?.last_grade === "B", `Third host grade=B (got ${thirdHost?.last_grade})`);
-  verifications.push("grades correct");
+  verifications.push("grade correct");
 
   // Average score
-  const avgScore = Math.round(
-    (macHost!.last_score + linuxHost!.last_score + thirdHost!.last_score) / 3
-  );
+  const avgScore = Math.round(macHost!.last_score);
   verifications.push(`avg score=${avgScore}`);
 
   // Failing hosts (D or F)
@@ -590,18 +568,16 @@ async function scenario8_dashboardData(): Promise<string> {
   for (const h of hosts!) {
     gradeDistribution[(h as { last_grade: string }).last_grade]++;
   }
-  assert(gradeDistribution.A === 1, "1 A-grade host");
-  assert(gradeDistribution.B === 1, "1 B-grade host");
   assert(gradeDistribution.D === 1, "1 D-grade host");
   verifications.push("grade dist OK");
 
-  // Total scans (macOS has 2, linux has 1, third has 1 = 4)
+  // Total scans (macOS has 2)
   const { count: totalScans } = await sb
     .from("scans")
     .select("id", { count: "exact", head: true })
     .eq("org_id", orgId);
-  assert(totalScans === 4, `4 total scans (got ${totalScans})`);
-  verifications.push("4 scans");
+  assert(totalScans === 2, `2 total scans (got ${totalScans})`);
+  verifications.push("2 scans");
 
   // macOS host detail: 2 scans, latest grade D
   const macHostId = hostIds[0];
@@ -620,7 +596,10 @@ async function scenario8_dashboardData(): Promise<string> {
     .from("scan_checks")
     .select("check_name, status")
     .eq("scan_id", latestMacScanId);
-  assert(latestChecks!.length === 26, `26 checks in latest scan (got ${latestChecks!.length})`);
+  assert(
+    latestChecks!.length === MACOS_SCAN_2_CHECKS.length,
+    `${MACOS_SCAN_2_CHECKS.length} checks in latest scan (got ${latestChecks!.length})`
+  );
   verifications.push("checks grouped");
 
   // Events: check presence of key event types

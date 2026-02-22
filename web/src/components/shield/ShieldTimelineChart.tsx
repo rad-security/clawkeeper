@@ -20,8 +20,16 @@ export function ShieldTimelineChart({ events }: ShieldTimelineChartProps) {
   const [range, setRange] = useState<"24h" | "7d">("7d");
 
   const data = useMemo(() => {
-    const now = Date.now();
-    const cutoff = range === "24h" ? now - 24 * 3600_000 : now - 7 * 86_400_000;
+    if (events.length === 0) {
+      return [];
+    }
+    const latestEventMs = events.reduce((latest, event) => {
+      const eventMs = new Date(event.created_at).getTime();
+      return eventMs > latest ? eventMs : latest;
+    }, 0);
+    const cutoff = range === "24h"
+      ? latestEventMs - 24 * 3600_000
+      : latestEventMs - 7 * 86_400_000;
     const bucketSize = range === "24h" ? 3600_000 : 86_400_000;
     const format = range === "24h"
       ? (d: Date) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })

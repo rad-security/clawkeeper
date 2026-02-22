@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Clawkeeper — OpenClaw Security Scanner",
     description:
-      "44 automated security checks for OpenClaw. Free CLI scanner + Pro fleet monitoring dashboard. By RAD Security.",
+      "Automated security checks for OpenClaw. Free CLI scanner + Pro fleet monitoring dashboard. By RAD Security.",
     creator: "@rabornyev",
   },
   robots: {

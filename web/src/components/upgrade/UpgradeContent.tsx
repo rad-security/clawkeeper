@@ -60,6 +60,21 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
     subtitle:
       "Get alerted instantly when Clawkeeper detects CVEs, credential exposures, misconfigurations, or grade drops on your hosts.",
   },
+  dashboard: {
+    title: "Upgrade to monitor your fleet continuously",
+    subtitle:
+      "Pro unlocks 200 scans/month, score trends, alerts, and AI insights so you can keep every host secure as you scale.",
+  },
+  low_credits: {
+    title: "You're almost out of scan credits",
+    subtitle:
+      "Upgrade to Pro for 200 monthly credits with rollover and keep scanning without interruption.",
+  },
+  shield: {
+    title: "Unlock Runtime Shield for active defense",
+    subtitle:
+      "Pro enables Runtime Shield with centralized policy, detection analytics, and host-level protection.",
+  },
 };
 
 const defaultHeader = {
@@ -88,7 +103,7 @@ export function UpgradeContent({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: "pro", billing }),
+        body: JSON.stringify({ plan: "pro", billing, reason: reason || "upgrade_page" }),
       });
 
       const data = await res.json();

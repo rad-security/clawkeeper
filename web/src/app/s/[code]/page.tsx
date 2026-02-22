@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
-import { Check, X, Shield } from "lucide-react";
+import { X, Shield } from "lucide-react";
 import type { Metadata } from "next";
 
 interface Props {
@@ -92,7 +91,7 @@ export default async function SharedScanPage({ params }: Props) {
     .eq("is_active", true)
     .single();
 
-  const signupUrl = refCode ? `/signup?ref=${refCode.code}` : "/signup";
+  const signupUrl = refCode ? `/signup?ref=${encodeURIComponent(refCode.code)}` : "/signup";
 
   const gradeColors: Record<string, string> = {
     A: "text-green-400 border-green-400",

@@ -32,6 +32,7 @@ export default async function ActivityPage({
   const hasAccess = plan === "pro" || plan === "enterprise";
 
   if (!hasAccess) {
+    const mockNow = new Date("2026-01-01T12:00:00.000Z").getTime();
     // Blurred mock preview for free users
     const mockEvents: Event[] = [
       {
@@ -42,7 +43,7 @@ export default async function ActivityPage({
         title: "Scan completed on prod-server-01",
         detail: { grade: "B", score: 87 },
         actor: "agent",
-        created_at: new Date(Date.now() - 120_000).toISOString(),
+        created_at: new Date(mockNow - 120_000).toISOString(),
       },
       {
         id: "mock-2",
@@ -52,7 +53,7 @@ export default async function ActivityPage({
         title: "Grade changed B \u2192 C on staging-box",
         detail: { previous_grade: "B", new_grade: "C" },
         actor: "system",
-        created_at: new Date(Date.now() - 3_600_000).toISOString(),
+        created_at: new Date(mockNow - 3_600_000).toISOString(),
       },
       {
         id: "mock-3",
@@ -62,7 +63,7 @@ export default async function ActivityPage({
         title: "Agent installed on dev-laptop",
         detail: { hostname: "dev-laptop" },
         actor: "agent",
-        created_at: new Date(Date.now() - 7_200_000).toISOString(),
+        created_at: new Date(mockNow - 7_200_000).toISOString(),
       },
       {
         id: "mock-4",
@@ -72,7 +73,7 @@ export default async function ActivityPage({
         title: "New host registered: ci-runner-03",
         detail: { platform: "linux" },
         actor: "agent",
-        created_at: new Date(Date.now() - 86_400_000).toISOString(),
+        created_at: new Date(mockNow - 86_400_000).toISOString(),
       },
     ];
 

@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import {
   Shield,
-  Check,
   ArrowLeft,
   Fingerprint,
   Layers,

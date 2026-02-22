@@ -8,7 +8,7 @@ import { InsightFilters } from "@/components/insights/InsightFilters";
 import { InsightStats } from "@/components/insights/InsightStats";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
-import type { Insight, InsightSeverity, InsightType } from "@/types";
+import type { Insight, InsightSeverity } from "@/types";
 
 export default async function InsightsPage({
   searchParams,

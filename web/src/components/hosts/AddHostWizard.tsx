@@ -50,6 +50,7 @@ export function AddHostWizard({
   const router = useRouter();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const creatingRef = useRef(false);
+  void existingKeyCount;
 
   // Auto-create API key when dialog opens
   useEffect(() => {

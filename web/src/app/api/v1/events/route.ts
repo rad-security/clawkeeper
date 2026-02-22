@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
   const authResult = await validateApiKey(request);
   if (isAuthError(authResult)) return authResult;
 
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (Number.isFinite(contentLength) && contentLength > 64_000) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -46,6 +51,12 @@ export async function POST(request: NextRequest) {
   if (typeof hostname !== "string" || hostname.length === 0) {
     return NextResponse.json(
       { error: "hostname is required" },
+      { status: 400 }
+    );
+  }
+  if (hostname.length > 255) {
+    return NextResponse.json(
+      { error: "hostname exceeds 255 characters" },
       { status: 400 }
     );
   }

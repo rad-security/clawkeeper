@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export function SocialAuthButtons({ referralCode }: { referralCode?: string }) {
   const [loading, setLoading] = useState<"github" | "google" | null>(null);
@@ -24,6 +25,7 @@ export function SocialAuthButtons({ referralCode }: { referralCode?: string }) {
 
     if (error) {
       setLoading(null);
+      toast.error("Could not start sign-in. Please try again.");
     }
   }
 

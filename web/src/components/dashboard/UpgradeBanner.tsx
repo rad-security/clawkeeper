@@ -33,7 +33,7 @@ export function UpgradeBanner({ creditsRemaining }: UpgradeBannerProps) {
           }
         </p>
       </div>
-      <Link href="/upgrade">
+      <Link href={isLowCredits ? "/upgrade?reason=low_credits" : "/upgrade?reason=dashboard"}>
         <Button size="sm" className="shrink-0 bg-cyan-500 text-black font-medium hover:bg-cyan-400">
           Upgrade
         </Button>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,19 +12,22 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Logo } from "@/components/Logo";
 import { SocialAuthButtons } from "@/components/auth/SocialAuthButtons";
 import { toast } from "sonner";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const authError = searchParams.get("error") === "auth"
+    ? "Authentication failed. Please try again."
+    : "";
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -102,8 +105,8 @@ export default function LoginPage() {
                 className="border-white/10 bg-white/5 text-white placeholder:text-zinc-500"
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
+            {(error || authError) && (
+              <p className="text-sm text-destructive">{error || authError}</p>
             )}
             <Button
               type="submit"
@@ -132,5 +135,13 @@ export default function LoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

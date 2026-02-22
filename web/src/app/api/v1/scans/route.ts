@@ -13,6 +13,11 @@ export async function POST(request: NextRequest) {
   const authResult = await validateApiKey(request);
   if (isAuthError(authResult)) return authResult;
 
+  const contentLength = Number(request.headers.get("content-length") || "0");
+  if (Number.isFinite(contentLength) && contentLength > 5_000_000) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   const supabase = createAdminClient();
 
   // Parse and validate body

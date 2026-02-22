@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const plan = body.plan as string;
     const billing = (body.billing || "monthly") as "monthly" | "annual";
+    const reason = (body.reason || "upgrade_page") as string;
 
     // Only Pro is self-serve — Enterprise requires contacting sales
     if (plan !== "pro") {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
     const admin = createAdminClient();
     const { data: org } = await admin
       .from("organizations")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, referred_by_code")
       .eq("id", membership.org_id)
       .single();
 
@@ -111,7 +112,13 @@ export async function POST(req: NextRequest) {
       cancel_url: `${req.nextUrl.origin}/upgrade`,
       allow_promotion_codes: true,
       tax_id_collection: { enabled: true },
-      metadata: { org_id: membership.org_id, plan: "pro" },
+      metadata: {
+        org_id: membership.org_id,
+        plan: "pro",
+        upgrade_reason: reason,
+        referral_code_used: org?.referred_by_code || "",
+        referral_attributed: org?.referred_by_code ? "true" : "false",
+      },
     });
 
     return NextResponse.json({ url: session.url });

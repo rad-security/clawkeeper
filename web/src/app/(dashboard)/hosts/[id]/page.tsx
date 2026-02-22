@@ -75,10 +75,11 @@ export default async function HostDetailPage({
 
   if (!host) notFound();
 
+  const now = new Date();
   // Enforce scan retention: only fetch scans within plan's retention window
   const retentionDate = retentionDays === -1
     ? undefined
-    : new Date(Date.now() - retentionDays * 86_400_000).toISOString();
+    : new Date(now.getTime() - retentionDays * 86_400_000).toISOString();
 
   let scansQuery = supabase
     .from("scans")
@@ -91,7 +92,7 @@ export default async function HostDetailPage({
     scansQuery = scansQuery.gte("scanned_at", retentionDate);
   }
 
-  const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString();
+  const oneDayAgo = new Date(now.getTime() - 86_400_000).toISOString();
   const [{ data: scans }, { data: hostEvents }, shieldBlocksRes] = await Promise.all([
     scansQuery,
     supabase

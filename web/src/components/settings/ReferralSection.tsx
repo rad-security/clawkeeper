@@ -70,10 +70,10 @@ export function ReferralSection() {
   }
 
   const shareUrl = stats?.code ? `https://clawkeeper.dev/r/${stats.code}` : "";
-  const shareText = "Check your OpenClaw security posture with Clawkeeper — free CLI scanner with 44 automated checks:";
+  const shareText = "Check your OpenClaw security posture with Clawkeeper — free CLI scanner with automated security checks:";
 
   return (
-    <Card>
+    <Card id="referrals">
       <CardHeader>
         <div className="flex items-center gap-2">
           <Gift className="h-5 w-5 text-cyan-400" />

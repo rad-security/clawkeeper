@@ -69,6 +69,9 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       const orgId = session.metadata?.org_id;
       const plan = session.metadata?.plan;
+      const upgradeReason = session.metadata?.upgrade_reason || "unknown";
+      const referralCodeUsed = session.metadata?.referral_code_used || "";
+      const referralAttributed = session.metadata?.referral_attributed === "true";
 
       if (orgId && plan) {
         const newCredits = TIER_LIMITS[plan as PlanType]?.credits_monthly ?? 10;
@@ -96,6 +99,17 @@ export async function POST(req: NextRequest) {
             credits_last_refill_at: new Date().toISOString(),
           })
           .eq("id", orgId);
+      }
+
+      if (session.customer && typeof session.customer === "string") {
+        await stripe.customers.update(session.customer, {
+          metadata: {
+            last_upgrade_reason: upgradeReason,
+            referral_attributed: referralAttributed ? "true" : "false",
+            referral_code_used: referralCodeUsed,
+            last_checkout_completed_at: new Date().toISOString(),
+          },
+        });
       }
       break;
     }
