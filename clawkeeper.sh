@@ -168,6 +168,13 @@ REPORT_LINES=()
 HOMEBREW_FAILED=false
 CAN_INSTALL_SOFTWARE=true
 
+# --- Compact Output --------------------------------------------------------
+COMPACT_OUTPUT=false
+_COMPACT_THIS_CHECK=false
+_COMPACT_STEP_NAME=""
+_COMPACT_COL=0
+_COMPACT_BUF=""
+
 # --- Platform Detection -----------------------------------------------------
 PLATFORM=""
 ARCH=""
@@ -466,8 +473,34 @@ print_expectations() {
     fi
 }
 
+_compact_emit() {
+    local text="$1"
+    if [ "$_COMPACT_COL" -eq 0 ]; then
+        _COMPACT_BUF="$text"
+        _COMPACT_COL=1
+    else
+        # Print both columns: first item, cursor to column 42, second item
+        printf '%s\033[42G%s\n' "$_COMPACT_BUF" "$text"
+        _COMPACT_BUF=""
+        _COMPACT_COL=0
+    fi
+}
+
+_compact_flush() {
+    if [ "$_COMPACT_COL" -eq 1 ] && [ -n "$_COMPACT_BUF" ]; then
+        printf '%s\n' "$_COMPACT_BUF"
+        _COMPACT_BUF=""
+        _COMPACT_COL=0
+    fi
+}
+
 step_header() {
     TOTAL=$((TOTAL + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        _COMPACT_STEP_NAME="$1"
+        return
+    fi
+    _compact_flush
     echo ""
     if [ "$HAS_GUM" = true ]; then
         gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
@@ -478,6 +511,15 @@ step_header() {
 
 pass() {
     PASS=$((PASS + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME}"
+        else
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME}")"
+        fi
+        log_result "PASS" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1"
     else
@@ -488,6 +530,15 @@ pass() {
 
 fail() {
     FAIL=$((FAIL + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_FAIL_ICON} ${_COMPACT_STEP_NAME}"
+        else
+            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${_COMPACT_STEP_NAME}")"
+        fi
+        log_result "FAIL" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_FAIL_ICON} $1"
     else
@@ -498,14 +549,23 @@ fail() {
 
 fixed() {
     FIXED=$((FIXED + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME} ${_GUM_FIXED_SUFFIX}"
+        else
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME} ${DIM}(fixed)${RESET}")"
+        fi
+        log_result "FIXED" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
     else
         echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
-    # After the 3rd fix, a subtle "at scale" hint
-    if [ "$FIXED" -eq 3 ]; then
+    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
+    if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
             echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
         else
@@ -516,6 +576,15 @@ fixed() {
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_SKIP_ICON} ${_COMPACT_STEP_NAME} ${_GUM_SKIPPED_SUFFIX}"
+        else
+            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${_COMPACT_STEP_NAME} ${DIM}(risk)${RESET}")"
+        fi
+        log_result "SKIPPED" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_SKIP_ICON} $1 ${_GUM_SKIPPED_SUFFIX}"
     else
@@ -525,6 +594,9 @@ skipped() {
 }
 
 warn() {
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_WARN_ICON} $1"
     else
@@ -533,6 +605,9 @@ warn() {
 }
 
 info() {
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_INFO_ICON} $1"
     else
@@ -613,11 +688,22 @@ run_check() {
     local mode="scan"
     [ "$SCAN_ONLY" != true ] && mode="setup"
 
-    step_header "$check_name"
-
     # Run the check function and capture JSON output
     local json_output
     json_output=$("$check_func" --mode "$mode" 2>/dev/null)
+
+    # In compact mode, check if output contains any prompts
+    _COMPACT_THIS_CHECK=false
+    if [ "$COMPACT_OUTPUT" = true ]; then
+        if ! echo "$json_output" | grep -q '"action":"prompt"'; then
+            _COMPACT_THIS_CHECK=true
+        else
+            # Flush buffered compact output before verbose check
+            _compact_flush
+        fi
+    fi
+
+    step_header "$check_name"
 
     # Process each JSON line
     while IFS= read -r line; do
@@ -994,20 +1080,24 @@ print_report() {
         fi
     fi
 
-    # CTA: check if agent is actually connected (has API key), not just config file
+    # CTA: check if agent is actually connected with a valid API key
     echo ""
     local has_api_key=false
-    if [ -f "$AGENT_CONFIG_FILE" ] && grep -q 'CLAWKEEPER_API_KEY="ck_' "$AGENT_CONFIG_FILE" 2>/dev/null; then
-        has_api_key=true
+    if [ -f "$AGENT_CONFIG_FILE" ]; then
+        local stored_key
+        stored_key=$(grep '^CLAWKEEPER_API_KEY=' "$AGENT_CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^CLAWKEEPER_API_KEY="//' | sed 's/"$//')
+        if [ -n "$stored_key" ] && echo "$stored_key" | grep -qE '^ck_live_.{12,}'; then
+            has_api_key=true
+        fi
     fi
 
-    if [ "$has_api_key" = true ]; then
+    if [ "$has_api_key" = true ] && [ "$SCAN_ONLY" = true ]; then
         if [ "$HAS_GUM" = true ]; then
             echo "  ${_GUM_PASS_ICON} Agent connected — view your dashboard at $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
         else
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
-    else
+    elif [ "$has_api_key" != true ]; then
         echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
             echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
@@ -7303,6 +7393,7 @@ main() {
                         command="setup"
                         SCAN_ONLY=false
                         INTERACTIVE=true
+                        COMPACT_OUTPUT=true
                         print_expectations
                         select_deployment_mode
                         ;;
@@ -7314,6 +7405,7 @@ main() {
                         command="scan"
                         SCAN_ONLY=true
                         INTERACTIVE=false
+                        COMPACT_OUTPUT=true
                         echo ""
                         dim_msg "  Read-only audit. No changes will be made."
                         select_deployment_mode
@@ -7333,6 +7425,7 @@ main() {
                         command="setup"
                         SCAN_ONLY=false
                         INTERACTIVE=true
+                        COMPACT_OUTPUT=true
                         print_expectations
                         select_deployment_mode
                         ;;
@@ -7344,6 +7437,7 @@ main() {
                         command="scan"
                         SCAN_ONLY=true
                         INTERACTIVE=false
+                        COMPACT_OUTPUT=true
                         echo ""
                         echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
                         select_deployment_mode
@@ -7354,6 +7448,7 @@ main() {
         setup|deploy)
             SCAN_ONLY=false
             INTERACTIVE=true
+            COMPACT_OUTPUT=true
             print_banner
             print_expectations
             select_deployment_mode
@@ -7361,6 +7456,7 @@ main() {
         scan)
             SCAN_ONLY=true
             INTERACTIVE=false
+            COMPACT_OUTPUT=true
             print_scan_banner
             select_deployment_mode
             dim_msg "  Read-only audit. No changes will be made."
@@ -7418,11 +7514,14 @@ main() {
         run_check "linux_unnecessary_services"
         run_check "linux_disk_encryption"
     fi
+    _compact_flush
     print_phase_summary
-    if [ "$HAS_GUM" = true ]; then
-        echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
-    else
-        echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+    if [ "$COMPACT_OUTPUT" != true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        else
+            echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        fi
     fi
 
     # ── Phase 2 of 5: Network ──
@@ -7438,6 +7537,7 @@ main() {
         run_check "linux_network"
         run_check "linux_open_ports"
     fi
+    _compact_flush
     print_phase_summary
 
     # ── Phase 3 of 5: Prerequisites ──
@@ -7491,6 +7591,7 @@ main() {
             fi
         fi
     fi
+    _compact_flush
     print_phase_summary
 
     # If prerequisites failed because user can't install software, show clear next steps
@@ -7621,6 +7722,7 @@ main() {
         fi
     fi
 
+    _compact_flush
     print_phase_summary
 
     # ── Phase 5 of 5: Security Audit (all modes) ──
@@ -7648,6 +7750,7 @@ main() {
         run_check "skills_security"
         run_check "soul_security"
     fi
+    _compact_flush
     print_phase_summary
 
     # Final report

@@ -50,11 +50,22 @@ run_check() {
     local mode="scan"
     [ "$SCAN_ONLY" != true ] && mode="setup"
 
-    step_header "$check_name"
-
     # Run the check function and capture JSON output
     local json_output
     json_output=$("$check_func" --mode "$mode" 2>/dev/null)
+
+    # In compact mode, check if output contains any prompts
+    _COMPACT_THIS_CHECK=false
+    if [ "$COMPACT_OUTPUT" = true ]; then
+        if ! echo "$json_output" | grep -q '"action":"prompt"'; then
+            _COMPACT_THIS_CHECK=true
+        else
+            # Flush buffered compact output before verbose check
+            _compact_flush
+        fi
+    fi
+
+    step_header "$check_name"
 
     # Process each JSON line
     while IFS= read -r line; do
@@ -431,20 +442,24 @@ print_report() {
         fi
     fi
 
-    # CTA: check if agent is actually connected (has API key), not just config file
+    # CTA: check if agent is actually connected with a valid API key
     echo ""
     local has_api_key=false
-    if [ -f "$AGENT_CONFIG_FILE" ] && grep -q 'CLAWKEEPER_API_KEY="ck_' "$AGENT_CONFIG_FILE" 2>/dev/null; then
-        has_api_key=true
+    if [ -f "$AGENT_CONFIG_FILE" ]; then
+        local stored_key
+        stored_key=$(grep '^CLAWKEEPER_API_KEY=' "$AGENT_CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^CLAWKEEPER_API_KEY="//' | sed 's/"$//')
+        if [ -n "$stored_key" ] && echo "$stored_key" | grep -qE '^ck_live_.{12,}'; then
+            has_api_key=true
+        fi
     fi
 
-    if [ "$has_api_key" = true ]; then
+    if [ "$has_api_key" = true ] && [ "$SCAN_ONLY" = true ]; then
         if [ "$HAS_GUM" = true ]; then
             echo "  ${_GUM_PASS_ICON} Agent connected — view your dashboard at $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
         else
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
-    else
+    elif [ "$has_api_key" != true ]; then
         echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
             echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"

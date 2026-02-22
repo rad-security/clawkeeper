@@ -54,6 +54,13 @@ REPORT_LINES=()
 HOMEBREW_FAILED=false
 CAN_INSTALL_SOFTWARE=true
 
+# --- Compact Output --------------------------------------------------------
+COMPACT_OUTPUT=false
+_COMPACT_THIS_CHECK=false
+_COMPACT_STEP_NAME=""
+_COMPACT_COL=0
+_COMPACT_BUF=""
+
 # --- Platform Detection -----------------------------------------------------
 PLATFORM=""
 ARCH=""
@@ -352,8 +359,34 @@ print_expectations() {
     fi
 }
 
+_compact_emit() {
+    local text="$1"
+    if [ "$_COMPACT_COL" -eq 0 ]; then
+        _COMPACT_BUF="$text"
+        _COMPACT_COL=1
+    else
+        # Print both columns: first item, cursor to column 42, second item
+        printf '%s\033[42G%s\n' "$_COMPACT_BUF" "$text"
+        _COMPACT_BUF=""
+        _COMPACT_COL=0
+    fi
+}
+
+_compact_flush() {
+    if [ "$_COMPACT_COL" -eq 1 ] && [ -n "$_COMPACT_BUF" ]; then
+        printf '%s\n' "$_COMPACT_BUF"
+        _COMPACT_BUF=""
+        _COMPACT_COL=0
+    fi
+}
+
 step_header() {
     TOTAL=$((TOTAL + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        _COMPACT_STEP_NAME="$1"
+        return
+    fi
+    _compact_flush
     echo ""
     if [ "$HAS_GUM" = true ]; then
         gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
@@ -364,6 +397,15 @@ step_header() {
 
 pass() {
     PASS=$((PASS + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME}"
+        else
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME}")"
+        fi
+        log_result "PASS" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1"
     else
@@ -374,6 +416,15 @@ pass() {
 
 fail() {
     FAIL=$((FAIL + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_FAIL_ICON} ${_COMPACT_STEP_NAME}"
+        else
+            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${_COMPACT_STEP_NAME}")"
+        fi
+        log_result "FAIL" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_FAIL_ICON} $1"
     else
@@ -384,14 +435,23 @@ fail() {
 
 fixed() {
     FIXED=$((FIXED + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME} ${_GUM_FIXED_SUFFIX}"
+        else
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME} ${DIM}(fixed)${RESET}")"
+        fi
+        log_result "FIXED" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
     else
         echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
-    # After the 3rd fix, a subtle "at scale" hint
-    if [ "$FIXED" -eq 3 ]; then
+    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
+    if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
             echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
         else
@@ -402,6 +462,15 @@ fixed() {
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            _compact_emit "  ${_GUM_SKIP_ICON} ${_COMPACT_STEP_NAME} ${_GUM_SKIPPED_SUFFIX}"
+        else
+            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${_COMPACT_STEP_NAME} ${DIM}(risk)${RESET}")"
+        fi
+        log_result "SKIPPED" "$2" "$1"
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_SKIP_ICON} $1 ${_GUM_SKIPPED_SUFFIX}"
     else
@@ -411,6 +480,9 @@ skipped() {
 }
 
 warn() {
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_WARN_ICON} $1"
     else
@@ -419,6 +491,9 @@ warn() {
 }
 
 info() {
+    if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        return
+    fi
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_INFO_ICON} $1"
     else

@@ -207,6 +207,7 @@ main() {
                         command="setup"
                         SCAN_ONLY=false
                         INTERACTIVE=true
+                        COMPACT_OUTPUT=true
                         print_expectations
                         select_deployment_mode
                         ;;
@@ -218,6 +219,7 @@ main() {
                         command="scan"
                         SCAN_ONLY=true
                         INTERACTIVE=false
+                        COMPACT_OUTPUT=true
                         echo ""
                         dim_msg "  Read-only audit. No changes will be made."
                         select_deployment_mode
@@ -237,6 +239,7 @@ main() {
                         command="setup"
                         SCAN_ONLY=false
                         INTERACTIVE=true
+                        COMPACT_OUTPUT=true
                         print_expectations
                         select_deployment_mode
                         ;;
@@ -248,6 +251,7 @@ main() {
                         command="scan"
                         SCAN_ONLY=true
                         INTERACTIVE=false
+                        COMPACT_OUTPUT=true
                         echo ""
                         echo -e "  ${DIM}Read-only audit. No changes will be made.${RESET}"
                         select_deployment_mode
@@ -258,6 +262,7 @@ main() {
         setup|deploy)
             SCAN_ONLY=false
             INTERACTIVE=true
+            COMPACT_OUTPUT=true
             print_banner
             print_expectations
             select_deployment_mode
@@ -265,6 +270,7 @@ main() {
         scan)
             SCAN_ONLY=true
             INTERACTIVE=false
+            COMPACT_OUTPUT=true
             print_scan_banner
             select_deployment_mode
             dim_msg "  Read-only audit. No changes will be made."
@@ -322,11 +328,14 @@ main() {
         run_check "linux_unnecessary_services"
         run_check "linux_disk_encryption"
     fi
+    _compact_flush
     print_phase_summary
-    if [ "$HAS_GUM" = true ]; then
-        echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
-    else
-        echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+    if [ "$COMPACT_OUTPUT" != true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        else
+            echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        fi
     fi
 
     # ── Phase 2 of 5: Network ──
@@ -342,6 +351,7 @@ main() {
         run_check "linux_network"
         run_check "linux_open_ports"
     fi
+    _compact_flush
     print_phase_summary
 
     # ── Phase 3 of 5: Prerequisites ──
@@ -395,6 +405,7 @@ main() {
             fi
         fi
     fi
+    _compact_flush
     print_phase_summary
 
     # If prerequisites failed because user can't install software, show clear next steps
@@ -525,6 +536,7 @@ main() {
         fi
     fi
 
+    _compact_flush
     print_phase_summary
 
     # ── Phase 5 of 5: Security Audit (all modes) ──
@@ -552,6 +564,7 @@ main() {
         run_check "skills_security"
         run_check "soul_security"
     fi
+    _compact_flush
     print_phase_summary
 
     # Final report
