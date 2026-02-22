@@ -7733,26 +7733,31 @@ main() {
     reset_phase_counters
     phase_header "═══ Phase 5 of 5: Security Audit ═══"
 
-    run_check "openclaw_running"
-    run_check "cve_audit"
+    if [ "$OPENCLAW_INSTALLED" = true ]; then
+        run_check "openclaw_running"
+        run_check "cve_audit"
 
-    if [ "$DEPLOY_MODE" = "native" ]; then
-        run_check "openclaw_config"
-        run_check "openclaw_hardening"
-        run_check "env_file"
-        run_check "credential_exposure"
-        run_check "session_commands"
-        run_check "skills_security"
-        run_check "soul_security"
+        if [ "$DEPLOY_MODE" = "native" ]; then
+            run_check "openclaw_config"
+            run_check "openclaw_hardening"
+            run_check "env_file"
+            run_check "credential_exposure"
+            run_check "session_commands"
+            run_check "skills_security"
+            run_check "soul_security"
+        else
+            run_check "container_security"
+            run_check "openclaw_config"
+            run_check "openclaw_hardening"
+            run_check "env_file"
+            run_check "credential_exposure"
+            run_check "session_commands"
+            run_check "skills_security"
+            run_check "soul_security"
+        fi
     else
-        run_check "container_security"
-        run_check "openclaw_config"
-        run_check "openclaw_hardening"
-        run_check "env_file"
-        run_check "credential_exposure"
-        run_check "session_commands"
-        run_check "skills_security"
-        run_check "soul_security"
+        info "OpenClaw is not installed — skipping security audit."
+        info "Run '$(basename "$0") setup' to install OpenClaw, then re-run scan."
     fi
     _compact_flush
     print_phase_summary
