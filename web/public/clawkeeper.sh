@@ -564,12 +564,12 @@ fixed() {
         echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
-    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
+    # After the 3rd fix, a subtle monitoring hint (suppress in compact mode)
     if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+            echo "  $(gum style --foreground "$GUM_DIM" "Re-run anytime to check for drift, or monitor continuously at") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
         else
-            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+            echo -e "  ${DIM}Re-run anytime to check for drift, or monitor continuously at ${CYAN}clawkeeper.dev${RESET}"
         fi
     fi
 }
@@ -1098,13 +1098,10 @@ print_report() {
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
     elif [ "$has_api_key" != true ]; then
-        echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
-            echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
-            echo "  → Then run $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install") to connect"
+            echo "  $(gum style --foreground "$GUM_DIM" "Monitor this host over time →") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
         else
-            echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
-            echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
+            echo -e "  ${DIM}Monitor this host over time →${RESET} ${CYAN}clawkeeper.dev${RESET}"
         fi
     fi
     echo ""
@@ -1160,9 +1157,8 @@ save_report() {
         echo ""
         echo "---"
         echo ""
-        echo "This is a point-in-time snapshot. Settings drift over time."
-        echo "For continuous monitoring, drift detection, and compliance reporting:"
-        echo "https://clawkeeper.dev"
+        echo "This is a point-in-time snapshot. Settings can drift over time."
+        echo "Re-run scans regularly or set up continuous monitoring at clawkeeper.dev"
     } > "$REPORT_FILE"
 
     dim_msg "  Report saved to: $REPORT_FILE"
@@ -7518,9 +7514,9 @@ main() {
     print_phase_summary
     if [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Re-run scans regularly or monitor at") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
         else
-            echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+            echo -e "  ${DIM}These settings can drift. Re-run scans regularly or monitor at ${CYAN}clawkeeper.dev${RESET}"
         fi
     fi
 

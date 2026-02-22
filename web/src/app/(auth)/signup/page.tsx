@@ -235,7 +235,7 @@ function SignupForm() {
                 {referralValid === true && (
                   <p className="flex items-center gap-1 text-xs text-green-400">
                     <Gift className="h-3 w-3" />
-                    Valid! You&apos;ll get +5 bonus scan credits
+                    Valid referral code applied!
                   </p>
                 )}
                 {referralValid === false && referralCode.length >= 8 && (

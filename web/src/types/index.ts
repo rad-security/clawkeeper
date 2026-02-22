@@ -221,29 +221,27 @@ export interface Insight {
 
 // Tier limits
 export const TIER_LIMITS = {
-  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false, credits_monthly: 10, credits_signup_bonus: 5, credits_rollover: false, runtime_shield: false },
-  pro: { hosts: 15, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: 200, credits_signup_bonus: 0, credits_rollover: true, runtime_shield: true },
+  free: { hosts: 1, scan_history_days: 7, insights: 0, api_keys: 1, events_visible: 5, cve_audit: false, score_trends: false, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: false, runtime_shield: false },
+  pro: { hosts: 10, scan_history_days: 365, insights: -1, api_keys: 10, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: true, runtime_shield: true },
   enterprise: { hosts: -1, scan_history_days: -1, insights: -1, api_keys: -1, events_visible: -1, cve_audit: true, score_trends: true, credits_monthly: -1, credits_signup_bonus: 0, credits_rollover: true, runtime_shield: true },
 } as const;
 
 // Pricing (cents) for Stripe integration
 export const PLAN_PRICING = {
-  pro: { monthly: 2000, annual: 19200 }, // $20/mo or $16/mo billed annually ($192/yr)
+  pro: { monthly: 2900, annual: 27600 }, // $29/mo or $23/mo billed annually ($276/yr)
 } as const;
 
 // Shared feature lists for pricing cards (used by landing + upgrade pages)
 export const PRO_FEATURES = [
   "Everything in Free",
-  "200 scans/month (unused roll over)",
-  "Up to 15 hosts",
+  "Up to 10 hosts",
   "365 days scan history",
-  "10 API keys",
+  "Score trends & drift detection",
   "Live CVE vulnerability audit",
   "AI-powered security insights",
-  "Score history & trend charts",
-  "Activity stream & fleet monitoring",
   "Email & webhook alerts",
-  "Runtime Shield: real-time prompt injection defense",
+  "Runtime Shield: prompt injection defense",
+  "10 API keys",
   "Priority support",
 ] as const;
 
@@ -261,13 +259,12 @@ export const ENTERPRISE_FEATURES = [
 ] as const;
 
 export const FREE_FEATURES = [
-  "Full CLI scanner & deployment wizard",
-  "10 scans/month + referral bonuses",
-  "Auto-remediation & secure defaults",
+  "Full CLI scanner (39 security checks)",
+  "Interactive hardening wizard",
+  "Hardened OpenClaw deployment",
   "1 host on dashboard",
   "7 days scan history",
   "1 API key",
-  "Letter grade & score",
 ] as const;
 
 // Shield types

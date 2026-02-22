@@ -38,7 +38,7 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
   host_limit: {
     title: "You've reached your host limit",
     subtitle:
-      "Upgrade to Pro to monitor up to 15 hosts with full security insights.",
+      "Upgrade to Pro to monitor up to 10 hosts with full security insights.",
   },
   insights: {
     title: "Unlock AI-powered security insights",
@@ -63,12 +63,7 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
   dashboard: {
     title: "Upgrade to monitor your fleet continuously",
     subtitle:
-      "Pro unlocks 200 scans/month, score trends, alerts, and AI insights so you can keep every host secure as you scale.",
-  },
-  low_credits: {
-    title: "You're almost out of scan credits",
-    subtitle:
-      "Upgrade to Pro for 200 monthly credits with rollover and keep scanning without interruption.",
+      "Pro unlocks score trends, alerts, and AI insights so you can keep every host secure as you scale.",
   },
   shield: {
     title: "Unlock Runtime Shield for active defense",
@@ -80,7 +75,7 @@ const contextualHeaders: Record<string, { title: string; subtitle: string }> = {
 const defaultHeader = {
   title: "Unlock your full security posture",
   subtitle:
-    "200 scans/month with rollover, CVE auditing, AI insights, alerts, and up to 15 hosts — from $16/mo.",
+    "CVE auditing, AI insights, alerts, Runtime Shield, and up to 10 hosts — from $23/mo.",
 };
 
 export function UpgradeContent({
@@ -212,14 +207,14 @@ export function UpgradeContent({
               <CardTitle>Pro</CardTitle>
             </div>
             <div className="text-3xl font-bold">
-              {billing === "annual" ? "$16" : "$20"}
+              {billing === "annual" ? "$23" : "$29"}
               <span className="text-base font-normal text-muted-foreground">
                 /mo
               </span>
             </div>
             {billing === "annual" && (
               <p className="text-sm text-cyan-400">
-                $192/year — save 20% vs monthly
+                $276/year — save 20% vs monthly
               </p>
             )}
             {billing === "monthly" && (
@@ -228,8 +223,8 @@ export function UpgradeContent({
               </p>
             )}
             <CardDescription>
-              200 scans/month with rollover, full security platform with insights,
-              alerts, and fleet monitoring for up to 15 hosts.
+              Full security platform with scan history, CVE intelligence, AI insights,
+              Runtime Shield, and fleet monitoring for up to 10 hosts.
             </CardDescription>
           </CardHeader>
           <CardContent>

@@ -15,34 +15,25 @@ import { Check, Minus } from "lucide-react";
 import { FREE_FEATURES, PRO_FEATURES, ENTERPRISE_FEATURES } from "@/types";
 
 const comparisonFeatures = [
-  // Scanning
-  { name: "CLI scanner", free: "39 checks", pro: "39 checks", enterprise: "39 checks", category: "Scanning" },
-  { name: "Monthly scan credits", free: "10", pro: "200", enterprise: "Unlimited" },
-  { name: "Unused credits roll over", free: false, pro: true, enterprise: true },
-  { name: "Referral bonus credits", free: "+5 per referral", pro: "+5 per referral", enterprise: "N/A" },
+  // CLI & Scanning
+  { name: "CLI scanner", free: "39 checks", pro: "39 checks", enterprise: "39 checks", category: "CLI & Scanning" },
+  { name: "Interactive hardening wizard", free: true, pro: true, enterprise: true },
+  { name: "Hardened OpenClaw deployment", free: true, pro: true, enterprise: true },
   { name: "Auto-fix remediation", free: true, pro: true, enterprise: true },
   { name: "Security grade & score", free: true, pro: true, enterprise: true },
-  { name: "Basic scan report", free: true, pro: true, enterprise: true },
-
-  // CVE & Intelligence
-  { name: "Live CVE vulnerability audit", free: false, pro: true, enterprise: true, category: "CVE Intelligence" },
-  { name: "CVE remediation guidance", free: false, pro: true, enterprise: true },
-  { name: "OpenClaw security feed", free: "View only", pro: "Full audit", enterprise: "Full audit" },
 
   // Dashboard & Monitoring
-  { name: "Dashboard hosts", free: "1", pro: "15", enterprise: "Unlimited", category: "Dashboard" },
+  { name: "Dashboard hosts", free: "1", pro: "10", enterprise: "Unlimited", category: "Dashboard" },
   { name: "Scan history", free: "7 days", pro: "365 days", enterprise: "Unlimited" },
-  { name: "Score history & trends", free: false, pro: true, enterprise: true },
+  { name: "Score trends & drift detection", free: false, pro: true, enterprise: true },
   { name: "Activity stream", free: false, pro: true, enterprise: true },
   { name: "API keys", free: "1", pro: "10", enterprise: "Unlimited" },
 
-  // AI Insights
-  { name: "AI security insights", free: false, pro: true, enterprise: true, category: "Insights" },
-  { name: "CVE vulnerability insights", free: false, pro: true, enterprise: true },
-  { name: "Fleet drift detection", free: false, pro: true, enterprise: true },
-  { name: "Regression detection", free: false, pro: true, enterprise: true },
-  { name: "Remediation guidance", free: false, pro: true, enterprise: true },
+  // Security Intelligence
+  { name: "Live CVE vulnerability audit", free: false, pro: true, enterprise: true, category: "Security Intelligence" },
+  { name: "AI-powered insights", free: false, pro: true, enterprise: true },
   { name: "Email & webhook alerts", free: false, pro: true, enterprise: true },
+  { name: "Runtime Shield", free: false, pro: true, enterprise: true },
 
   // Enterprise
   { name: "Hardened Helm charts", free: false, pro: false, enterprise: true, category: "Enterprise" },
@@ -64,7 +55,7 @@ function CellValue({ value }: { value: boolean | string }) {
 export function PricingSection() {
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
 
-  const proPrice = billing === "annual" ? "$16" : "$20";
+  const proPrice = billing === "annual" ? "$23" : "$29";
 
   return (
     <>
@@ -108,8 +99,8 @@ export function PricingSection() {
               </span>
             </div>
             <CardDescription className="text-zinc-500">
-              Scan, harden, and deploy OpenClaw with secure defaults. No account
-              needed for the CLI.
+              Scan, harden, and deploy OpenClaw with secure defaults.
+              No account needed for the CLI.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
@@ -144,12 +135,12 @@ export function PricingSection() {
             </div>
             {billing === "annual" && (
               <p className="text-xs text-cyan-400">
-                Billed annually ($192/yr) — save 20% vs monthly
+                Billed annually ($276/yr) — save 20% vs monthly
               </p>
             )}
             <CardDescription className="text-zinc-500">
-              Stop worrying about credits. Monitor up to 15 hosts with full
-              CVE intelligence, AI insights, and alerts.
+              Monitor up to 10 hosts with full scan history,
+              CVE intelligence, AI insights, and Runtime Shield.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">

@@ -36,7 +36,7 @@ export function SidebarNav({ plan, creditsRemaining, creditsCap }: SidebarNavPro
   const pathname = usePathname();
   const isFree = plan === "free";
   const isEnterprise = plan === "enterprise";
-  const showCredits = creditsRemaining !== undefined && creditsCap !== undefined;
+  const showCredits = creditsRemaining !== undefined && creditsCap !== undefined && creditsCap !== -1;
 
   return (
     <nav className="flex-1 space-y-1 p-2">

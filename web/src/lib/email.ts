@@ -156,8 +156,8 @@ export async function sendWelcomeEmail({ to, referralCode }: WelcomeEmailParams)
     html: `
       <div style="font-family: sans-serif; max-width: 600px;">
         <h2 style="color: #06b6d4;">Welcome to Clawkeeper</h2>
-        <p>You're all set! Your account is ready with <strong>10 free scan credits</strong> this month.</p>
-        <p>Want more? Share your referral code and earn <strong>+5 credits</strong> for every friend who signs up:</p>
+        <p>You're all set! Your free account includes <strong>1 host on the dashboard</strong> with scan history and security grading.</p>
+        <p>Share your referral code with friends:</p>
         <div style="background: #f3f4f6; padding: 16px; border-radius: 8px; text-align: center; margin: 16px 0;">
           <p style="margin: 0 0 4px 0; font-size: 12px; color: #6b7280;">Your referral link</p>
           <p style="margin: 0; font-size: 18px; font-weight: 700; font-family: monospace;">
