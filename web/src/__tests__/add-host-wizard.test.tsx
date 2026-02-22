@@ -75,6 +75,13 @@ vi.mock("radix-ui", async (importOriginal) => {
   };
 });
 
+function mockSuccessfulKeyCreation() {
+  global.fetch = vi.fn().mockResolvedValueOnce({
+    ok: true,
+    json: () => Promise.resolve({ key: "ck_live_testkey123", prefix: "ck_live_testkey1" }),
+  });
+}
+
 describe("AddHostWizard", () => {
   const defaultProps = {
     orgId: "org-123",
@@ -87,29 +94,28 @@ describe("AddHostWizard", () => {
     vi.clearAllMocks();
   });
 
-  it("renders step 1 (API key) when no existing keys", () => {
+  it("auto-creates an API key when dialog opens", async () => {
+    mockSuccessfulKeyCreation();
     render(<AddHostWizard {...defaultProps} />);
-    expect(screen.getByText("Generate an API Key")).toBeInTheDocument();
-    expect(screen.getByText("Generate Key")).toBeInTheDocument();
+
+    // Should show loading state first
+    expect(screen.getByText(/Generating API key/)).toBeInTheDocument();
+
+    // Then show the key
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
   });
 
-  it("renders step 2 (Install) when user has existing keys", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={2} />);
+  it("starts at step 2 with step 1 already checked", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
     expect(screen.getByText("Install the CLI")).toBeInTheDocument();
-  });
-
-  it("shows existing key notice when starting at step 2", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={2} />);
-    expect(
-      screen.getByText(/You already have an API key/)
-    ).toBeInTheDocument();
-  });
-
-  it("renders key name input with default value", () => {
-    render(<AddHostWizard {...defaultProps} />);
-    const input = screen.getByPlaceholderText("e.g., Production Server");
-    expect(input).toBeInTheDocument();
-    expect(input).toHaveValue("My Host");
+    // Step 1 should be completed (no "1" number visible — it's a check icon)
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {
@@ -118,33 +124,11 @@ describe("AddHostWizard", () => {
   });
 
   it("shows all 4 step indicators in progress bar", () => {
+    mockSuccessfulKeyCreation();
     render(<AddHostWizard {...defaultProps} />);
-    // Should show step numbers 1-4 (step 1 is active, 2-4 are muted)
-    // Step 1 is highlighted, 2, 3, 4 are shown as numbers
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
     expect(screen.getByText("4")).toBeInTheDocument();
-  });
-
-  it("navigates to step 2 on install CLI after creating key", async () => {
-    // Mock successful API response
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ key: "ck_live_testkey123", prefix: "ck_live_testkey1" }),
-    });
-
-    render(<AddHostWizard {...defaultProps} />);
-
-    // Fill in key name and submit
-    const input = screen.getByPlaceholderText("e.g., Production Server");
-    fireEvent.change(input, { target: { value: "Test Key" } });
-
-    const submitButton = screen.getByText("Generate Key");
-    fireEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(screen.getByText("Install the CLI")).toBeInTheDocument();
-    });
   });
 
   it("shows error on failed API key creation", async () => {
@@ -155,16 +139,20 @@ describe("AddHostWizard", () => {
 
     render(<AddHostWizard {...defaultProps} />);
 
-    const submitButton = screen.getByText("Generate Key");
-    fireEvent.click(submitButton);
-
     await waitFor(() => {
       expect(screen.getByText("API key limit reached")).toBeInTheDocument();
     });
+
+    expect(screen.getByText("Retry")).toBeInTheDocument();
   });
 
-  it("step 2 shows install command", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 2 shows install command after key is created", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
 
     const copyCommands = screen.getAllByTestId("copy-command");
     expect(copyCommands.some((el) =>
@@ -172,24 +160,34 @@ describe("AddHostWizard", () => {
     )).toBe(true);
   });
 
-  it("step 2 has next button to step 3", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
-    expect(screen.getByText("Next: Harden Your Host")).toBeInTheDocument();
-  });
-
-  it("step 2 Next button advances to step 3 (Harden)", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 2 Next button is disabled while loading", () => {
+    global.fetch = vi.fn().mockReturnValue(new Promise(() => {})); // never resolves
+    render(<AddHostWizard {...defaultProps} />);
 
     const nextButton = screen.getByText("Next: Harden Your Host");
-    fireEvent.click(nextButton);
+    expect(nextButton).toBeDisabled();
+  });
 
+  it("step 2 Next button advances to step 3", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Next: Harden Your Host"));
     expect(screen.getByText("Harden Your Host")).toBeInTheDocument();
   });
 
-  it("step 3 shows both setup and scan commands", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 3 shows both setup and scan commands", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
 
-    // Navigate to step 3
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByText("Next: Harden Your Host"));
 
     const copyCommands = screen.getAllByTestId("copy-command");
@@ -201,8 +199,14 @@ describe("AddHostWizard", () => {
     )).toBe(true);
   });
 
-  it("step 3 highlights setup as recommended", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 3 highlights setup as recommended", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
+
     fireEvent.click(screen.getByText("Next: Harden Your Host"));
 
     expect(
@@ -213,8 +217,13 @@ describe("AddHostWizard", () => {
     ).toBeInTheDocument();
   });
 
-  it("step 3 Next advances to step 4 (Connect)", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 3 Next advances to step 4 (Connect)", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByText("Next: Harden Your Host"));
     fireEvent.click(screen.getByText("Next: Connect to Dashboard"));
@@ -222,8 +231,13 @@ describe("AddHostWizard", () => {
     expect(screen.getByText("Connect to Dashboard")).toBeInTheDocument();
   });
 
-  it("step 4 shows agent install command", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 4 shows agent install command", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByText("Next: Harden Your Host"));
     fireEvent.click(screen.getByText("Next: Connect to Dashboard"));
@@ -234,8 +248,13 @@ describe("AddHostWizard", () => {
     )).toBe(true);
   });
 
-  it("step 4 shows polling state after clicking connect button", () => {
-    render(<AddHostWizard {...defaultProps} existingKeyCount={1} />);
+  it("step 4 shows polling state after clicking connect button", async () => {
+    mockSuccessfulKeyCreation();
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_testkey123")).toBeInTheDocument();
+    });
 
     fireEvent.click(screen.getByText("Next: Harden Your Host"));
     fireEvent.click(screen.getByText("Next: Connect to Dashboard"));
@@ -249,40 +268,51 @@ describe("AddHostWizard", () => {
     ).toBeInTheDocument();
   });
 
-  it("handles network error gracefully in createKey", async () => {
+  it("handles network error gracefully", async () => {
     global.fetch = vi.fn().mockRejectedValueOnce(new Error("Network failure"));
 
     render(<AddHostWizard {...defaultProps} />);
-
-    const submitButton = screen.getByText("Generate Key");
-    fireEvent.click(submitButton);
 
     await waitFor(() => {
       expect(screen.getByText("Network error. Please try again.")).toBeInTheDocument();
     });
 
-    // Button should no longer be disabled (loading reset by finally)
-    expect(screen.getByText("Generate Key")).not.toBeDisabled();
+    expect(screen.getByText("Retry")).toBeInTheDocument();
+    // Next button should be disabled when there's an error
+    expect(screen.getByText("Next: Harden Your Host")).toBeDisabled();
   });
 
-  it("sends correct request when creating API key", async () => {
-    global.fetch = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ key: "ck_live_test", prefix: "ck_live_test" }),
-    });
-
+  it("sends correct request when auto-creating API key", async () => {
+    mockSuccessfulKeyCreation();
     render(<AddHostWizard {...defaultProps} />);
-
-    const input = screen.getByPlaceholderText("e.g., Production Server");
-    fireEvent.change(input, { target: { value: "My Server" } });
-    fireEvent.click(screen.getByText("Generate Key"));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith("/api/dashboard/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "My Server", org_id: "org-123" }),
+        body: JSON.stringify({ name: "Host key", org_id: "org-123" }),
       });
+    });
+  });
+
+  it("retry button re-attempts key creation after error", async () => {
+    global.fetch = vi.fn()
+      .mockRejectedValueOnce(new Error("Network failure"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ key: "ck_live_retrykey", prefix: "ck_live_retrkey" }),
+      });
+
+    render(<AddHostWizard {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Retry")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Retry"));
+
+    await waitFor(() => {
+      expect(screen.getByText("ck_live_retrykey")).toBeInTheDocument();
     });
   });
 });

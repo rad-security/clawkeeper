@@ -24,6 +24,7 @@ import { getScanRetentionDays, getMaxEvents, isPaidPlan, canUseRuntimeShield } f
 import { Lock, TrendingUp, Activity } from "lucide-react";
 import { ShieldStatusCard } from "@/components/shield/ShieldStatusCard";
 import { ShareScanCard } from "@/components/dashboard/ShareScanCard";
+import { RemoveHostButton } from "@/components/hosts/RemoveHostButton";
 import type { Event, PlanType } from "@/types";
 
 function ProFeatureGate({ title, description, icon: Icon }: { title: string; description: string; icon: React.ComponentType<{ className?: string }> }) {
@@ -160,15 +161,16 @@ export default async function HostDetailPage({
             </Badge>
           )}
         </div>
-        {latestScan && (
-          <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {latestScan && (
             <ShareScanCard
               scanId={latestScan.id}
               grade={latestScan.grade}
               score={latestScan.score}
             />
-          </div>
-        )}
+          )}
+          <RemoveHostButton hostId={id} hostname={host.hostname} />
+        </div>
       </div>
 
       {/* Stats */}
