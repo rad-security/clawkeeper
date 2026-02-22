@@ -938,8 +938,8 @@ detect_openclaw_installed() {
         return
     fi
 
-    # Check for running process
-    if pgrep -fl "openclaw" &>/dev/null 2>&1; then
+    # Check for running process (exclude pgrep itself)
+    if pgrep -f "openclaw" >/dev/null 2>&1; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
         return
