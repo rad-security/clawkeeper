@@ -39,7 +39,7 @@ export async function checkAndDeductCredit(
     return { allowed: true, credits_remaining: -1, credits_monthly_cap: -1 };
   }
 
-  let balance = org.credits_balance;
+  let balance = Number(org.credits_balance);
   const lastRefill = new Date(org.credits_last_refill_at).getTime();
   const now = Date.now();
   const canRollover = TIER_LIMITS[plan].credits_rollover;
@@ -109,7 +109,7 @@ export async function getCreditBalance(
   if (Date.now() - lastRefill >= REFILL_INTERVAL_MS) {
     const canRollover = TIER_LIMITS[plan].credits_rollover;
     const projected = canRollover
-      ? Math.min(org.credits_balance + monthlyCap, monthlyCap * 2)
+      ? Math.min(Number(org.credits_balance) + monthlyCap, monthlyCap * 2)
       : monthlyCap;
     return { credits_remaining: projected, credits_monthly_cap: monthlyCap };
   }

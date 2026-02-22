@@ -83,10 +83,10 @@ export async function POST(req: NextRequest) {
           .eq("id", orgId)
           .single();
 
-        const existingBalance = currentOrg?.credits_balance ?? 0;
+        const existingBalance = Number(currentOrg?.credits_balance ?? 0);
         const newBalance =
           newCredits === -1
-            ? 0 // Enterprise: unlimited, balance unused
+            ? 0 // Unlimited plan, balance unused
             : Math.min(existingBalance + newCredits, newCredits * 2);
 
         await admin
