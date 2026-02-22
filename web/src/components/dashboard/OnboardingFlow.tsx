@@ -2,25 +2,39 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Check, Copy, Key, Download, Loader2, Apple } from "lucide-react";
+import { CopyCommand } from "@/components/landing/CopyCommand";
+import {
+  Check,
+  Copy,
+  Download,
+  Shield,
+  Wifi,
+  Loader2,
+  Monitor,
+  Rocket,
+  ArrowLeft,
+  CheckCircle,
+} from "lucide-react";
+
+type OnboardingPath = null | "deploy" | "monitor";
 
 export function OnboardingFlow({ orgId }: { orgId: string }) {
+  const [path, setPath] = useState<OnboardingPath>(null);
   const [step, setStep] = useState(1);
-  const [keyName, setKeyName] = useState("My OpenClaw Instance");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState<"key" | "curl" | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
   const router = useRouter();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const creatingRef = useRef(false);
 
-  // Step 3: poll for first host
+  // Polling for first scan
   useEffect(() => {
-    if (step !== 3) return;
+    if (!polling) return;
 
     pollRef.current = setInterval(() => {
       router.refresh();
@@ -29,128 +43,193 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [step, router]);
+  }, [polling, router]);
 
-  async function createKey(e: React.FormEvent) {
-    e.preventDefault();
+  async function autoCreateKey() {
+    if (creatingRef.current) return;
+    creatingRef.current = true;
     setLoading(true);
     setError("");
 
-    const res = await fetch("/api/dashboard/api-keys", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: keyName, org_id: orgId }),
-    });
+    try {
+      const res = await fetch("/api/dashboard/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "First host", org_id: orgId }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Failed to create key");
+      if (!res.ok) {
+        setError(data.error || "Failed to create key");
+        return;
+      }
+
+      setApiKey(data.key);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
       setLoading(false);
-      return;
+      creatingRef.current = false;
     }
-
-    setApiKey(data.key);
-    setLoading(false);
-    setStep(2);
   }
 
-  function copyToClipboard(text: string, type: "key" | "curl") {
+  function selectPath(p: "deploy" | "monitor") {
+    setPath(p);
+    setStep(1);
+    setPolling(false);
+    autoCreateKey();
+  }
+
+  function goBack() {
+    setPath(null);
+    setStep(1);
+    setPolling(false);
+    if (pollRef.current) clearInterval(pollRef.current);
+  }
+
+  function copyText(text: string, id: string) {
     navigator.clipboard.writeText(text);
-    setCopied(type);
+    setCopied(id);
     setTimeout(() => setCopied(null), 2000);
   }
 
-  const installCommand = `curl -fsSL https://clawkeeper.dev/install.sh | bash`;
+  const totalSteps = path === "deploy" ? 4 : 3;
 
-  return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold">Welcome to Clawkeeper</h2>
-        <p className="mt-1 text-muted-foreground">
-          Let&apos;s secure your first OpenClaw instance in 3 easy steps.
-        </p>
-      </div>
+  const stepLabels =
+    path === "deploy"
+      ? ["Install", "Setup", "Connect", "Verify"]
+      : ["Install", "Connect", "Verify"];
 
-      {/* Progress bar */}
-      <div className="flex items-center gap-2">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex flex-1 items-center gap-2">
-            <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
-                step > s
-                  ? "bg-primary text-primary-foreground"
-                  : step === s
-                  ? "border-2 border-primary text-primary"
-                  : "border-2 border-muted text-muted-foreground"
-              }`}
-            >
-              {step > s ? <Check className="h-4 w-4" /> : s}
-            </div>
-            {s < 3 && (
-              <div
-                className={`h-0.5 flex-1 ${
-                  step > s ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+  // --- Path Selection Screen ---
+  if (path === null) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">Welcome to Clawkeeper</h2>
+          <p className="mt-1 text-muted-foreground">
+            How would you like to get started?
+          </p>
+        </div>
 
-      {/* Step 1: Generate API Key */}
-      {step === 1 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Key className="h-5 w-5 text-primary" />
-              <CardTitle>Generate an API Key</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 text-sm text-muted-foreground">
-              The agent needs an API key to authenticate with Clawkeeper. Give it
-              a name to identify this key later.
+        <div className="grid gap-6 sm:grid-cols-2">
+          <button
+            onClick={() => selectPath("deploy")}
+            className="group cursor-pointer rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-6 text-left transition-colors hover:border-cyan-500/50 hover:bg-cyan-500/10"
+          >
+            <Rocket className="mb-3 h-8 w-8 text-cyan-400" />
+            <h3 className="text-lg font-semibold">Deploy OpenClaw securely</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              I don&apos;t have OpenClaw yet
             </p>
-            <form onSubmit={createKey} className="flex items-end gap-2">
-              <div className="flex-1 space-y-2">
-                <Label>Key Name</Label>
-                <Input
-                  placeholder="e.g., Dev Laptop OpenClaw"
-                  value={keyName}
-                  onChange={(e) => setKeyName(e.target.value)}
-                  required
-                />
-              </div>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Creating..." : "Generate Key"}
-              </Button>
-            </form>
-            {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-          </CardContent>
-        </Card>
-      )}
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-cyan-400" />
+                Install the Clawkeeper CLI
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-cyan-400" />
+                Deploy &amp; harden your instance
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-cyan-400" />
+                Connect to this dashboard
+              </li>
+            </ul>
+          </button>
 
-      {/* Step 2: Install the Agent */}
-      {step === 2 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Download className="h-5 w-5 text-primary" />
-              <CardTitle>Install the Agent</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          <button
+            onClick={() => selectPath("monitor")}
+            className="group cursor-pointer rounded-lg border border-white/10 p-6 text-left transition-colors hover:border-white/20 hover:bg-white/5"
+          >
+            <Monitor className="mb-3 h-8 w-8 text-muted-foreground" />
+            <h3 className="text-lg font-semibold">
+              Monitor existing deployment
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              I already have OpenClaw running
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Install the Clawkeeper CLI
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                Connect to this dashboard
+              </li>
+            </ul>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Step Flows ---
+
+  // Map logical step to content
+  function renderStepContent() {
+    if (path === "deploy") {
+      switch (step) {
+        case 1:
+          return renderInstallStep();
+        case 2:
+          return renderSetupStep();
+        case 3:
+          return renderConnectStep();
+        case 4:
+          return renderVerifyStep();
+      }
+    } else {
+      switch (step) {
+        case 1:
+          return renderInstallStep();
+        case 2:
+          return renderConnectStep();
+        case 3:
+          return renderVerifyStep();
+      }
+    }
+  }
+
+  function renderInstallStep() {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Download className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Install Clawkeeper CLI</h3>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-4">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Generating API key&hellip;
+            </p>
+          </div>
+        ) : error ? (
+          <div className="space-y-2">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => autoCreateKey()}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          <>
             <div>
               <p className="mb-2 text-sm font-medium">Your API Key:</p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 rounded-md bg-muted px-3 py-2 text-sm">
+                <code className="flex-1 rounded-md bg-muted px-3 py-2 text-sm break-all">
                   {apiKey}
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => copyToClipboard(apiKey, "key")}
+                  onClick={() => copyText(apiKey, "key")}
                 >
                   {copied === "key" ? (
                     <Check className="h-4 w-4" />
@@ -159,78 +238,199 @@ export function OnboardingFlow({ orgId }: { orgId: string }) {
                   )}
                 </Button>
               </div>
+              <p className="mt-1.5 text-xs text-amber-400/80">
+                Save this key &mdash; you won&apos;t be able to see it again.
+              </p>
             </div>
 
             <div>
-              <p className="mb-2 text-sm font-medium">
-                Run this on any machine with OpenClaw installed:
+              <p className="mb-2 text-sm text-muted-foreground">
+                Run this on the host you want to secure:
               </p>
-              <div className="flex items-center gap-2">
-                <pre className="flex-1 overflow-x-auto rounded-md bg-black border border-white/10 px-3 py-2 text-sm text-cyan-400">
-                  {installCommand}
-                </pre>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => copyToClipboard(installCommand, "curl")}
-                >
-                  {copied === "curl" ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+              <CopyCommand command="curl -fsSL https://clawkeeper.dev/install.sh | bash" />
               <p className="mt-2 text-xs text-muted-foreground">
-                You&apos;ll be prompted to enter your API key during installation. The
-                agent scans your OpenClaw instance hourly and uploads results.
+                Downloads the Clawkeeper CLI which handles hardening,
+                deployment, and monitoring.
               </p>
             </div>
+          </>
+        )}
 
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">
-                or use the desktop app
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <a
-              href="https://github.com/rad-security/clawkeeper/releases/latest/download/Clawkeeper.dmg"
-              className="flex items-center justify-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+        <Button
+          onClick={() => setStep(step + 1)}
+          className="w-full"
+          disabled={loading || !!error}
+        >
+          Next
+        </Button>
+      </div>
+    );
+  }
+
+  function renderSetupStep() {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Shield className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Deploy &amp; Harden</h3>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Run the interactive setup wizard to deploy OpenClaw with hardened
+          defaults &mdash; firewall, encryption, SSH, and more. Every change
+          asks for your approval.
+        </p>
+
+        <div className="rounded-md border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <p className="mb-2 text-sm font-medium text-cyan-400">
+            Recommended: Interactive setup
+          </p>
+          <CopyCommand command="clawkeeper.sh setup" />
+        </div>
+
+        <div className="rounded-md border p-3">
+          <p className="mb-2 text-sm font-medium text-muted-foreground">
+            Alternative: Read-only audit
+          </p>
+          <CopyCommand command="clawkeeper.sh scan" />
+          <p className="mt-2 text-xs text-muted-foreground">
+            Scans without making changes &mdash; use this if you just want to
+            see your current security posture.
+          </p>
+        </div>
+
+        <Button onClick={() => setStep(step + 1)} className="w-full">
+          Next
+        </Button>
+      </div>
+    );
+  }
+
+  function renderConnectStep() {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Wifi className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Connect to Dashboard</h3>
+        </div>
+
+        <p className="text-sm text-muted-foreground">
+          Install a background agent that scans hourly and uploads results.
+          You&apos;ll be prompted for the API key below.
+        </p>
+
+        <CopyCommand command="clawkeeper.sh agent --install" />
+
+        <div>
+          <p className="mb-2 text-sm font-medium">Your API Key:</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-md bg-muted px-3 py-2 text-sm break-all">
+              {apiKey}
+            </code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => copyText(apiKey, "key-connect")}
             >
-              <Apple className="h-4 w-4" />
-              Download for macOS
-            </a>
-
-            <Button onClick={() => setStep(3)} className="w-full">
-              I&apos;ve installed the agent
+              {copied === "key-connect" ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </div>
 
-      {/* Step 3: Waiting for first scan */}
-      {step === 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Waiting for first scan&hellip;</CardTitle>
-          </CardHeader>
-          <CardContent className="py-8 text-center">
-            <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">
-              We&apos;re listening for your first scan result. This page will
-              automatically update once a scan is received.
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              If the agent is already installed, you can trigger a scan manually
-              with{" "}
-              <code className="rounded bg-muted px-1.5 py-0.5">
-                clawkeeper.sh agent run
-              </code>
-            </p>
-          </CardContent>
-        </Card>
-      )}
+        <Button
+          onClick={() => {
+            setPolling(true);
+            setStep(step + 1);
+          }}
+          className="w-full"
+        >
+          I&apos;ve connected the agent
+        </Button>
+      </div>
+    );
+  }
+
+  function renderVerifyStep() {
+    return (
+      <div className="space-y-4 py-6 text-center">
+        <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Waiting for your first scan result&hellip; This page will update
+            automatically.
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            You can trigger a scan manually:
+          </p>
+          <div className="mx-auto mt-2 max-w-sm">
+            <CopyCommand command="clawkeeper.sh agent run" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      {/* Back button */}
+      <button
+        onClick={goBack}
+        className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-white"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
+      <div className="text-center">
+        <h2 className="text-2xl font-bold">
+          {path === "deploy"
+            ? "Deploy OpenClaw securely"
+            : "Monitor existing deployment"}
+        </h2>
+        <p className="mt-1 text-muted-foreground">
+          {path === "deploy"
+            ? "We'll walk you through deploying and hardening OpenClaw."
+            : "Connect your existing OpenClaw instance to the dashboard."}
+        </p>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {stepLabels.map((label, i) => {
+          const num = i + 1;
+          return (
+            <div key={num} className="flex flex-1 items-center gap-2">
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-medium ${
+                  step > num
+                    ? "bg-primary text-primary-foreground"
+                    : step === num
+                    ? "border-2 border-primary text-primary"
+                    : "border-2 border-muted text-muted-foreground"
+                }`}
+              >
+                {step > num ? <Check className="h-4 w-4" /> : num}
+              </div>
+              {num < totalSteps && (
+                <div
+                  className={`h-0.5 flex-1 ${
+                    step > num ? "bg-primary" : "bg-muted"
+                  }`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Step content */}
+      <Card>
+        <CardContent className="pt-6">{renderStepContent()}</CardContent>
+      </Card>
     </div>
   );
 }
