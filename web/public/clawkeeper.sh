@@ -953,12 +953,11 @@ detect_openclaw_installed() {
         return
     fi
 
-    # Check for LaunchAgent (indicates prior native install)
+    # Stale LaunchAgent plist without a working binary is not a real install.
+    # Clean it up silently so it doesn't confuse future scans.
     if [ -f "$HOME/Library/LaunchAgents/com.openclaw.agent.plist" ]; then
-        OPENCLAW_INSTALLED=true
-        OPENCLAW_INSTALL_TYPE="native"
-        OPENCLAW_DETECT_METHOD="LaunchAgent plist"
-        return
+        launchctl unload "$HOME/Library/LaunchAgents/com.openclaw.agent.plist" 2>/dev/null || true
+        rm -f "$HOME/Library/LaunchAgents/com.openclaw.agent.plist"
     fi
 }
 
