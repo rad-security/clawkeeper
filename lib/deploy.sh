@@ -175,7 +175,9 @@ setup_native_launchd() {
     <key>ProgramArguments</key>
     <array>
         <string>${openclaw_bin}</string>
-        <string>--gateway</string>
+        <string>gateway</string>
+        <string>--port</string>
+        <string>18789</string>
     </array>
     <key>WorkingDirectory</key>
     <string>${OPENCLAW_NATIVE_WORKSPACE}</string>

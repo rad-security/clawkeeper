@@ -15,10 +15,15 @@ case "$REMEDIATION_ID" in
     install_openclaw)
         emit_info "Installing openclaw..."
 
-        npm install -g openclaw 2>&1 | tail -5 || {
+        local npm_output npm_rc
+        npm_output=$(npm install -g openclaw@latest 2>&1)
+        npm_rc=$?
+        echo "$npm_output" | tail -5
+
+        if [ $npm_rc -ne 0 ]; then
             emit_fail "OpenClaw installation failed" "OpenClaw npm"
             exit 1
-        }
+        fi
 
         if command -v openclaw &>/dev/null; then
             new_version=$(openclaw --version 2>/dev/null || echo "installed")
