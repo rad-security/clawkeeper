@@ -843,7 +843,7 @@ select_deployment_mode() {
     if [ "$SCAN_ONLY" = true ]; then
         if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             DEPLOY_MODE="docker"
-        elif pgrep -fl "openclaw" &>/dev/null; then
+        elif pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
             DEPLOY_MODE="native"
         else
             DEPLOY_MODE="docker"  # default for scan
@@ -901,6 +901,7 @@ OPENCLAW_INSTALL_TYPE=""
 detect_openclaw_installed() {
     OPENCLAW_INSTALLED=false
     OPENCLAW_INSTALL_TYPE=""
+    OPENCLAW_DETECT_METHOD=""
 
     # Check for Docker-based installation
     if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
@@ -908,18 +909,21 @@ detect_openclaw_installed() {
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
+            OPENCLAW_DETECT_METHOD="running container"
             return
         fi
         # Stopped container
         if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
+            OPENCLAW_DETECT_METHOD="stopped container"
             return
         fi
         # Image present
         if docker images --format '{{.Repository}}' 2>/dev/null | grep -qi "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
+            OPENCLAW_DETECT_METHOD="docker image"
             return
         fi
     fi
@@ -928,13 +932,15 @@ detect_openclaw_installed() {
     if [ -f "$HOME/openclaw-docker/docker-compose.yml" ]; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="docker"
+        OPENCLAW_DETECT_METHOD="compose file"
         return
     fi
 
     # Check for native npm installation
-    if command -v openclaw &>/dev/null; then
+    if command -v openclaw >/dev/null 2>&1; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
+        OPENCLAW_DETECT_METHOD="command: $(command -v openclaw 2>/dev/null)"
         return
     fi
 
@@ -943,6 +949,7 @@ detect_openclaw_installed() {
     if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
+        OPENCLAW_DETECT_METHOD="running process"
         return
     fi
 
@@ -950,6 +957,7 @@ detect_openclaw_installed() {
     if [ -f "$HOME/Library/LaunchAgents/com.openclaw.agent.plist" ]; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
+        OPENCLAW_DETECT_METHOD="LaunchAgent plist"
         return
     fi
 }
@@ -1915,7 +1923,7 @@ PLIST_EOF
         launchctl load "$plist_file" 2>/dev/null || true
         info "OpenClaw is starting..."
         sleep 3
-        if pgrep -f "openclaw" &>/dev/null; then
+        if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
             fixed "OpenClaw is running" "LaunchAgent Start"
         else
             warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
@@ -6398,7 +6406,7 @@ if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
 fi
 
 # ---------- Check for bare-metal process ----------
-oc_process=$(pgrep -fl "openclaw|moltbot|clawdbot" 2>/dev/null || true)
+oc_process=$(pgrep -f "openclaw|moltbot|clawdbot" 2>/dev/null || true)
 if [ -n "$oc_process" ]; then
     found=true
     while IFS= read -r line; do
@@ -7620,7 +7628,7 @@ main() {
         if [ "$OPENCLAW_INSTALLED" = true ]; then
             local install_label="native (npm)"
             [ "$OPENCLAW_INSTALL_TYPE" = "docker" ] && install_label="Docker"
-            pass "OpenClaw is installed ($install_label)" "OpenClaw Detection"
+            pass "OpenClaw is installed ($install_label — detected via $OPENCLAW_DETECT_METHOD)" "OpenClaw Detection"
         else
             fail "OpenClaw is not installed" "OpenClaw Detection"
             info "Run '$(basename "$0") setup' to install OpenClaw with hardened defaults."
@@ -7634,7 +7642,7 @@ main() {
             step_header "OpenClaw Detection"
             local install_label="native (npm)"
             [ "$OPENCLAW_INSTALL_TYPE" = "docker" ] && install_label="Docker"
-            pass "OpenClaw is already installed ($install_label)" "OpenClaw Detection"
+            pass "OpenClaw is already installed ($install_label — detected via $OPENCLAW_DETECT_METHOD)" "OpenClaw Detection"
         else
             step_header "OpenClaw Detection"
             warn "OpenClaw is not installed on this system"
