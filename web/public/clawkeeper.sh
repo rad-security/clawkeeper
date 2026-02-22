@@ -903,7 +903,7 @@ detect_openclaw_installed() {
     OPENCLAW_INSTALL_TYPE=""
 
     # Check for Docker-based installation
-    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
         # Running container
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             OPENCLAW_INSTALLED=true
@@ -938,8 +938,9 @@ detect_openclaw_installed() {
         return
     fi
 
-    # Check for running process (exclude pgrep itself)
-    if pgrep -f "openclaw" >/dev/null 2>&1; then
+    # Check for running OpenClaw process (match gateway/server, not stray
+    # grep/tee/pipe commands that happen to contain the word "openclaw")
+    if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
         return
