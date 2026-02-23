@@ -605,7 +605,6 @@ setup_openclaw_config() {
       "mode": "token",
       "allowTailscale": false
     },
-    "controlUI": false,
     "discover": {
       "mode": "off"
     }
@@ -633,7 +632,6 @@ CONFIG_EOF
     accent_msg "  Configuration:"
     dim_msg "    • gateway.bind = loopback (localhost only)"
     dim_msg "    • gateway.auth.mode = token (required for every connection)"
-    dim_msg "    • gateway.controlUI = false (web UI disabled)"
     dim_msg "    • gateway.discover.mode = off (no mDNS broadcast)"
     dim_msg "    • exec.ask = on (agent asks before every command)"
     dim_msg "    • applyPatch.workspaceOnly = true (agent can't write outside workspace)"

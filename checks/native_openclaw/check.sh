@@ -26,17 +26,17 @@ if command -v openclaw &>/dev/null; then
     exit 0
 fi
 
-# Try npx
+# Try npx (informational only; launchd needs a globally installed binary)
 if command -v npx &>/dev/null; then
     npx_version=$(npx openclaw --version 2>/dev/null || echo "")
     if [ -n "$npx_version" ]; then
-        emit_pass "OpenClaw available via npx ($npx_version)" "OpenClaw npm"
-        exit 0
+        emit_info "OpenClaw $npx_version is available via npx but not installed globally"
+        emit_info "A global install is required for launchd auto-start on macOS"
     fi
 fi
 
 # Not found
-emit_warn "OpenClaw is not installed"
+emit_warn "OpenClaw is not installed globally"
 
 if ! command -v npm &>/dev/null; then
     emit_fail "npm not available — install Node.js first" "OpenClaw npm"

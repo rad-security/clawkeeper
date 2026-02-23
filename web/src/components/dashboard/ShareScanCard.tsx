@@ -33,7 +33,7 @@ export function ShareScanCard({ scanId, grade, score }: { scanId: string; grade:
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const shareText = `My OpenClaw deployment scored ${score}/100 (Grade ${grade}) on Clawkeeper security scan. Check your security posture:`;
+  const shareText = `Security score challenge: my OpenClaw deployment scored ${score}/100 (Grade ${grade}) on Clawkeeper. Can you beat it?`;
 
   if (!shareUrl) {
     return (
@@ -45,7 +45,7 @@ export function ShareScanCard({ scanId, grade, score }: { scanId: string; grade:
         className="gap-1.5"
       >
         <Share2 className="h-3.5 w-3.5" />
-        {loading ? "Creating link..." : "Share report"}
+        {loading ? "Creating link..." : "Challenge a friend"}
       </Button>
     );
   }
@@ -59,7 +59,7 @@ export function ShareScanCard({ scanId, grade, score }: { scanId: string; grade:
         className="gap-1.5"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-        {copied ? "Copied!" : "Copy link"}
+        {copied ? "Copied!" : "Copy challenge link"}
       </Button>
       <a
         href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`}

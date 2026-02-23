@@ -564,12 +564,12 @@ fixed() {
         echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
-    # After the 3rd fix, a subtle monitoring hint (suppress in compact mode)
+    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
     if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "Re-run anytime to check for drift, or monitor continuously at") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
+            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
         else
-            echo -e "  ${DIM}Re-run anytime to check for drift, or monitor continuously at ${CYAN}clawkeeper.dev${RESET}"
+            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
         fi
     fi
 }
@@ -843,7 +843,7 @@ select_deployment_mode() {
     if [ "$SCAN_ONLY" = true ]; then
         if command -v docker &>/dev/null && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             DEPLOY_MODE="docker"
-        elif pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
+        elif pgrep -fl "openclaw" &>/dev/null; then
             DEPLOY_MODE="native"
         else
             DEPLOY_MODE="docker"  # default for scan
@@ -901,29 +901,25 @@ OPENCLAW_INSTALL_TYPE=""
 detect_openclaw_installed() {
     OPENCLAW_INSTALLED=false
     OPENCLAW_INSTALL_TYPE=""
-    OPENCLAW_DETECT_METHOD=""
 
     # Check for Docker-based installation
-    if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
         # Running container
         if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
-            OPENCLAW_DETECT_METHOD="running container"
             return
         fi
         # Stopped container
         if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
-            OPENCLAW_DETECT_METHOD="stopped container"
             return
         fi
         # Image present
         if docker images --format '{{.Repository}}' 2>/dev/null | grep -qi "openclaw"; then
             OPENCLAW_INSTALLED=true
             OPENCLAW_INSTALL_TYPE="docker"
-            OPENCLAW_DETECT_METHOD="docker image"
             return
         fi
     fi
@@ -932,32 +928,28 @@ detect_openclaw_installed() {
     if [ -f "$HOME/openclaw-docker/docker-compose.yml" ]; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="docker"
-        OPENCLAW_DETECT_METHOD="compose file"
         return
     fi
 
     # Check for native npm installation
-    if command -v openclaw >/dev/null 2>&1; then
+    if command -v openclaw &>/dev/null; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
-        OPENCLAW_DETECT_METHOD="command: $(command -v openclaw 2>/dev/null)"
         return
     fi
 
-    # Check for running OpenClaw process (match gateway/server, not stray
-    # grep/tee/pipe commands that happen to contain the word "openclaw")
-    if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
+    # Check for running process
+    if pgrep -fl "openclaw" &>/dev/null 2>&1; then
         OPENCLAW_INSTALLED=true
         OPENCLAW_INSTALL_TYPE="native"
-        OPENCLAW_DETECT_METHOD="running process"
         return
     fi
 
-    # Stale LaunchAgent plist without a working binary is not a real install.
-    # Clean it up silently so it doesn't confuse future scans.
+    # Check for LaunchAgent (indicates prior native install)
     if [ -f "$HOME/Library/LaunchAgents/com.openclaw.agent.plist" ]; then
-        launchctl unload "$HOME/Library/LaunchAgents/com.openclaw.agent.plist" 2>/dev/null || true
-        rm -f "$HOME/Library/LaunchAgents/com.openclaw.agent.plist"
+        OPENCLAW_INSTALLED=true
+        OPENCLAW_INSTALL_TYPE="native"
+        return
     fi
 }
 
@@ -1106,10 +1098,13 @@ print_report() {
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
     elif [ "$has_api_key" != true ]; then
+        echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "Monitor this host over time →") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
+            echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
+            echo "  → Then run $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install") to connect"
         else
-            echo -e "  ${DIM}Monitor this host over time →${RESET} ${CYAN}clawkeeper.dev${RESET}"
+            echo -e "  → Sign up at ${CYAN}https://clawkeeper.dev/signup${RESET}"
+            echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
         fi
     fi
     echo ""
@@ -1165,8 +1160,9 @@ save_report() {
         echo ""
         echo "---"
         echo ""
-        echo "This is a point-in-time snapshot. Settings can drift over time."
-        echo "Re-run scans regularly or set up continuous monitoring at clawkeeper.dev"
+        echo "This is a point-in-time snapshot. Settings drift over time."
+        echo "For continuous monitoring, drift detection, and compliance reporting:"
+        echo "https://clawkeeper.dev"
     } > "$REPORT_FILE"
 
     dim_msg "  Report saved to: $REPORT_FILE"
@@ -1724,107 +1720,6 @@ agent_main() {
 OPENCLAW_NATIVE_DIR="$HOME/.openclaw"
 OPENCLAW_NATIVE_WORKSPACE="$HOME/openclaw/workspace"
 
-# Direct OpenClaw global install — bypasses the check/remediation JSON pipeline
-# so we get a real binary in PATH before creating the LaunchAgent.
-install_openclaw_global() {
-    step_header "Install OpenClaw (npm)"
-
-    # Already installed globally?
-    if command -v openclaw >/dev/null 2>&1; then
-        local ver
-        ver=$(openclaw --version 2>/dev/null || echo "unknown")
-        pass "OpenClaw is already installed globally ($ver)" "OpenClaw npm"
-        return 0
-    fi
-
-    if ! command -v npm >/dev/null 2>&1; then
-        fail "npm not available — install Node.js first" "OpenClaw npm"
-        return 1
-    fi
-
-    # Attempt 1: standard npm install -g
-    info "Installing openclaw globally via npm..."
-    local npm_output npm_rc
-    npm_output=$(npm install -g openclaw@latest 2>&1)
-    npm_rc=$?
-
-    # Attempt 2: if SSL/cert error, retry with NODE_TLS_REJECT_UNAUTHORIZED=0
-    if [ $npm_rc -ne 0 ]; then
-        if echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT\|SELF_SIGNED\|unable to get local issuer"; then
-            warn "SSL certificate error detected — retrying with certificate validation disabled..."
-            npm_output=$(NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
-            npm_rc=$?
-        fi
-    fi
-
-    # Attempt 3: permissions error, retry with sudo
-    if [ $npm_rc -ne 0 ]; then
-        if echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
-            warn "Permission error — retrying with sudo..."
-            npm_output=$(sudo npm install -g openclaw@latest 2>&1)
-            npm_rc=$?
-            # Sudo + SSL fallback
-            if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT"; then
-                npm_output=$(sudo env NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
-                npm_rc=$?
-            fi
-        fi
-    fi
-
-    if [ $npm_rc -ne 0 ]; then
-        fail "npm install -g openclaw@latest failed" "OpenClaw npm"
-        echo "$npm_output" | tail -8 | while IFS= read -r line; do
-            dim_msg "    $line"
-        done
-        echo ""
-        info "To fix manually, run:"
-        info "  NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest"
-        info "Debug info:"
-        info "  node: $(node --version 2>/dev/null || echo not-found)"
-        info "  npm: $(npm --version 2>/dev/null || echo not-found)"
-        info "  npm prefix: $(npm config get prefix 2>/dev/null || echo unknown)"
-        info "  npm strict-ssl: $(npm config get strict-ssl 2>/dev/null || echo unknown)"
-        info "Then re-run: $(basename "$0") setup"
-        return 1
-    fi
-
-    # Refresh shell hash table so command -v sees the new binary
-    hash -r 2>/dev/null || true
-
-    if command -v openclaw >/dev/null 2>&1; then
-        local new_ver
-        new_ver=$(openclaw --version 2>/dev/null || echo "installed")
-        fixed "OpenClaw $new_ver installed globally" "OpenClaw npm"
-        info "Binary at: $(command -v openclaw)"
-        return 0
-    fi
-
-    # command -v failed — try to locate the binary manually
-    local npm_prefix
-    npm_prefix=$(npm config get prefix 2>/dev/null || echo "")
-    if [ -n "$npm_prefix" ] && [ -x "$npm_prefix/bin/openclaw" ]; then
-        # Binary exists but not in PATH — add it
-        export PATH="$npm_prefix/bin:$PATH"
-        hash -r 2>/dev/null || true
-        if command -v openclaw >/dev/null 2>&1; then
-            local new_ver
-            new_ver=$(openclaw --version 2>/dev/null || echo "installed")
-            fixed "OpenClaw $new_ver installed at $npm_prefix/bin/openclaw" "OpenClaw npm"
-            info "Note: $npm_prefix/bin may not be in your default PATH."
-            info "Add to your shell profile: export PATH=\"$npm_prefix/bin:\$PATH\""
-            return 0
-        fi
-    fi
-
-    fail "OpenClaw installed but not found in PATH" "OpenClaw npm"
-    info "You may need to restart your terminal or add npm's global bin to PATH."
-    if [ -n "$npm_prefix" ]; then
-        info "npm prefix: $npm_prefix"
-        info "Try: export PATH=\"$npm_prefix/bin:\$PATH\""
-    fi
-    return 1
-}
-
 setup_native_openclaw_directories() {
     step_header "OpenClaw Directory Structure (Native)"
     info "Creating directories with secure permissions."
@@ -1972,13 +1867,7 @@ setup_native_launchd() {
     mkdir -p "$plist_dir"
 
     local openclaw_bin
-    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "")
-
-    if [ -z "$openclaw_bin" ] || [ ! -x "$openclaw_bin" ]; then
-        fail "Cannot create LaunchAgent — openclaw binary not found in PATH" "LaunchAgent"
-        info "Run 'npm install -g openclaw@latest' first, then re-run setup."
-        return
-    fi
+    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "/usr/local/bin/openclaw")
 
     local env_file="$OPENCLAW_NATIVE_DIR/.env"
     local gateway_token=""
@@ -2026,65 +1915,13 @@ PLIST_EOF
     info "It will auto-start OpenClaw next time you log in."
 
     if ask_yn "Load and start OpenClaw now?"; then
-        # Verify binary one more time right before loading
-        if [ ! -x "$openclaw_bin" ]; then
-            fail "Binary not found at $openclaw_bin — cannot start" "LaunchAgent Start"
-            return
-        fi
-
-        info "Loading LaunchAgent..."
-        if ! launchctl load "$plist_file" 2>&1; then
-            fail "launchctl load failed" "LaunchAgent Start"
-            info "Try manually: launchctl load $plist_file"
-            return
-        fi
-
-        info "Waiting for OpenClaw to start (up to 20 seconds)..."
-        local waited=0
-        local oc_started=false
-        while [ $waited -lt 20 ]; do
-            if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
-                oc_started=true
-                break
-            fi
-            # Also check if the port is listening (gateway default 18789)
-            if command -v lsof >/dev/null 2>&1 && lsof -i :18789 >/dev/null 2>&1; then
-                oc_started=true
-                break
-            fi
-            sleep 2
-            waited=$((waited + 2))
-            echo -ne "  ${DIM}  Waiting... (${waited}s)${RESET}\r"
-        done
-        echo ""
-        if [ "$oc_started" = true ]; then
+        launchctl load "$plist_file" 2>/dev/null || true
+        info "OpenClaw is starting..."
+        sleep 3
+        if pgrep -f "openclaw" &>/dev/null; then
             fixed "OpenClaw is running" "LaunchAgent Start"
         else
-            # Check launchctl for the real error
-            local lctl_status
-            lctl_status=$(launchctl list 2>/dev/null | grep "openclaw" || echo "")
-            if [ -n "$lctl_status" ]; then
-                local exit_code
-                exit_code=$(echo "$lctl_status" | awk '{print $1}')
-                if [ "$exit_code" != "0" ] && [ "$exit_code" != "-" ]; then
-                    fail "OpenClaw crashed on startup (exit code: $exit_code)" "LaunchAgent Start"
-                    info "Binary path in plist: $openclaw_bin"
-                    if [ -s "$HOME/.openclaw/openclaw-error.log" ]; then
-                        info "Error log:"
-                        tail -5 "$HOME/.openclaw/openclaw-error.log" | while read -r line; do
-                            dim_msg "    $line"
-                        done
-                    else
-                        info "No error log found — the binary may not exist at the configured path."
-                    fi
-                else
-                    warn "LaunchAgent is loaded but OpenClaw hasn't started yet."
-                    info "Check logs: cat ~/.openclaw/openclaw.log"
-                fi
-            else
-                fail "LaunchAgent not found in launchctl — load may have failed silently" "LaunchAgent Start"
-                info "Try: launchctl load $plist_file"
-            fi
+            warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
         fi
     fi
 }
@@ -2478,7 +2315,6 @@ setup_openclaw_config() {
       "mode": "token",
       "allowTailscale": false
     },
-    "controlUI": false,
     "discover": {
       "mode": "off"
     }
@@ -2506,7 +2342,6 @@ CONFIG_EOF
     accent_msg "  Configuration:"
     dim_msg "    • gateway.bind = loopback (localhost only)"
     dim_msg "    • gateway.auth.mode = token (required for every connection)"
-    dim_msg "    • gateway.controlUI = false (web UI disabled)"
     dim_msg "    • gateway.discover.mode = off (no mDNS broadcast)"
     dim_msg "    • exec.ask = on (agent asks before every command)"
     dim_msg "    • applyPatch.workspaceOnly = true (agent can't write outside workspace)"
@@ -6063,35 +5898,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-emit_info "Checking if OpenClaw is installed globally..."
+emit_info "Checking if OpenClaw is available via npm..."
 
-# Check direct command (global install — required for LaunchAgent)
-if command -v openclaw >/dev/null 2>&1; then
+# Check direct command
+if command -v openclaw &>/dev/null; then
     oc_version=$(openclaw --version 2>/dev/null || echo "unknown")
     emit_pass "OpenClaw is installed ($oc_version)" "OpenClaw npm"
 return 0
 fi
 
-# npx can run it, but it's not a real install — LaunchAgent needs a global binary
-if command -v npx >/dev/null 2>&1; then
+# Try npx (informational only; launchd needs a globally installed binary)
+if command -v npx &>/dev/null; then
     npx_version=$(npx openclaw --version 2>/dev/null || echo "")
     if [ -n "$npx_version" ]; then
         emit_info "OpenClaw $npx_version is available via npx but not installed globally"
-        emit_info "A global install is required for the LaunchAgent to auto-start OpenClaw"
+        emit_info "A global install is required for launchd auto-start on macOS"
     fi
 fi
 
-# Not found globally — needs install
+# Not found
 emit_warn "OpenClaw is not installed globally"
 
-if ! command -v npm >/dev/null 2>&1; then
+if ! command -v npm &>/dev/null; then
     emit_fail "npm not available — install Node.js first" "OpenClaw npm"
 return 0
 fi
 
 emit_prompt "Install OpenClaw globally via npm?" "install_openclaw" \
-    "OpenClaw not installed globally" \
-    "OpenClaw not installed globally"
+    "OpenClaw not installed" \
+    "OpenClaw not installed"
 }
 
 __remediate_native_openclaw() {
@@ -6108,10 +5943,26 @@ case "$REMEDIATION_ID" in
     install_openclaw)
         emit_info "Installing openclaw..."
 
-        local npm_output npm_rc
+        npm_output=""
+        npm_rc=0
         npm_output=$(npm install -g openclaw@latest 2>&1)
         npm_rc=$?
-        echo "$npm_output" | tail -5
+
+        # Retry on SSL/cert environments common on managed Mac fleets.
+        if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT\|SELF_SIGNED\|unable to get local issuer"; then
+            emit_warn "SSL certificate error detected — retrying with certificate validation disabled..."
+            npm_output=$(NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+        fi
+
+        # Retry with sudo if npm global prefix requires elevation.
+        if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
+            emit_warn "Permission error detected — retrying with sudo..."
+            npm_output=$(sudo npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+        fi
+
+        echo "$npm_output" | tail -8
 
         if [ $npm_rc -ne 0 ]; then
             emit_fail "OpenClaw installation failed" "OpenClaw npm"
@@ -6215,17 +6066,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-emit_info "OpenClaw requires Node.js 22 or higher."
+emit_info "OpenClaw native install currently requires Node.js 22.x."
 
 if command -v node &>/dev/null; then
     node_version=$(node --version 2>/dev/null || echo "unknown")
     major_version=$(echo "$node_version" | sed 's/v//' | cut -d. -f1)
 
-    if [ "$major_version" -ge 22 ] 2>/dev/null; then
-        emit_pass "Node.js $node_version installed (meets v22+ requirement)" "Node.js"
+    if [ "$major_version" -eq 22 ] 2>/dev/null; then
+        emit_pass "Node.js $node_version installed (meets v22.x requirement)" "Node.js"
+return 0
+    elif [ "$major_version" -gt 22 ] 2>/dev/null; then
+        emit_warn "Node.js $node_version detected"
+        emit_warn "OpenClaw native install is currently incompatible with Node.js $major_version (sharp/libvips build issues)"
+        emit_fail "Node.js 22.x required for native OpenClaw install" "Node.js"
 return 0
     else
-        emit_warn "Node.js $node_version is installed but OpenClaw needs v22+"
+        emit_warn "Node.js $node_version is installed but OpenClaw needs v22.x"
     fi
 else
     emit_warn "Node.js is not installed"
@@ -6238,7 +6094,7 @@ return 0
 fi
 
 emit_prompt "Install Node.js 22 via Homebrew?" "install_node" \
-    "Node.js 22+ not installed" \
+    "Node.js 22.x not installed" \
     "Node.js not installed"
 }
 
@@ -6363,12 +6219,17 @@ else
     emit_fail "Token authentication not configured" "gateway.auth"
 fi
 
-# gateway.controlUI
-if grep -q '"controlUI".*false' "$config_file" 2>/dev/null; then
-    emit_pass "gateway.controlUI = false (web UI disabled)" "gateway.controlUI"
+# gateway.controlUI (legacy key)
+# Newer OpenClaw versions reject unknown keys, so absence is expected.
+if grep -q '"controlUI"' "$config_file" 2>/dev/null; then
+    if grep -q '"controlUI".*false' "$config_file" 2>/dev/null; then
+        emit_pass "gateway.controlUI = false (legacy key disabled)" "gateway.controlUI"
+    else
+        emit_warn "gateway.controlUI key found"
+        emit_fail "Remove legacy gateway.controlUI key (or set false if your version still supports it)" "gateway.controlUI"
+    fi
 else
-    emit_warn "gateway.controlUI may be enabled"
-    emit_fail "Web control UI should be disabled (controlUI: false)" "gateway.controlUI"
+    emit_pass "gateway.controlUI key not present (compatible with current OpenClaw schema)" "gateway.controlUI"
 fi
 
 # gateway.discover.mode
@@ -6564,7 +6425,7 @@ if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
 fi
 
 # ---------- Check for bare-metal process ----------
-oc_process=$(pgrep -f "openclaw|moltbot|clawdbot" 2>/dev/null || true)
+oc_process=$(pgrep -fl "openclaw|moltbot|clawdbot" 2>/dev/null || true)
 if [ -n "$oc_process" ]; then
     found=true
     while IFS= read -r line; do
@@ -7681,9 +7542,9 @@ main() {
     print_phase_summary
     if [ "$COMPACT_OUTPUT" != true ]; then
         if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Re-run scans regularly or monitor at") $(gum style --foreground "$GUM_CYAN" "clawkeeper.dev")"
+            echo "  $(gum style --foreground "$GUM_DIM" "These settings can drift. Track them:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
         else
-            echo -e "  ${DIM}These settings can drift. Re-run scans regularly or monitor at ${CYAN}clawkeeper.dev${RESET}"
+            echo -e "  ${DIM}These settings can drift. Track them: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
         fi
     fi
 
@@ -7786,7 +7647,7 @@ main() {
         if [ "$OPENCLAW_INSTALLED" = true ]; then
             local install_label="native (npm)"
             [ "$OPENCLAW_INSTALL_TYPE" = "docker" ] && install_label="Docker"
-            pass "OpenClaw is installed ($install_label — detected via $OPENCLAW_DETECT_METHOD)" "OpenClaw Detection"
+            pass "OpenClaw is installed ($install_label)" "OpenClaw Detection"
         else
             fail "OpenClaw is not installed" "OpenClaw Detection"
             info "Run '$(basename "$0") setup' to install OpenClaw with hardened defaults."
@@ -7800,7 +7661,7 @@ main() {
             step_header "OpenClaw Detection"
             local install_label="native (npm)"
             [ "$OPENCLAW_INSTALL_TYPE" = "docker" ] && install_label="Docker"
-            pass "OpenClaw is already installed ($install_label — detected via $OPENCLAW_DETECT_METHOD)" "OpenClaw Detection"
+            pass "OpenClaw is already installed ($install_label)" "OpenClaw Detection"
         else
             step_header "OpenClaw Detection"
             warn "OpenClaw is not installed on this system"
@@ -7818,15 +7679,10 @@ main() {
                     accent_bold_msg "  Installing OpenClaw (Native/npm)..."
                     if command -v node &>/dev/null; then
                         setup_native_openclaw_directories
-                        if install_openclaw_global; then
-                            setup_native_env_file
-                            setup_openclaw_config
-                            setup_native_launchd
-                        else
-                            echo ""
-                            warn "Cannot continue setup without OpenClaw installed."
-                            info "Fix the npm issue above, then re-run: $(basename "$0") setup"
-                        fi
+                        run_check "native_openclaw"
+                        setup_native_env_file
+                        setup_openclaw_config
+                        setup_native_launchd
                     else
                         echo ""
                         warn "Node.js is not available — cannot install OpenClaw"
@@ -7862,15 +7718,10 @@ main() {
 
             if command -v node &>/dev/null; then
                 setup_native_openclaw_directories
-                if install_openclaw_global; then
-                    setup_native_env_file
-                    setup_openclaw_config
-                    setup_native_launchd
-                else
-                    echo ""
-                    warn "Cannot continue deployment without OpenClaw installed."
-                    info "Fix the npm issue above, then re-run: $(basename "$0") deploy"
-                fi
+                run_check "native_openclaw"
+                setup_native_env_file
+                setup_openclaw_config
+                setup_native_launchd
             else
                 echo ""
                 warn "Node.js is not available — cannot deploy OpenClaw"
@@ -7898,40 +7749,30 @@ main() {
     _compact_flush
     print_phase_summary
 
-    # Re-detect after setup/deploy in case OpenClaw was just installed
-    if [ "$OPENCLAW_INSTALLED" = false ] && [ "$command" != "scan" ]; then
-        detect_openclaw_installed
-    fi
-
     # ── Phase 5 of 5: Security Audit (all modes) ──
     reset_phase_counters
     phase_header "═══ Phase 5 of 5: Security Audit ═══"
 
-    if [ "$OPENCLAW_INSTALLED" = true ]; then
-        run_check "openclaw_running"
-        run_check "cve_audit"
+    run_check "openclaw_running"
+    run_check "cve_audit"
 
-        if [ "$DEPLOY_MODE" = "native" ]; then
-            run_check "openclaw_config"
-            run_check "openclaw_hardening"
-            run_check "env_file"
-            run_check "credential_exposure"
-            run_check "session_commands"
-            run_check "skills_security"
-            run_check "soul_security"
-        else
-            run_check "container_security"
-            run_check "openclaw_config"
-            run_check "openclaw_hardening"
-            run_check "env_file"
-            run_check "credential_exposure"
-            run_check "session_commands"
-            run_check "skills_security"
-            run_check "soul_security"
-        fi
+    if [ "$DEPLOY_MODE" = "native" ]; then
+        run_check "openclaw_config"
+        run_check "openclaw_hardening"
+        run_check "env_file"
+        run_check "credential_exposure"
+        run_check "session_commands"
+        run_check "skills_security"
+        run_check "soul_security"
     else
-        info "OpenClaw is not installed — skipping security audit."
-        info "Run '$(basename "$0") setup' to install OpenClaw, then re-run scan."
+        run_check "container_security"
+        run_check "openclaw_config"
+        run_check "openclaw_hardening"
+        run_check "env_file"
+        run_check "credential_exposure"
+        run_check "session_commands"
+        run_check "skills_security"
+        run_check "soul_security"
     fi
     _compact_flush
     print_phase_summary
@@ -7939,31 +7780,6 @@ main() {
     # Final report
     print_report
     save_report
-
-    # Post-setup: prompt to connect to dashboard
-    if [ "$command" = "setup" ] || [ "$command" = "deploy" ]; then
-        local has_api_key=false
-        if [ -f "$AGENT_CONFIG_FILE" ]; then
-            local stored_key
-            stored_key=$(grep '^CLAWKEEPER_API_KEY=' "$AGENT_CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^CLAWKEEPER_API_KEY="//' | sed 's/"$//')
-            if [ -n "$stored_key" ] && echo "$stored_key" | grep -qE '^ck_live_.{12,}'; then
-                has_api_key=true
-            fi
-        fi
-
-        if [ "$has_api_key" != true ] && [ "$OPENCLAW_INSTALLED" = true ]; then
-            echo ""
-            echo -e "  ${CYAN}${BOLD}━━━ Connect to Your Dashboard ━━━${RESET}"
-            echo ""
-            echo -e "  Your OpenClaw deployment is secured. Track your security"
-            echo -e "  grade over time with a free Clawkeeper dashboard."
-            echo ""
-            echo -e "  ${BOLD}1.${RESET} Sign up at ${CYAN}clawkeeper.dev/signup${RESET}"
-            echo -e "  ${BOLD}2.${RESET} Add your host and copy the API key"
-            echo -e "  ${BOLD}3.${RESET} Run: ${CYAN}clawkeeper.sh agent --install${RESET}"
-            echo ""
-        fi
-    fi
 }
 
 # Run

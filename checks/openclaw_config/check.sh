@@ -77,12 +77,17 @@ else
     emit_fail "Token authentication not configured" "gateway.auth"
 fi
 
-# gateway.controlUI
-if grep -q '"controlUI".*false' "$config_file" 2>/dev/null; then
-    emit_pass "gateway.controlUI = false (web UI disabled)" "gateway.controlUI"
+# gateway.controlUI (legacy key)
+# Newer OpenClaw versions reject unknown keys, so absence is expected.
+if grep -q '"controlUI"' "$config_file" 2>/dev/null; then
+    if grep -q '"controlUI".*false' "$config_file" 2>/dev/null; then
+        emit_pass "gateway.controlUI = false (legacy key disabled)" "gateway.controlUI"
+    else
+        emit_warn "gateway.controlUI key found"
+        emit_fail "Remove legacy gateway.controlUI key (or set false if your version still supports it)" "gateway.controlUI"
+    fi
 else
-    emit_warn "gateway.controlUI may be enabled"
-    emit_fail "Web control UI should be disabled (controlUI: false)" "gateway.controlUI"
+    emit_pass "gateway.controlUI key not present (compatible with current OpenClaw schema)" "gateway.controlUI"
 fi
 
 # gateway.discover.mode
