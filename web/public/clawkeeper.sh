@@ -958,7 +958,7 @@ detect_openclaw_installed() {
 print_report() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
+        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -1055,7 +1055,7 @@ print_report() {
     fi
 
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
+        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -2006,31 +2006,65 @@ PLIST_EOF
 
 prompt_native_daemon_start() {
     step_header "Start OpenClaw Daemon"
-    info "OpenClaw is installed but not yet running as a daemon."
-    info "Running the onboard command will register and start the background service."
+
+    # If OpenClaw is already running (e.g. from the LaunchAgent step), skip.
+    if pgrep -f "openclaw.*gateway" &>/dev/null; then
+        pass "OpenClaw daemon is already running" "Daemon Start"
+        return
+    fi
+
+    local openclaw_bin
+    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "")
+
+    if [ -z "$openclaw_bin" ]; then
+        fail "openclaw binary not found in PATH" "Daemon Start"
+        info "Ensure OpenClaw is installed: npm install -g openclaw"
+        return
+    fi
+
+    info "OpenClaw is installed but the daemon is not yet running."
     echo ""
-    highlight_msg "  Command: openclaw-onboard --install daemon"
+    highlight_msg "  Command: openclaw onboard --install-daemon"
     echo ""
 
     if ask_yn "Start the OpenClaw daemon now?"; then
-        info "Running openclaw-onboard --install daemon..."
+        info "Starting OpenClaw daemon..."
         echo ""
 
-        # Run interactively — openclaw-onboard has its own prompts (e.g. hatch mode)
-        # so stdin/stdout must stay connected to the terminal.
-        openclaw-onboard --install daemon </dev/tty
-        local onboard_rc=$?
+        local started=false
 
-        echo ""
-        if [ $onboard_rc -eq 0 ]; then
-            fixed "OpenClaw daemon installed and running" "Daemon Start"
+        # Primary: openclaw onboard --install-daemon
+        if "$openclaw_bin" onboard --install-daemon </dev/tty 2>&1; then
+            started=true
         else
-            fail "Daemon onboard failed (exit code $onboard_rc)" "Daemon Start"
-            info "You can retry manually: openclaw-onboard --install daemon"
+            warn "onboard --install-daemon did not succeed — trying alternative..."
+            # Fallback: openclaw gateway install
+            if "$openclaw_bin" gateway install </dev/tty 2>&1; then
+                started=true
+            else
+                warn "gateway install did not succeed — starting gateway directly..."
+                # Last resort: start the gateway process directly
+                nohup "$openclaw_bin" gateway --port 18789 \
+                    > "$HOME/.openclaw/openclaw.log" 2>&1 &
+                sleep 3
+                if pgrep -f "openclaw.*gateway" &>/dev/null; then
+                    started=true
+                fi
+            fi
+        fi
+
+        echo ""
+        if $started || pgrep -f "openclaw.*gateway" &>/dev/null; then
+            fixed "OpenClaw daemon is running" "Daemon Start"
+        else
+            fail "Could not start the OpenClaw daemon" "Daemon Start"
+            info "Try starting manually:"
+            info "  openclaw onboard --install-daemon"
+            info "  openclaw gateway --port 18789"
         fi
     else
         skipped "Daemon start deferred" "Daemon Start"
-        info "When you're ready, run: openclaw-onboard --install daemon"
+        info "When you're ready, run: openclaw onboard --install-daemon"
     fi
 }
 
