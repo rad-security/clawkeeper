@@ -2,8 +2,8 @@
 # ============================================================================
 # Clawkeeper Check: OpenClaw Configuration Audit
 # Audits ~/.openclaw directory permissions, openclaw.json file permissions,
-# and key config values: gateway.bind, auth.mode, controlUI, discover.mode,
-# exec.ask, redactSensitive, and credential exposure.
+# and key config values: gateway.bind, auth.mode, controlUi, discovery,
+# logging.redactSensitive, and credential exposure.
 # Outputs JSON lines to stdout.
 # ============================================================================
 
@@ -77,31 +77,29 @@ else
     emit_fail "Token authentication not configured" "gateway.auth"
 fi
 
-# gateway.controlUI (legacy key)
-# Newer OpenClaw versions reject unknown keys, so absence is expected.
-if grep -q '"controlUI"' "$config_file" 2>/dev/null; then
-    if grep -q '"controlUI".*false' "$config_file" 2>/dev/null; then
-        emit_pass "gateway.controlUI = false (legacy key disabled)" "gateway.controlUI"
+# gateway.controlUi
+if grep -q '"controlUi"' "$config_file" 2>/dev/null; then
+    if grep -q '"enabled".*false' "$config_file" 2>/dev/null; then
+        emit_pass "gateway.controlUi.enabled = false (web UI disabled)" "gateway.controlUi"
     else
-        emit_warn "gateway.controlUI key found"
-        emit_fail "Remove legacy gateway.controlUI key (or set false if your version still supports it)" "gateway.controlUI"
+        emit_warn "gateway.controlUi may be enabled"
+        emit_fail "Web control UI should be disabled for security (controlUi.enabled: false)" "gateway.controlUi"
     fi
 else
-    emit_pass "gateway.controlUI key not present (compatible with current OpenClaw schema)" "gateway.controlUI"
+    emit_pass "gateway.controlUi not configured (defaults to disabled)" "gateway.controlUi"
 fi
 
-# gateway.discover.mode
-if grep -q '"discover"' "$config_file" 2>/dev/null && grep -q '"mode".*"off"' "$config_file" 2>/dev/null; then
-    emit_pass "gateway.discover.mode = off (mDNS disabled)" "gateway.discover"
+# discovery.enabled (top-level key, not gateway.discover)
+if grep -q '"discovery"' "$config_file" 2>/dev/null; then
+    if grep -q '"enabled".*false' "$config_file" 2>/dev/null; then
+        emit_pass "discovery.enabled = false (mDNS disabled)" "discovery"
+    else
+        emit_warn "mDNS discovery may be enabled"
+        emit_fail "mDNS discovery should be disabled (discovery.enabled: false)" "discovery"
+    fi
 else
-    emit_fail "mDNS discovery should be disabled (discover.mode: off)" "gateway.discover"
-fi
-
-# exec.ask
-if grep -q '"ask".*"on"' "$config_file" 2>/dev/null; then
-    emit_pass "exec.ask = on (explicit consent mode)" "exec.ask"
-else
-    emit_fail "Explicit consent not enabled (exec.ask should be 'on')" "exec.ask"
+    emit_warn "discovery not configured — mDNS may be enabled by default"
+    emit_fail "Add discovery.enabled = false to disable network broadcast" "discovery"
 fi
 
 # logging.redactSensitive
