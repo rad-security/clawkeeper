@@ -264,7 +264,7 @@ init_gum_icons() {
     _GUM_WARN_ICON=$(gum style --foreground "$GUM_YELLOW" "⚠")
     _GUM_SKIP_ICON=$(gum style --foreground "$GUM_YELLOW" "⊘")
     _GUM_INFO_ICON=$(gum style --foreground "$GUM_DIM" "→")
-    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(just fixed)")
+    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(fixed)")
     _GUM_SKIPPED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(accepted risk)")
 }
 
@@ -452,8 +452,8 @@ print_phase_summary() {
 print_expectations() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
+        gum style --foreground "$GUM_DIM" -- "  This wizard walks you through 5 phases:"
         gum style --foreground "$GUM_DIM" -- \
-            "  This wizard walks you through 5 phases:" \
             "    1. Host Hardening   — reduce your attack surface" \
             "    2. Network          — verify network security" \
             "    3. Prerequisites    — install required software" \
@@ -503,19 +503,21 @@ step_header() {
     _compact_flush
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
+        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "$1"
     else
-        echo -e "${BOLD}Step ${TOTAL}: $1${RESET}"
+        echo -e "${BOLD}$1${RESET}"
     fi
 }
 
 pass() {
     PASS=$((PASS + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        local display_name="${_COMPACT_STEP_NAME}"
+        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${display_name}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name}")"
         fi
         log_result "PASS" "$2" "$1"
         return
@@ -531,10 +533,12 @@ pass() {
 fail() {
     FAIL=$((FAIL + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        local display_name="${_COMPACT_STEP_NAME}"
+        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_FAIL_ICON} ${_COMPACT_STEP_NAME}"
+            _compact_emit "  ${_GUM_FAIL_ICON} ${display_name}"
         else
-            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${_COMPACT_STEP_NAME}")"
+            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${display_name}")"
         fi
         log_result "FAIL" "$2" "$1"
         return
@@ -550,10 +554,12 @@ fail() {
 fixed() {
     FIXED=$((FIXED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        local display_name="${_COMPACT_STEP_NAME}"
+        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME} ${_GUM_FIXED_SUFFIX}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${display_name} ${_GUM_FIXED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME} ${DIM}(fixed)${RESET}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name} ${DIM}(fixed)${RESET}")"
         fi
         log_result "FIXED" "$2" "$1"
         return
@@ -561,26 +567,20 @@ fixed() {
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
     else
-        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
+        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
-    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
-    if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
-        if [ "$HAS_GUM" = true ]; then
-            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
-        else
-            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
-        fi
-    fi
 }
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
+        local display_name="${_COMPACT_STEP_NAME}"
+        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_SKIP_ICON} ${_COMPACT_STEP_NAME} ${_GUM_SKIPPED_SUFFIX}"
+            _compact_emit "  ${_GUM_SKIP_ICON} ${display_name} ${_GUM_SKIPPED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${_COMPACT_STEP_NAME} ${DIM}(risk)${RESET}")"
+            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${display_name} ${DIM}(risk)${RESET}")"
         fi
         log_result "SKIPPED" "$2" "$1"
         return
@@ -1933,7 +1933,7 @@ setup_native_launchd() {
     local plist_file="$plist_dir/com.openclaw.agent.plist"
 
     if [ -f "$plist_file" ]; then
-        pass "LaunchAgent already exists at $plist_file" "LaunchAgent"
+        pass "LaunchAgent already exists at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
         return
     fi
 
@@ -1989,7 +1989,7 @@ setup_native_launchd() {
 PLIST_EOF
 
     chmod 644 "$plist_file"
-    fixed "LaunchAgent created at $plist_file" "LaunchAgent"
+    fixed "LaunchAgent created at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
     info "It will auto-start OpenClaw next time you log in."
 
     if ask_yn "Load and start OpenClaw now?"; then
@@ -2498,21 +2498,6 @@ setup_openclaw_config() {
         info "openclaw binary not found — writing config JSON directly."
         _write_openclaw_config_json "$config_file" "$bind_mode"
     fi
-
-    echo ""
-    accent_msg "  Configuration:"
-    dim_msg "    • gateway.mode = local (run gateway on this machine)"
-    if [ "$DEPLOY_MODE" = "docker" ]; then
-        dim_msg "    • gateway.bind = auto (Docker compose restricts to 127.0.0.1)"
-    else
-        dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
-    fi
-    dim_msg "    • gateway.auth.mode = token (required for every connection)"
-    dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
-    dim_msg "    • discovery.mdns.mode = off (no mDNS broadcast on local network)"
-    dim_msg "    • discovery.wideArea.enabled = false (no wide-area DNS-SD)"
-    dim_msg "    • tools.exec.applyPatch.workspaceOnly = true (can't write outside workspace)"
-    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
 
 _write_openclaw_config_json() {
@@ -2903,7 +2888,7 @@ uninstall_openclaw() {
     # ── Summary ──
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
+        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
     else
         echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
