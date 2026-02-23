@@ -1097,7 +1097,7 @@ print_report() {
         else
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
-    elif [ "$has_api_key" != true ]; then
+    elif [ "$has_api_key" != true ] && [ "$SCAN_ONLY" = true ]; then
         echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
             echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
@@ -1107,6 +1107,84 @@ print_report() {
             echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
         fi
     fi
+    echo ""
+}
+
+print_install_summary() {
+    # Only show after a setup/deploy that actually installed OpenClaw
+    if [ "$SCAN_ONLY" = true ] || [ "$OPENCLAW_INSTALLED" != true ]; then
+        return
+    fi
+
+    local install_type config_path autostart container_line
+    if [ "$DEPLOY_MODE" = "docker" ]; then
+        install_type="Docker"
+        config_path="~/openclaw-docker/"
+        autostart=""
+        container_line="openclaw"
+    else
+        install_type="Native (npm)"
+        config_path="~/.openclaw/"
+        container_line=""
+        if [ "$PLATFORM" = "macos" ]; then
+            autostart="LaunchAgent (runs on login)"
+        elif [ "$PLATFORM" = "linux" ]; then
+            autostart="systemd service"
+        else
+            autostart="manual"
+        fi
+    fi
+
+    echo ""
+
+    if [ "$HAS_GUM" = true ]; then
+        echo "$(gum style --border double --border-foreground "$GUM_BORDER_FG" --padding "1 3" -- \
+            "$(gum style --bold --foreground "$GUM_GREEN" "✓ OpenClaw installed and running!")" \
+            "" \
+            "$(gum style --foreground "$GUM_DIM" "  Type         ")$(gum style --foreground "$GUM_CYAN" "$install_type")" \
+            "$(gum style --foreground "$GUM_DIM" "  Gateway      ")$(gum style --foreground "$GUM_CYAN" "http://localhost:18789")" \
+            "$(gum style --foreground "$GUM_DIM" "  Config       ")$(gum style --foreground "$GUM_CYAN" "$config_path")" \
+            $([ -n "$autostart" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Auto-start   ")$(gum style --foreground "$GUM_CYAN" "$autostart")\"") \
+            $([ -n "$container_line" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Container    ")$(gum style --foreground "$GUM_CYAN" "$container_line")\"") \
+        )"
+        echo ""
+        echo "  $(gum style --bold --foreground "$GUM_DIM" "── Connect to Clawkeeper Dashboard ────────────")"
+        echo ""
+        echo "  $(gum style --foreground 15 "Track your security score, get scan history,")"
+        echo "  $(gum style --foreground 15 "and receive alerts when your grade changes:")"
+        echo ""
+        echo "  $(gum style --foreground "$GUM_DIM" "1.") $(gum style --bold "Sign up")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
+        echo "  $(gum style --foreground "$GUM_DIM" "2.") $(gum style --bold "Connect")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        echo "  $(gum style --foreground "$GUM_DIM" "3.") $(gum style --bold "First scan")  $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent run")"
+        echo ""
+        echo "  $(gum style --foreground "$GUM_DIM" "Scans upload automatically every hour after setup.")"
+    else
+        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
+        echo -e "  ${GREEN}${BOLD}✓ OpenClaw installed and running!${RESET}"
+        echo ""
+        echo -e "  ${DIM}Type         ${RESET}${CYAN}$install_type${RESET}"
+        echo -e "  ${DIM}Gateway      ${RESET}${CYAN}http://localhost:18789${RESET}"
+        echo -e "  ${DIM}Config       ${RESET}${CYAN}$config_path${RESET}"
+        if [ -n "$autostart" ]; then
+            echo -e "  ${DIM}Auto-start   ${RESET}${CYAN}$autostart${RESET}"
+        fi
+        if [ -n "$container_line" ]; then
+            echo -e "  ${DIM}Container    ${RESET}${CYAN}$container_line${RESET}"
+        fi
+        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
+        echo ""
+        echo -e "  ${DIM}${BOLD}── Connect to Clawkeeper Dashboard ────────────${RESET}"
+        echo ""
+        echo "  Track your security score, get scan history,"
+        echo "  and receive alerts when your grade changes:"
+        echo ""
+        echo -e "  ${DIM}1.${RESET} ${BOLD}Sign up${RESET}     ${DIM}→${RESET}  ${CYAN}https://clawkeeper.dev/signup${RESET}"
+        echo -e "  ${DIM}2.${RESET} ${BOLD}Connect${RESET}     ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent --install${RESET}"
+        echo -e "  ${DIM}3.${RESET} ${BOLD}First scan${RESET}  ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent run${RESET}"
+        echo ""
+        echo -e "  ${DIM}Scans upload automatically every hour after setup.${RESET}"
+    fi
+
     echo ""
 }
 
@@ -1923,6 +2001,36 @@ PLIST_EOF
         else
             warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
         fi
+    fi
+}
+
+prompt_native_daemon_start() {
+    step_header "Start OpenClaw Daemon"
+    info "OpenClaw is installed but not yet running as a daemon."
+    info "Running the onboard command will register and start the background service."
+    echo ""
+    highlight_msg "  Command: openclaw-onboard --install daemon"
+    echo ""
+
+    if ask_yn "Start the OpenClaw daemon now?"; then
+        info "Running openclaw-onboard --install daemon..."
+        echo ""
+
+        # Run interactively — openclaw-onboard has its own prompts (e.g. hatch mode)
+        # so stdin/stdout must stay connected to the terminal.
+        openclaw-onboard --install daemon </dev/tty
+        local onboard_rc=$?
+
+        echo ""
+        if [ $onboard_rc -eq 0 ]; then
+            fixed "OpenClaw daemon installed and running" "Daemon Start"
+        else
+            fail "Daemon onboard failed (exit code $onboard_rc)" "Daemon Start"
+            info "You can retry manually: openclaw-onboard --install daemon"
+        fi
+    else
+        skipped "Daemon start deferred" "Daemon Start"
+        info "When you're ready, run: openclaw-onboard --install daemon"
     fi
 }
 
@@ -7747,6 +7855,7 @@ main() {
                         setup_native_env_file
                         setup_openclaw_config
                         setup_native_launchd
+                        prompt_native_daemon_start
                     else
                         echo ""
                         warn "Node.js is not available — cannot install OpenClaw"
@@ -7786,6 +7895,7 @@ main() {
                 setup_native_env_file
                 setup_openclaw_config
                 setup_native_launchd
+                prompt_native_daemon_start
             else
                 echo ""
                 warn "Node.js is not available — cannot deploy OpenClaw"
@@ -7840,6 +7950,8 @@ main() {
     fi
     _compact_flush
     print_phase_summary
+
+    print_install_summary
 
     # Final report
     print_report
