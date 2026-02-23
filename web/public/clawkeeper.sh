@@ -1742,27 +1742,45 @@ install_openclaw_global() {
         return 1
     fi
 
+    # Attempt 1: standard npm install -g
     info "Installing openclaw globally via npm..."
     local npm_output npm_rc
     npm_output=$(npm install -g openclaw@latest 2>&1)
     npm_rc=$?
 
+    # Attempt 2: if SSL/cert error, retry with NODE_TLS_REJECT_UNAUTHORIZED=0
     if [ $npm_rc -ne 0 ]; then
-        warn "npm install -g failed (exit $npm_rc). Output:"
-        echo "$npm_output" | tail -10 | while IFS= read -r line; do
+        if echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT\|SELF_SIGNED\|unable to get local issuer"; then
+            warn "SSL certificate error detected — retrying with certificate validation disabled..."
+            npm_output=$(NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+        fi
+    fi
+
+    # Attempt 3: permissions error, retry with sudo
+    if [ $npm_rc -ne 0 ]; then
+        if echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
+            warn "Permission error — retrying with sudo..."
+            npm_output=$(sudo npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+            # Sudo + SSL fallback
+            if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT"; then
+                npm_output=$(sudo NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
+                npm_rc=$?
+            fi
+        fi
+    fi
+
+    if [ $npm_rc -ne 0 ]; then
+        fail "npm install -g openclaw@latest failed" "OpenClaw npm"
+        echo "$npm_output" | tail -8 | while IFS= read -r line; do
             dim_msg "    $line"
         done
-        # Try with sudo as fallback
-        info "Retrying with sudo..."
-        npm_output=$(sudo npm install -g openclaw@latest 2>&1)
-        npm_rc=$?
-        if [ $npm_rc -ne 0 ]; then
-            fail "OpenClaw installation failed even with sudo" "OpenClaw npm"
-            echo "$npm_output" | tail -5 | while IFS= read -r line; do
-                dim_msg "    $line"
-            done
-            return 1
-        fi
+        echo ""
+        info "To fix manually, run:"
+        info "  NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest"
+        info "Then re-run: $(basename "$0") setup"
+        return 1
     fi
 
     # Refresh shell hash table so command -v sees the new binary
@@ -1774,18 +1792,32 @@ install_openclaw_global() {
         fixed "OpenClaw $new_ver installed globally" "OpenClaw npm"
         info "Binary at: $(command -v openclaw)"
         return 0
-    else
-        fail "OpenClaw installed but not found in PATH" "OpenClaw npm"
-        info "You may need to restart your terminal or add npm's global bin to PATH."
-        # Try to find where npm put it
-        local npm_bin
-        npm_bin=$(npm config get prefix 2>/dev/null)/bin
-        if [ -x "$npm_bin/openclaw" ]; then
-            info "Found at: $npm_bin/openclaw"
-            info "Add to PATH: export PATH=\"$npm_bin:\$PATH\""
-        fi
-        return 1
     fi
+
+    # command -v failed — try to locate the binary manually
+    local npm_prefix
+    npm_prefix=$(npm config get prefix 2>/dev/null || echo "")
+    if [ -n "$npm_prefix" ] && [ -x "$npm_prefix/bin/openclaw" ]; then
+        # Binary exists but not in PATH — add it
+        export PATH="$npm_prefix/bin:$PATH"
+        hash -r 2>/dev/null || true
+        if command -v openclaw >/dev/null 2>&1; then
+            local new_ver
+            new_ver=$(openclaw --version 2>/dev/null || echo "installed")
+            fixed "OpenClaw $new_ver installed at $npm_prefix/bin/openclaw" "OpenClaw npm"
+            info "Note: $npm_prefix/bin may not be in your default PATH."
+            info "Add to your shell profile: export PATH=\"$npm_prefix/bin:\$PATH\""
+            return 0
+        fi
+    fi
+
+    fail "OpenClaw installed but not found in PATH" "OpenClaw npm"
+    info "You may need to restart your terminal or add npm's global bin to PATH."
+    if [ -n "$npm_prefix" ]; then
+        info "npm prefix: $npm_prefix"
+        info "Try: export PATH=\"$npm_prefix/bin:\$PATH\""
+    fi
+    return 1
 }
 
 setup_native_openclaw_directories() {
@@ -7781,10 +7813,15 @@ main() {
                     accent_bold_msg "  Installing OpenClaw (Native/npm)..."
                     if command -v node &>/dev/null; then
                         setup_native_openclaw_directories
-                        install_openclaw_global
-                        setup_native_env_file
-                        setup_openclaw_config
-                        setup_native_launchd
+                        if install_openclaw_global; then
+                            setup_native_env_file
+                            setup_openclaw_config
+                            setup_native_launchd
+                        else
+                            echo ""
+                            warn "Cannot continue setup without OpenClaw installed."
+                            info "Fix the npm issue above, then re-run: $(basename "$0") setup"
+                        fi
                     else
                         echo ""
                         warn "Node.js is not available — cannot install OpenClaw"
@@ -7820,10 +7857,15 @@ main() {
 
             if command -v node &>/dev/null; then
                 setup_native_openclaw_directories
-                install_openclaw_global
-                setup_native_env_file
-                setup_openclaw_config
-                setup_native_launchd
+                if install_openclaw_global; then
+                    setup_native_env_file
+                    setup_openclaw_config
+                    setup_native_launchd
+                else
+                    echo ""
+                    warn "Cannot continue deployment without OpenClaw installed."
+                    info "Fix the npm issue above, then re-run: $(basename "$0") deploy"
+                fi
             else
                 echo ""
                 warn "Node.js is not available — cannot deploy OpenClaw"
