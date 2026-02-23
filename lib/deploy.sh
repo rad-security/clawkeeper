@@ -608,6 +608,14 @@ setup_openclaw_config() {
         fi
     fi
 
+    # Docker: bind to all interfaces inside the container (Docker compose
+    # restricts host-side to 127.0.0.1 via port mapping).
+    # Native: bind directly to loopback on the host.
+    local bind_mode="loopback"
+    if [ "$DEPLOY_MODE" = "docker" ]; then
+        bind_mode="auto"
+    fi
+
     # CLI-first approach: use `openclaw config set` if the binary is available
     if command -v openclaw &>/dev/null; then
         info "Using openclaw CLI to set config keys..."
@@ -616,7 +624,7 @@ setup_openclaw_config() {
 
         _openclaw_config_set "gateway.mode" "local"           && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.mode")
         _openclaw_config_set "gateway.port" "18789"            && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.port")
-        _openclaw_config_set "gateway.bind" "loopback"         && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.bind")
+        _openclaw_config_set "gateway.bind" "$bind_mode"       && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.bind")
         _openclaw_config_set "gateway.auth.mode" "token"       && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.mode")
         _openclaw_config_set "gateway.auth.allowTailscale" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.allowTailscale")
         _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
@@ -631,18 +639,22 @@ setup_openclaw_config() {
         else
             warn "${#failed_keys[@]} key(s) rejected by CLI: ${failed_keys[*]}"
             info "Falling back to raw JSON for complete config..."
-            _write_openclaw_config_json "$config_file"
+            _write_openclaw_config_json "$config_file" "$bind_mode"
         fi
     else
         # Fallback: openclaw binary not available (e.g. Docker-only deploy)
         info "openclaw binary not found — writing config JSON directly."
-        _write_openclaw_config_json "$config_file"
+        _write_openclaw_config_json "$config_file" "$bind_mode"
     fi
 
     echo ""
     accent_msg "  Configuration:"
     dim_msg "    • gateway.mode = local (run gateway on this machine)"
-    dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
+    if [ "$DEPLOY_MODE" = "docker" ]; then
+        dim_msg "    • gateway.bind = auto (Docker compose restricts to 127.0.0.1)"
+    else
+        dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
+    fi
     dim_msg "    • gateway.auth.mode = token (required for every connection)"
     dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
     dim_msg "    • discovery.mdns.mode = off (no mDNS broadcast on local network)"
@@ -653,12 +665,13 @@ setup_openclaw_config() {
 
 _write_openclaw_config_json() {
     local config_file="$1"
-    cat > "$config_file" << 'CONFIG_EOF'
+    local bind_mode="${2:-loopback}"
+    cat > "$config_file" << CONFIG_EOF
 {
   "gateway": {
     "mode": "local",
     "port": 18789,
-    "bind": "loopback",
+    "bind": "${bind_mode}",
     "auth": {
       "mode": "token",
       "allowTailscale": false
