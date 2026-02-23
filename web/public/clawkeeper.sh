@@ -1920,12 +1920,30 @@ PLIST_EOF
 
     if ask_yn "Load and start OpenClaw now?"; then
         launchctl load "$plist_file" 2>/dev/null || true
-        info "OpenClaw is starting..."
-        sleep 3
-        if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
+        info "Waiting for OpenClaw to start (up to 15 seconds)..."
+        local waited=0
+        local oc_started=false
+        while [ $waited -lt 15 ]; do
+            if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
+                oc_started=true
+                break
+            fi
+            # Also check if the port is listening (gateway default 18789)
+            if command -v lsof >/dev/null 2>&1 && lsof -i :18789 >/dev/null 2>&1; then
+                oc_started=true
+                break
+            fi
+            sleep 2
+            waited=$((waited + 2))
+            echo -ne "  ${DIM}  Waiting... (${waited}s)${RESET}\r"
+        done
+        echo ""
+        if [ "$oc_started" = true ]; then
             fixed "OpenClaw is running" "LaunchAgent Start"
         else
-            warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
+            warn "OpenClaw hasn't started yet — it may need a few more seconds."
+            info "Verify with: launchctl list | grep openclaw"
+            info "Check logs: cat ~/.openclaw/openclaw.log"
         fi
     fi
 }
@@ -7729,6 +7747,11 @@ main() {
     _compact_flush
     print_phase_summary
 
+    # Re-detect after setup/deploy in case OpenClaw was just installed
+    if [ "$OPENCLAW_INSTALLED" = false ] && [ "$command" != "scan" ]; then
+        detect_openclaw_installed
+    fi
+
     # ── Phase 5 of 5: Security Audit (all modes) ──
     reset_phase_counters
     phase_header "═══ Phase 5 of 5: Security Audit ═══"
@@ -7765,6 +7788,31 @@ main() {
     # Final report
     print_report
     save_report
+
+    # Post-setup: prompt to connect to dashboard
+    if [ "$command" = "setup" ] || [ "$command" = "deploy" ]; then
+        local has_api_key=false
+        if [ -f "$AGENT_CONFIG_FILE" ]; then
+            local stored_key
+            stored_key=$(grep '^CLAWKEEPER_API_KEY=' "$AGENT_CONFIG_FILE" 2>/dev/null | head -1 | sed 's/^CLAWKEEPER_API_KEY="//' | sed 's/"$//')
+            if [ -n "$stored_key" ] && echo "$stored_key" | grep -qE '^ck_live_.{12,}'; then
+                has_api_key=true
+            fi
+        fi
+
+        if [ "$has_api_key" != true ] && [ "$OPENCLAW_INSTALLED" = true ]; then
+            echo ""
+            echo -e "  ${CYAN}${BOLD}━━━ Connect to Your Dashboard ━━━${RESET}"
+            echo ""
+            echo -e "  Your OpenClaw deployment is secured. Track your security"
+            echo -e "  grade over time with a free Clawkeeper dashboard."
+            echo ""
+            echo -e "  ${BOLD}1.${RESET} Sign up at ${CYAN}clawkeeper.dev/signup${RESET}"
+            echo -e "  ${BOLD}2.${RESET} Add your host and copy the API key"
+            echo -e "  ${BOLD}3.${RESET} Run: ${CYAN}clawkeeper.sh agent --install${RESET}"
+            echo ""
+        fi
+    fi
 }
 
 # Run
