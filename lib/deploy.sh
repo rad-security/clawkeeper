@@ -620,7 +620,8 @@ setup_openclaw_config() {
         _openclaw_config_set "gateway.auth.mode" "token"       && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.mode")
         _openclaw_config_set "gateway.auth.allowTailscale" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.allowTailscale")
         _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
-        _openclaw_config_set "discovery.enabled" "false"       && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.enabled")
+        _openclaw_config_set "discovery.mdns.mode" "off"        && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.mdns.mode")
+        _openclaw_config_set "discovery.wideArea.enabled" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.wideArea.enabled")
         _openclaw_config_set "tools.exec.applyPatch.workspaceOnly" "true" && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.applyPatch.workspaceOnly")
         _openclaw_config_set "logging.redactSensitive" "tools" && succeeded=$((succeeded + 1)) || failed_keys+=("logging.redactSensitive")
 
@@ -644,7 +645,8 @@ setup_openclaw_config() {
     dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
     dim_msg "    • gateway.auth.mode = token (required for every connection)"
     dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
-    dim_msg "    • discovery.enabled = false (no mDNS broadcast on local network)"
+    dim_msg "    • discovery.mdns.mode = off (no mDNS broadcast on local network)"
+    dim_msg "    • discovery.wideArea.enabled = false (no wide-area DNS-SD)"
     dim_msg "    • tools.exec.applyPatch.workspaceOnly = true (can't write outside workspace)"
     dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
@@ -666,7 +668,12 @@ _write_openclaw_config_json() {
     }
   },
   "discovery": {
-    "enabled": false
+    "mdns": {
+      "mode": "off"
+    },
+    "wideArea": {
+      "enabled": false
+    }
   },
   "tools": {
     "exec": {

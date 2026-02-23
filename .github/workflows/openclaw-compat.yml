@@ -25,7 +25,8 @@ jobs:
           openclaw config set gateway.auth.mode token
           openclaw config set gateway.auth.allowTailscale false
           openclaw config set gateway.controlUi.enabled false
-          openclaw config set discovery.enabled false
+          openclaw config set discovery.mdns.mode off
+          openclaw config set discovery.wideArea.enabled false
           openclaw config set tools.exec.applyPatch.workspaceOnly true
           openclaw config set logging.redactSensitive tools
           echo "All config keys accepted"
