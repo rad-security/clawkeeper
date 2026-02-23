@@ -18,41 +18,34 @@ case "$REMEDIATION_ID" in
         npm_output=""
         npm_rc=0
 
-        # Use NODE_TLS_REJECT_UNAUTHORIZED=0 upfront to avoid SSL hangs
-        # on managed Macs with corporate proxies / cert inspection.
-        # Timeout after 60 seconds to prevent indefinite hangs.
-        if command -v timeout >/dev/null 2>&1; then
-            npm_output=$(NODE_TLS_REJECT_UNAUTHORIZED=0 timeout 60 npm install -g openclaw@latest 2>&1)
-            npm_rc=$?
+        # Run npm install with a 90-second timeout to prevent indefinite hangs.
+        # macOS doesn't have the timeout command, so use a background job.
+        local tmplog="/tmp/clawkeeper-npm-install.$$.log"
+        npm install -g openclaw@latest >"$tmplog" 2>&1 &
+        local npm_pid=$!
+        local waited=0
+        while kill -0 "$npm_pid" 2>/dev/null && [ $waited -lt 90 ]; do
+            sleep 2
+            waited=$((waited + 2))
+            printf "\r  Installing... (%ds)" "$waited" >&2
+        done
+        printf "\r                        \r" >&2
+        if kill -0 "$npm_pid" 2>/dev/null; then
+            kill "$npm_pid" 2>/dev/null
+            wait "$npm_pid" 2>/dev/null
+            npm_rc=1
+            npm_output="Installation timed out after 90 seconds"
         else
-            # macOS doesn't have timeout by default — use a background job
-            local tmplog="/tmp/clawkeeper-npm-install.$$.log"
-            NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest >"$tmplog" 2>&1 &
-            local npm_pid=$!
-            local waited=0
-            while kill -0 "$npm_pid" 2>/dev/null && [ $waited -lt 60 ]; do
-                sleep 2
-                waited=$((waited + 2))
-                printf "\r  Installing... (%ds)" "$waited" >&2
-            done
-            printf "\r                        \r" >&2
-            if kill -0 "$npm_pid" 2>/dev/null; then
-                kill "$npm_pid" 2>/dev/null
-                wait "$npm_pid" 2>/dev/null
-                npm_rc=1
-                npm_output="Installation timed out after 60 seconds"
-            else
-                wait "$npm_pid"
-                npm_rc=$?
-                npm_output=$(cat "$tmplog" 2>/dev/null || echo "")
-            fi
-            rm -f "$tmplog"
+            wait "$npm_pid"
+            npm_rc=$?
+            npm_output=$(cat "$tmplog" 2>/dev/null || echo "")
         fi
+        rm -f "$tmplog"
 
         # Retry with sudo if npm global prefix requires elevation.
         if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
             emit_warn "Permission error detected — retrying with sudo..."
-            npm_output=$(sudo NODE_TLS_REJECT_UNAUTHORIZED=0 env npm install -g openclaw@latest 2>&1)
+            npm_output=$(sudo npm install -g openclaw@latest 2>&1)
             npm_rc=$?
         fi
 
