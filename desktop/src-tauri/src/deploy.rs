@@ -263,16 +263,19 @@ pub async fn run_deploy(
     let config_path = home.join(".openclaw/openclaw.json");
     let config = serde_json::json!({
         "gateway": {
+            "mode": "local",
             "bind": "loopback",
-            "auth": { "mode": "token" },
-            "controlUI": false,
-            "discover": { "mode": "off" }
+            "auth": { "mode": "token", "allowTailscale": false },
+            "controlUi": { "enabled": false }
         },
-        "exec": {
-            "ask": "on"
+        "discovery": {
+            "mdns": { "mode": "off" },
+            "wideArea": { "enabled": false }
         },
-        "applyPatch": {
-            "workspaceOnly": true
+        "tools": {
+            "exec": {
+                "applyPatch": { "workspaceOnly": true }
+            }
         },
         "logging": {
             "redactSensitive": "tools"

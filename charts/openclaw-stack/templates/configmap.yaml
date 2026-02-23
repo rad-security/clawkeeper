@@ -8,22 +8,30 @@ data:
   openclaw.json: |
     {
       "gateway": {
+        "mode": {{ .Values.openclaw.gateway.mode | quote }},
         "port": {{ .Values.openclaw.gateway.port }},
         "bind": {{ .Values.openclaw.gateway.bind | quote }},
         "auth": {
-          "mode": {{ .Values.openclaw.gateway.auth.mode | quote }}
+          "mode": {{ .Values.openclaw.gateway.auth.mode | quote }},
+          "allowTailscale": {{ .Values.openclaw.gateway.auth.allowTailscale }}
         },
-        "controlUI": {{ .Values.openclaw.gateway.controlUI }},
-        "discover": {
-          "mode": {{ .Values.openclaw.gateway.discover.mode | quote }}
+        "controlUi": {
+          "enabled": {{ .Values.openclaw.gateway.controlUi.enabled }}
         }
       },
-      "exec": {
-        "ask": {{ .Values.openclaw.exec.ask | quote }}
+      "discovery": {
+        "mdns": {
+          "mode": {{ .Values.openclaw.discovery.mdns.mode | quote }}
+        },
+        "wideArea": {
+          "enabled": {{ .Values.openclaw.discovery.wideArea.enabled }}
+        }
       },
       "tools": {
-        "applyPatch": {
-          "workspaceOnly": {{ .Values.openclaw.tools.applyPatch.workspaceOnly }}
+        "exec": {
+          "applyPatch": {
+            "workspaceOnly": {{ .Values.openclaw.tools.exec.applyPatch.workspaceOnly }}
+          }
         }
       },
       "logging": {

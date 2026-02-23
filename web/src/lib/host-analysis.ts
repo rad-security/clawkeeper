@@ -56,6 +56,9 @@ const ZONE_MAP: Record<string, ZoneName> = {
   "Config File Permissions": "gateway",
   "gateway.bind": "gateway",
   "gateway.auth": "gateway",
+  "gateway.controlUi": "gateway",
+  "discovery": "gateway",
+  // Legacy aliases (old check_names from previous scanner versions)
   "gateway.controlUI": "gateway",
   "gateway.discover": "gateway",
   "exec.ask": "gateway",
@@ -114,6 +117,9 @@ const PHASE_MAP: Record<string, Phase> = {
   "Config File Permissions": "security_audit",
   "gateway.bind": "security_audit",
   "gateway.auth": "security_audit",
+  "gateway.controlUi": "security_audit",
+  "discovery": "security_audit",
+  // Legacy aliases (old check_names)
   "gateway.controlUI": "security_audit",
   "gateway.discover": "security_audit",
   "exec.ask": "security_audit",
@@ -226,15 +232,22 @@ const FRIENDLY_DETAILS: Record<string, string> = {
   "gateway.auth.mode = token": "Authentication requires a valid token",
   "Token authentication not configured": "Anyone with network access could reach the gateway",
 
-  // gateway.controlUI
+  // gateway.controlUi
+  "gateway.controlUi.enabled = false (web UI disabled)": "Web control panel is disabled",
+  "Web control UI should be disabled for security (controlUi.enabled: false)": "Web control panel is accessible — disable it",
+  // Legacy friendly details (old detail strings from previous scanner versions)
   "gateway.controlUI = false (web UI disabled)": "Web control panel is disabled",
   "Web control UI should be disabled (controlUI: false)": "Web control panel is accessible — disable it",
 
-  // gateway.discover
+  // discovery
+  "discovery.mdns.mode = off (mDNS disabled)": "Not broadcasting on the local network",
+  "mDNS discovery should be disabled (discovery.mdns.mode: off)": "Broadcasting presence on the local network via mDNS",
+  // Legacy friendly details
   "gateway.discover.mode = off (mDNS disabled)": "Not broadcasting on the local network",
   "mDNS discovery should be disabled (discover.mode: off)": "Broadcasting presence on the local network via mDNS",
+  "discovery.enabled = false (mDNS disabled)": "Not broadcasting on the local network",
 
-  // exec.ask
+  // exec.ask (removed from schema — legacy only)
   "exec.ask = on (explicit consent mode)": "Agents must ask before executing commands",
   "Explicit consent not enabled (exec.ask should be 'on')": "Agents can execute commands without asking",
 

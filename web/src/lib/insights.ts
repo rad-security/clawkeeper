@@ -66,9 +66,12 @@ const QUICK_WIN_CHECKS: Record<string, string> = {
   "Container Bonjour": "Set OPENCLAW_DISABLE_BONJOUR=1 in your container environment variables",
   "mDNS": "Disable mDNS broadcasting — check OpenClaw config or set OPENCLAW_DISABLE_BONJOUR=1",
   // OpenClaw config
-  "gateway.controlUI": "Disable the web control UI: set controlUI: false in gateway config",
-  "gateway.discover": "Disable mDNS discovery: set discover.mode: off in gateway config",
-  "exec.ask": "Enable explicit consent: set exec.ask: on in OpenClaw config",
+  "gateway.controlUi": "Disable the web control UI: set gateway.controlUi.enabled: false",
+  "discovery": "Disable mDNS discovery: set discovery.mdns.mode: off in OpenClaw config",
+  // Legacy aliases (old check_names from previous scanner versions)
+  "gateway.controlUI": "Disable the web control UI: set gateway.controlUi.enabled: false",
+  "gateway.discover": "Disable mDNS discovery: set discovery.mdns.mode: off in OpenClaw config",
+  "exec.ask": "This setting was removed. Use tools.exec.ask: always in OpenClaw config",
   "logging.redactSensitive": "Enable log redaction: set logging.redactSensitive: tools in OpenClaw config",
   // Linux
   "Disk Encryption": "Enable LUKS disk encryption on your Linux volumes",
@@ -125,9 +128,12 @@ const REMEDIATION_MAP: Record<string, string> = {
   "Analytics & Telemetry": "Disable analytics in System Settings → Privacy & Security → Analytics & Improvements",
   "Container Bonjour": "Set OPENCLAW_DISABLE_BONJOUR=1 in container environment",
   "mDNS": "Disable mDNS broadcasting in OpenClaw config or set OPENCLAW_DISABLE_BONJOUR=1",
-  "gateway.controlUI": "Set controlUI: false in gateway config",
-  "gateway.discover": "Set discover.mode: off in gateway config",
-  "exec.ask": "Set exec.ask: on in OpenClaw config for explicit consent mode",
+  "gateway.controlUi": "Set gateway.controlUi.enabled: false in OpenClaw config",
+  "discovery": "Set discovery.mdns.mode: off in OpenClaw config",
+  // Legacy aliases (old check_names)
+  "gateway.controlUI": "Set gateway.controlUi.enabled: false in OpenClaw config",
+  "gateway.discover": "Set discovery.mdns.mode: off in OpenClaw config",
+  "exec.ask": "This setting was removed. Use tools.exec.ask: always in OpenClaw config",
   "logging.redactSensitive": "Set logging.redactSensitive: tools in OpenClaw config",
   "Disk Encryption": "Enable LUKS disk encryption on Linux volumes",
   "Fail2ban": "Install and enable fail2ban: sudo apt install fail2ban && sudo systemctl enable --now fail2ban",

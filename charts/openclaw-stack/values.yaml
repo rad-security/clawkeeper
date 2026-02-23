@@ -9,18 +9,23 @@ openclaw:
     pullPolicy: IfNotPresent
   replicas: 1
   gateway:
+    mode: "local"
     port: 18789
     bind: "loopback"
     auth:
       mode: "token"
-    controlUI: false
-    discover:
+      allowTailscale: false
+    controlUi:
+      enabled: false
+  discovery:
+    mdns:
       mode: "off"
-  exec:
-    ask: "on"
+    wideArea:
+      enabled: false
   tools:
-    applyPatch:
-      workspaceOnly: true
+    exec:
+      applyPatch:
+        workspaceOnly: true
   logging:
     redactSensitive: "tools"
   env: {}

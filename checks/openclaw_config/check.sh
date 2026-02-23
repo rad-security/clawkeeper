@@ -89,17 +89,17 @@ else
     emit_pass "gateway.controlUi not configured (defaults to disabled)" "gateway.controlUi"
 fi
 
-# discovery.enabled (top-level key, not gateway.discover)
+# discovery.mdns.mode (top-level discovery section, not gateway.discover)
 if grep -q '"discovery"' "$config_file" 2>/dev/null; then
-    if grep -q '"enabled".*false' "$config_file" 2>/dev/null; then
-        emit_pass "discovery.enabled = false (mDNS disabled)" "discovery"
+    if grep -q '"mode".*"off"' "$config_file" 2>/dev/null; then
+        emit_pass "discovery.mdns.mode = off (mDNS disabled)" "discovery"
     else
         emit_warn "mDNS discovery may be enabled"
-        emit_fail "mDNS discovery should be disabled (discovery.enabled: false)" "discovery"
+        emit_fail "mDNS discovery should be disabled (discovery.mdns.mode: off)" "discovery"
     fi
 else
     emit_warn "discovery not configured — mDNS may be enabled by default"
-    emit_fail "Add discovery.enabled = false to disable network broadcast" "discovery"
+    emit_fail "Add discovery.mdns.mode = off to disable network broadcast" "discovery"
 fi
 
 # logging.redactSensitive

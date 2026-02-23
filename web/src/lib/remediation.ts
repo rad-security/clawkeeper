@@ -224,7 +224,7 @@ export const REMEDIATION: Record<string, { summary: string; steps: string[] }> =
     summary: "Disable mDNS/Bonjour to prevent broadcasting your presence on the LAN.",
     steps: [
       "Set OPENCLAW_DISABLE_BONJOUR=1 in your environment",
-      "Or set gateway.discover.mode: off in OpenClaw config",
+      "Or set discovery.mdns.mode: \"off\" in OpenClaw config",
       "Linux: sudo systemctl disable --now avahi-daemon",
     ],
   },
@@ -348,24 +348,43 @@ export const REMEDIATION: Record<string, { summary: string; steps: string[] }> =
       "Tokens are managed automatically by the OpenClaw client",
     ],
   },
-  "gateway.controlUI": {
+  "gateway.controlUi": {
     summary: "Disable the web control UI to reduce attack surface.",
     steps: [
-      "In your OpenClaw config, set: gateway.controlUI: false",
+      "In your OpenClaw config, set: gateway.controlUi.enabled: false",
       "The web UI provides a remote administration surface that should be disabled in production",
     ],
   },
+  // Legacy alias (old check_name, kept for backwards compatibility with existing scan data)
+  "gateway.controlUI": {
+    summary: "Disable the web control UI to reduce attack surface.",
+    steps: [
+      "In your OpenClaw config, set: gateway.controlUi.enabled: false",
+      "The web UI provides a remote administration surface that should be disabled in production",
+    ],
+  },
+  "discovery": {
+    summary: "Disable mDNS discovery to stop broadcasting on the network.",
+    steps: [
+      "In your OpenClaw config, set: discovery.mdns.mode: \"off\"",
+      "Also set: discovery.wideArea.enabled: false",
+      "This prevents the gateway from advertising via Bonjour/mDNS or DNS-SD",
+    ],
+  },
+  // Legacy alias (old check_name)
   "gateway.discover": {
     summary: "Disable mDNS discovery to stop broadcasting on the network.",
     steps: [
-      "In your OpenClaw config, set: gateway.discover.mode: \"off\"",
-      "This prevents the gateway from advertising via Bonjour/mDNS",
+      "In your OpenClaw config, set: discovery.mdns.mode: \"off\"",
+      "Also set: discovery.wideArea.enabled: false",
+      "This prevents the gateway from advertising via Bonjour/mDNS or DNS-SD",
     ],
   },
+  // Legacy alias (removed from OpenClaw schema — kept for old scan data)
   "exec.ask": {
-    summary: "Enable explicit consent so agents must ask before executing commands.",
+    summary: "This setting was removed from OpenClaw. Use tools.exec.ask instead.",
     steps: [
-      "In your OpenClaw config, set: exec.ask: \"on\"",
+      "In your OpenClaw config, set: tools.exec.ask: \"always\"",
       "This ensures you are prompted before any command execution",
     ],
   },

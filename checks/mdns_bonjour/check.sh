@@ -27,7 +27,7 @@ mdns_result=$(perl -e 'alarm 5; exec @ARGV' dns-sd -B _openclaw-gw._tcp 2>/dev/n
 if echo "$mdns_result" | grep -qi "openclaw"; then
     emit_fail "OpenClaw is broadcasting via mDNS — discoverable on the network" "mDNS"
     emit_info "Set OPENCLAW_DISABLE_BONJOUR=1 in your environment"
-    emit_info "Set gateway.discover.mode = 'off' in openclaw.json"
+    emit_info "Set discovery.mdns.mode = 'off' in openclaw.json"
 else
     emit_pass "No OpenClaw mDNS broadcasts detected" "mDNS"
 fi
