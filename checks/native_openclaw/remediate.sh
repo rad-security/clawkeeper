@@ -15,10 +15,26 @@ case "$REMEDIATION_ID" in
     install_openclaw)
         emit_info "Installing openclaw..."
 
-        local npm_output npm_rc
+        npm_output=""
+        npm_rc=0
         npm_output=$(npm install -g openclaw@latest 2>&1)
         npm_rc=$?
-        echo "$npm_output" | tail -5
+
+        # Retry on SSL/cert environments common on managed Mac fleets.
+        if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT\|SELF_SIGNED\|unable to get local issuer"; then
+            emit_warn "SSL certificate error detected — retrying with certificate validation disabled..."
+            npm_output=$(NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+        fi
+
+        # Retry with sudo if npm global prefix requires elevation.
+        if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
+            emit_warn "Permission error detected — retrying with sudo..."
+            npm_output=$(sudo npm install -g openclaw@latest 2>&1)
+            npm_rc=$?
+        fi
+
+        echo "$npm_output" | tail -8
 
         if [ $npm_rc -ne 0 ]; then
             emit_fail "OpenClaw installation failed" "OpenClaw npm"

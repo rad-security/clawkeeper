@@ -1765,7 +1765,7 @@ install_openclaw_global() {
             npm_rc=$?
             # Sudo + SSL fallback
             if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "cert\|ssl\|UNABLE_TO_GET_ISSUER_CERT"; then
-                npm_output=$(sudo NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
+                npm_output=$(sudo env NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest 2>&1)
                 npm_rc=$?
             fi
         fi
@@ -1779,6 +1779,11 @@ install_openclaw_global() {
         echo ""
         info "To fix manually, run:"
         info "  NODE_TLS_REJECT_UNAUTHORIZED=0 npm install -g openclaw@latest"
+        info "Debug info:"
+        info "  node: $(node --version 2>/dev/null || echo not-found)"
+        info "  npm: $(npm --version 2>/dev/null || echo not-found)"
+        info "  npm prefix: $(npm config get prefix 2>/dev/null || echo unknown)"
+        info "  npm strict-ssl: $(npm config get strict-ssl 2>/dev/null || echo unknown)"
         info "Then re-run: $(basename "$0") setup"
         return 1
     fi
