@@ -27,7 +27,10 @@ jobs:
           openclaw config set gateway.controlUi.enabled false
           openclaw config set discovery.mdns.mode off
           openclaw config set discovery.wideArea.enabled false
+          openclaw config set agents.defaults.sandbox.mode all
+          openclaw config set tools.exec.host sandbox
           openclaw config set tools.exec.applyPatch.workspaceOnly true
+          openclaw config set session.dmScope per-channel-peer
           openclaw config set logging.redactSensitive tools
           echo "All config keys accepted"
       - name: Validate config

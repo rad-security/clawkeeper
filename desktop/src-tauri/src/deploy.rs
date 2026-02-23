@@ -272,10 +272,22 @@ pub async fn run_deploy(
             "mdns": { "mode": "off" },
             "wideArea": { "enabled": false }
         },
+        "agents": {
+            "defaults": {
+                "sandbox": { "mode": "all" }
+            }
+        },
         "tools": {
             "exec": {
+                "host": "sandbox",
                 "applyPatch": { "workspaceOnly": true }
             }
+        },
+        "session": {
+            "dmScope": "per-channel-peer"
+        },
+        "channels": {
+            "dmPolicy": "pairing"
         },
         "logging": {
             "redactSensitive": "tools"

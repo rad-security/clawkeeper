@@ -2482,7 +2482,10 @@ setup_openclaw_config() {
         _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
         _openclaw_config_set "discovery.mdns.mode" "off"        && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.mdns.mode")
         _openclaw_config_set "discovery.wideArea.enabled" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.wideArea.enabled")
+        _openclaw_config_set "agents.defaults.sandbox.mode" "all" && succeeded=$((succeeded + 1)) || failed_keys+=("agents.defaults.sandbox.mode")
+        _openclaw_config_set "tools.exec.host" "sandbox"       && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.host")
         _openclaw_config_set "tools.exec.applyPatch.workspaceOnly" "true" && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.applyPatch.workspaceOnly")
+        _openclaw_config_set "session.dmScope" "per-channel-peer" && succeeded=$((succeeded + 1)) || failed_keys+=("session.dmScope")
         _openclaw_config_set "logging.redactSensitive" "tools" && succeeded=$((succeeded + 1)) || failed_keys+=("logging.redactSensitive")
 
         if [ ${#failed_keys[@]} -eq 0 ]; then
@@ -2525,12 +2528,26 @@ _write_openclaw_config_json() {
       "enabled": false
     }
   },
+  "agents": {
+    "defaults": {
+      "sandbox": {
+        "mode": "all"
+      }
+    }
+  },
   "tools": {
     "exec": {
+      "host": "sandbox",
       "applyPatch": {
         "workspaceOnly": true
       }
     }
+  },
+  "session": {
+    "dmScope": "per-channel-peer"
+  },
+  "channels": {
+    "dmPolicy": "pairing"
   },
   "logging": {
     "redactSensitive": "tools"

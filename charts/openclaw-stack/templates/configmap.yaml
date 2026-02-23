@@ -27,12 +27,26 @@ data:
           "enabled": {{ .Values.openclaw.discovery.wideArea.enabled }}
         }
       },
+      "agents": {
+        "defaults": {
+          "sandbox": {
+            "mode": {{ .Values.openclaw.agents.defaults.sandbox.mode | quote }}
+          }
+        }
+      },
       "tools": {
         "exec": {
+          "host": {{ .Values.openclaw.tools.exec.host | quote }},
           "applyPatch": {
             "workspaceOnly": {{ .Values.openclaw.tools.exec.applyPatch.workspaceOnly }}
           }
         }
+      },
+      "session": {
+        "dmScope": {{ .Values.openclaw.session.dmScope | quote }}
+      },
+      "channels": {
+        "dmPolicy": {{ .Values.openclaw.channels.dmPolicy | quote }}
       },
       "logging": {
         "redactSensitive": {{ .Values.openclaw.logging.redactSensitive | quote }}
