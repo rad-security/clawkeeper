@@ -1871,7 +1871,13 @@ setup_native_launchd() {
     mkdir -p "$plist_dir"
 
     local openclaw_bin
-    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "/usr/local/bin/openclaw")
+    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "")
+
+    if [ -z "$openclaw_bin" ] || [ ! -x "$openclaw_bin" ]; then
+        fail "Cannot create LaunchAgent — openclaw binary not found in PATH" "LaunchAgent"
+        info "Run 'npm install -g openclaw@latest' first, then re-run setup."
+        return
+    fi
 
     local env_file="$OPENCLAW_NATIVE_DIR/.env"
     local gateway_token=""
@@ -1919,11 +1925,23 @@ PLIST_EOF
     info "It will auto-start OpenClaw next time you log in."
 
     if ask_yn "Load and start OpenClaw now?"; then
-        launchctl load "$plist_file" 2>/dev/null || true
-        info "Waiting for OpenClaw to start (up to 15 seconds)..."
+        # Verify binary one more time right before loading
+        if [ ! -x "$openclaw_bin" ]; then
+            fail "Binary not found at $openclaw_bin — cannot start" "LaunchAgent Start"
+            return
+        fi
+
+        info "Loading LaunchAgent..."
+        if ! launchctl load "$plist_file" 2>&1; then
+            fail "launchctl load failed" "LaunchAgent Start"
+            info "Try manually: launchctl load $plist_file"
+            return
+        fi
+
+        info "Waiting for OpenClaw to start (up to 20 seconds)..."
         local waited=0
         local oc_started=false
-        while [ $waited -lt 15 ]; do
+        while [ $waited -lt 20 ]; do
             if pgrep -f "openclaw (gateway|server|start)" >/dev/null 2>&1; then
                 oc_started=true
                 break
@@ -1941,9 +1959,31 @@ PLIST_EOF
         if [ "$oc_started" = true ]; then
             fixed "OpenClaw is running" "LaunchAgent Start"
         else
-            warn "OpenClaw hasn't started yet — it may need a few more seconds."
-            info "Verify with: launchctl list | grep openclaw"
-            info "Check logs: cat ~/.openclaw/openclaw.log"
+            # Check launchctl for the real error
+            local lctl_status
+            lctl_status=$(launchctl list 2>/dev/null | grep "openclaw" || echo "")
+            if [ -n "$lctl_status" ]; then
+                local exit_code
+                exit_code=$(echo "$lctl_status" | awk '{print $1}')
+                if [ "$exit_code" != "0" ] && [ "$exit_code" != "-" ]; then
+                    fail "OpenClaw crashed on startup (exit code: $exit_code)" "LaunchAgent Start"
+                    info "Binary path in plist: $openclaw_bin"
+                    if [ -s "$HOME/.openclaw/openclaw-error.log" ]; then
+                        info "Error log:"
+                        tail -5 "$HOME/.openclaw/openclaw-error.log" | while read -r line; do
+                            dim_msg "    $line"
+                        done
+                    else
+                        info "No error log found — the binary may not exist at the configured path."
+                    fi
+                else
+                    warn "LaunchAgent is loaded but OpenClaw hasn't started yet."
+                    info "Check logs: cat ~/.openclaw/openclaw.log"
+                fi
+            else
+                fail "LaunchAgent not found in launchctl — load may have failed silently" "LaunchAgent Start"
+                info "Try: launchctl load $plist_file"
+            fi
         fi
     fi
 }
@@ -5922,35 +5962,35 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-emit_info "Checking if OpenClaw is available via npm..."
+emit_info "Checking if OpenClaw is installed globally..."
 
-# Check direct command
-if command -v openclaw &>/dev/null; then
+# Check direct command (global install — required for LaunchAgent)
+if command -v openclaw >/dev/null 2>&1; then
     oc_version=$(openclaw --version 2>/dev/null || echo "unknown")
     emit_pass "OpenClaw is installed ($oc_version)" "OpenClaw npm"
 return 0
 fi
 
-# Try npx
-if command -v npx &>/dev/null; then
+# npx can run it, but it's not a real install — LaunchAgent needs a global binary
+if command -v npx >/dev/null 2>&1; then
     npx_version=$(npx openclaw --version 2>/dev/null || echo "")
     if [ -n "$npx_version" ]; then
-        emit_pass "OpenClaw available via npx ($npx_version)" "OpenClaw npm"
-return 0
+        emit_info "OpenClaw $npx_version is available via npx but not installed globally"
+        emit_info "A global install is required for the LaunchAgent to auto-start OpenClaw"
     fi
 fi
 
-# Not found
-emit_warn "OpenClaw is not installed"
+# Not found globally — needs install
+emit_warn "OpenClaw is not installed globally"
 
-if ! command -v npm &>/dev/null; then
+if ! command -v npm >/dev/null 2>&1; then
     emit_fail "npm not available — install Node.js first" "OpenClaw npm"
 return 0
 fi
 
 emit_prompt "Install OpenClaw globally via npm?" "install_openclaw" \
-    "OpenClaw not installed" \
-    "OpenClaw not installed"
+    "OpenClaw not installed globally" \
+    "OpenClaw not installed globally"
 }
 
 __remediate_native_openclaw() {
