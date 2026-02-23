@@ -1,0 +1,59 @@
+name: OpenClaw Compatibility Check
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday 9am UTC
+  workflow_dispatch: {}
+
+jobs:
+  compat-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install OpenClaw
+        run: npm install -g openclaw@latest
+      - name: Check version
+        run: openclaw --version
+      - name: Test config set commands
+        run: |
+          set -e
+          openclaw config set gateway.mode local
+          openclaw config set gateway.port 18789
+          openclaw config set gateway.bind loopback
+          openclaw config set gateway.auth.mode token
+          openclaw config set gateway.auth.allowTailscale false
+          openclaw config set gateway.controlUi.enabled false
+          openclaw config set discovery.enabled false
+          openclaw config set tools.exec.applyPatch.workspaceOnly true
+          openclaw config set logging.redactSensitive tools
+          echo "All config keys accepted"
+      - name: Validate config
+        run: |
+          cat ~/.openclaw/openclaw.json
+          openclaw gateway --port 18789 &
+          sleep 5
+          curl -sf http://localhost:18789/health || echo "Gateway health check (may require token)"
+          kill %1 2>/dev/null || true
+      - name: Open issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `OpenClaw compatibility breakage detected (${new Date().toISOString().split('T')[0]})`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'openclaw-compat'
+            });
+            if (existing.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: `The weekly OpenClaw compatibility check failed.\n\nSee: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                labels: ['openclaw-compat', 'bug']
+              });
+            }

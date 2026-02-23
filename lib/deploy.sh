@@ -578,6 +578,18 @@ COMPOSE_EOF
     dim_msg "    • Isolated Docker network"
 }
 
+_openclaw_config_set() {
+    local key="$1" value="$2"
+    local output
+    output=$(openclaw config set "$key" "$value" 2>&1)
+    local rc=$?
+    if [ $rc -ne 0 ]; then
+        warn "openclaw config set '$key' '$value' failed: $output"
+        return 1
+    fi
+    return 0
+}
+
 setup_openclaw_config() {
     step_header "OpenClaw Security Configuration"
     info "Generating hardened openclaw.json."
@@ -596,21 +608,65 @@ setup_openclaw_config() {
         fi
     fi
 
+    # CLI-first approach: use `openclaw config set` if the binary is available
+    if command -v openclaw &>/dev/null; then
+        info "Using openclaw CLI to set config keys..."
+        local failed_keys=()
+        local succeeded=0
+
+        _openclaw_config_set "gateway.mode" "local"           && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.mode")
+        _openclaw_config_set "gateway.port" "18789"            && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.port")
+        _openclaw_config_set "gateway.bind" "loopback"         && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.bind")
+        _openclaw_config_set "gateway.auth.mode" "token"       && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.mode")
+        _openclaw_config_set "gateway.auth.allowTailscale" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.auth.allowTailscale")
+        _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
+        _openclaw_config_set "discovery.enabled" "false"       && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.enabled")
+        _openclaw_config_set "tools.exec.applyPatch.workspaceOnly" "true" && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.applyPatch.workspaceOnly")
+        _openclaw_config_set "logging.redactSensitive" "tools" && succeeded=$((succeeded + 1)) || failed_keys+=("logging.redactSensitive")
+
+        if [ ${#failed_keys[@]} -eq 0 ]; then
+            chmod 600 "$config_file"
+            fixed "All $succeeded config keys set via CLI (permissions: 600)" "OpenClaw Config"
+        else
+            warn "${#failed_keys[@]} key(s) rejected by CLI: ${failed_keys[*]}"
+            info "Falling back to raw JSON for complete config..."
+            _write_openclaw_config_json "$config_file"
+        fi
+    else
+        # Fallback: openclaw binary not available (e.g. Docker-only deploy)
+        info "openclaw binary not found — writing config JSON directly."
+        _write_openclaw_config_json "$config_file"
+    fi
+
+    echo ""
+    accent_msg "  Configuration:"
+    dim_msg "    • gateway.mode = local (run gateway on this machine)"
+    dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
+    dim_msg "    • gateway.auth.mode = token (required for every connection)"
+    dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
+    dim_msg "    • discovery.enabled = false (no mDNS broadcast on local network)"
+    dim_msg "    • tools.exec.applyPatch.workspaceOnly = true (can't write outside workspace)"
+    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
+}
+
+_write_openclaw_config_json() {
+    local config_file="$1"
     cat > "$config_file" << 'CONFIG_EOF'
 {
   "gateway": {
+    "mode": "local",
     "port": 18789,
     "bind": "loopback",
     "auth": {
       "mode": "token",
       "allowTailscale": false
     },
-    "discover": {
-      "mode": "off"
+    "controlUi": {
+      "enabled": false
     }
   },
-  "exec": {
-    "ask": "on"
+  "discovery": {
+    "enabled": false
   },
   "tools": {
     "exec": {
@@ -624,18 +680,8 @@ setup_openclaw_config() {
   }
 }
 CONFIG_EOF
-
     chmod 600 "$config_file"
     fixed "Hardened openclaw.json generated (permissions: 600)" "OpenClaw Config"
-
-    echo ""
-    accent_msg "  Configuration:"
-    dim_msg "    • gateway.bind = loopback (localhost only)"
-    dim_msg "    • gateway.auth.mode = token (required for every connection)"
-    dim_msg "    • gateway.discover.mode = off (no mDNS broadcast)"
-    dim_msg "    • exec.ask = on (agent asks before every command)"
-    dim_msg "    • applyPatch.workspaceOnly = true (agent can't write outside workspace)"
-    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
 
 deploy_openclaw_docker() {
