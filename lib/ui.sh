@@ -70,6 +70,7 @@ LINUX_DISTRO=""
 LINUX_DISTRO_VERSION=""
 LINUX_DISTRO_NAME=""
 IS_VPS=false
+CLOUD_PROVIDER=""
 
 # --- Gum Installation & Icons -----------------------------------------------
 
@@ -236,7 +237,22 @@ print_platform_info() {
         if [ "$IS_VPS" = true ]; then
             local virt_type
             virt_type=$(systemd-detect-virt 2>/dev/null || echo "")
-            dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            local cloud_label=""
+            if [ -n "${CLOUD_PROVIDER:-}" ]; then
+                case "$CLOUD_PROVIDER" in
+                    linode)       cloud_label="Linode" ;;
+                    digitalocean) cloud_label="DigitalOcean" ;;
+                    aws)          cloud_label="AWS" ;;
+                    gcp)          cloud_label="Google Cloud" ;;
+                    azure)        cloud_label="Azure" ;;
+                    vultr)        cloud_label="Vultr" ;;
+                    hetzner)      cloud_label="Hetzner" ;;
+                    *)            cloud_label="$CLOUD_PROVIDER" ;;
+                esac
+                dim_msg "  Cloud: $cloud_label ($virt_type)"
+            else
+                dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            fi
         fi
     fi
     if [ -n "$DEPLOY_MODE" ]; then
