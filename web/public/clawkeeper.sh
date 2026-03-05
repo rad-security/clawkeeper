@@ -184,6 +184,7 @@ LINUX_DISTRO=""
 LINUX_DISTRO_VERSION=""
 LINUX_DISTRO_NAME=""
 IS_VPS=false
+CLOUD_PROVIDER=""
 
 # --- Gum Installation & Icons -----------------------------------------------
 
@@ -264,7 +265,7 @@ init_gum_icons() {
     _GUM_WARN_ICON=$(gum style --foreground "$GUM_YELLOW" "⚠")
     _GUM_SKIP_ICON=$(gum style --foreground "$GUM_YELLOW" "⊘")
     _GUM_INFO_ICON=$(gum style --foreground "$GUM_DIM" "→")
-    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(fixed)")
+    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(just fixed)")
     _GUM_SKIPPED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(accepted risk)")
 }
 
@@ -350,7 +351,22 @@ print_platform_info() {
         if [ "$IS_VPS" = true ]; then
             local virt_type
             virt_type=$(systemd-detect-virt 2>/dev/null || echo "")
-            dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            local cloud_label=""
+            if [ -n "${CLOUD_PROVIDER:-}" ]; then
+                case "$CLOUD_PROVIDER" in
+                    linode)       cloud_label="Linode" ;;
+                    digitalocean) cloud_label="DigitalOcean" ;;
+                    aws)          cloud_label="AWS" ;;
+                    gcp)          cloud_label="Google Cloud" ;;
+                    azure)        cloud_label="Azure" ;;
+                    vultr)        cloud_label="Vultr" ;;
+                    hetzner)      cloud_label="Hetzner" ;;
+                    *)            cloud_label="$CLOUD_PROVIDER" ;;
+                esac
+                dim_msg "  Cloud: $cloud_label ($virt_type)"
+            else
+                dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            fi
         fi
     fi
     if [ -n "$DEPLOY_MODE" ]; then
@@ -452,8 +468,8 @@ print_phase_summary() {
 print_expectations() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --foreground "$GUM_DIM" -- "  This wizard walks you through 5 phases:"
         gum style --foreground "$GUM_DIM" -- \
+            "  This wizard walks you through 5 phases:" \
             "    1. Host Hardening   — reduce your attack surface" \
             "    2. Network          — verify network security" \
             "    3. Prerequisites    — install required software" \
@@ -503,21 +519,19 @@ step_header() {
     _compact_flush
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "$1"
+        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
     else
-        echo -e "${BOLD}$1${RESET}"
+        echo -e "${BOLD}Step ${TOTAL}: $1${RESET}"
     fi
 }
 
 pass() {
     PASS=$((PASS + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${display_name}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME}")"
         fi
         log_result "PASS" "$2" "$1"
         return
@@ -533,12 +547,10 @@ pass() {
 fail() {
     FAIL=$((FAIL + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_FAIL_ICON} ${display_name}"
+            _compact_emit "  ${_GUM_FAIL_ICON} ${_COMPACT_STEP_NAME}"
         else
-            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${display_name}")"
+            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${_COMPACT_STEP_NAME}")"
         fi
         log_result "FAIL" "$2" "$1"
         return
@@ -554,12 +566,10 @@ fail() {
 fixed() {
     FIXED=$((FIXED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${display_name} ${_GUM_FIXED_SUFFIX}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME} ${_GUM_FIXED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name} ${DIM}(fixed)${RESET}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME} ${DIM}(fixed)${RESET}")"
         fi
         log_result "FIXED" "$2" "$1"
         return
@@ -567,20 +577,26 @@ fixed() {
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
     else
-        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(fixed)${RESET}"
+        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
+    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
+    if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        else
+            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        fi
+    fi
 }
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_SKIP_ICON} ${display_name} ${_GUM_SKIPPED_SUFFIX}"
+            _compact_emit "  ${_GUM_SKIP_ICON} ${_COMPACT_STEP_NAME} ${_GUM_SKIPPED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${display_name} ${DIM}(risk)${RESET}")"
+            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${_COMPACT_STEP_NAME} ${DIM}(risk)${RESET}")"
         fi
         log_result "SKIPPED" "$2" "$1"
         return
@@ -958,7 +974,7 @@ detect_openclaw_installed() {
 print_report() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -1055,7 +1071,7 @@ print_report() {
     fi
 
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -1097,7 +1113,7 @@ print_report() {
         else
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
-    elif [ "$has_api_key" != true ] && [ "$SCAN_ONLY" = true ]; then
+    elif [ "$has_api_key" != true ]; then
         echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
             echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
@@ -1107,84 +1123,6 @@ print_report() {
             echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
         fi
     fi
-    echo ""
-}
-
-print_install_summary() {
-    # Only show after a setup/deploy that actually installed OpenClaw
-    if [ "$SCAN_ONLY" = true ] || [ "$OPENCLAW_INSTALLED" != true ]; then
-        return
-    fi
-
-    local install_type config_path autostart container_line
-    if [ "$DEPLOY_MODE" = "docker" ]; then
-        install_type="Docker"
-        config_path="~/openclaw-docker/"
-        autostart=""
-        container_line="openclaw"
-    else
-        install_type="Native (npm)"
-        config_path="~/.openclaw/"
-        container_line=""
-        if [ "$PLATFORM" = "macos" ]; then
-            autostart="LaunchAgent (runs on login)"
-        elif [ "$PLATFORM" = "linux" ]; then
-            autostart="systemd service"
-        else
-            autostart="manual"
-        fi
-    fi
-
-    echo ""
-
-    if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --border double --border-foreground "$GUM_BORDER_FG" --padding "1 3" -- \
-            "$(gum style --bold --foreground "$GUM_GREEN" "✓ OpenClaw installed and running!")" \
-            "" \
-            "$(gum style --foreground "$GUM_DIM" "  Type         ")$(gum style --foreground "$GUM_CYAN" "$install_type")" \
-            "$(gum style --foreground "$GUM_DIM" "  Gateway      ")$(gum style --foreground "$GUM_CYAN" "http://localhost:18789")" \
-            "$(gum style --foreground "$GUM_DIM" "  Config       ")$(gum style --foreground "$GUM_CYAN" "$config_path")" \
-            $([ -n "$autostart" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Auto-start   ")$(gum style --foreground "$GUM_CYAN" "$autostart")\"") \
-            $([ -n "$container_line" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Container    ")$(gum style --foreground "$GUM_CYAN" "$container_line")\"") \
-        )"
-        echo ""
-        echo "  $(gum style --bold --foreground "$GUM_DIM" "── Connect to Clawkeeper Dashboard ────────────")"
-        echo ""
-        echo "  $(gum style --foreground 15 "Track your security score, get scan history,")"
-        echo "  $(gum style --foreground 15 "and receive alerts when your grade changes:")"
-        echo ""
-        echo "  $(gum style --foreground "$GUM_DIM" "1.") $(gum style --bold "Sign up")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
-        echo "  $(gum style --foreground "$GUM_DIM" "2.") $(gum style --bold "Connect")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
-        echo "  $(gum style --foreground "$GUM_DIM" "3.") $(gum style --bold "First scan")  $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent run")"
-        echo ""
-        echo "  $(gum style --foreground "$GUM_DIM" "Scans upload automatically every hour after setup.")"
-    else
-        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
-        echo -e "  ${GREEN}${BOLD}✓ OpenClaw installed and running!${RESET}"
-        echo ""
-        echo -e "  ${DIM}Type         ${RESET}${CYAN}$install_type${RESET}"
-        echo -e "  ${DIM}Gateway      ${RESET}${CYAN}http://localhost:18789${RESET}"
-        echo -e "  ${DIM}Config       ${RESET}${CYAN}$config_path${RESET}"
-        if [ -n "$autostart" ]; then
-            echo -e "  ${DIM}Auto-start   ${RESET}${CYAN}$autostart${RESET}"
-        fi
-        if [ -n "$container_line" ]; then
-            echo -e "  ${DIM}Container    ${RESET}${CYAN}$container_line${RESET}"
-        fi
-        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
-        echo ""
-        echo -e "  ${DIM}${BOLD}── Connect to Clawkeeper Dashboard ────────────${RESET}"
-        echo ""
-        echo "  Track your security score, get scan history,"
-        echo "  and receive alerts when your grade changes:"
-        echo ""
-        echo -e "  ${DIM}1.${RESET} ${BOLD}Sign up${RESET}     ${DIM}→${RESET}  ${CYAN}https://clawkeeper.dev/signup${RESET}"
-        echo -e "  ${DIM}2.${RESET} ${BOLD}Connect${RESET}     ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent --install${RESET}"
-        echo -e "  ${DIM}3.${RESET} ${BOLD}First scan${RESET}  ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent run${RESET}"
-        echo ""
-        echo -e "  ${DIM}Scans upload automatically every hour after setup.${RESET}"
-    fi
-
     echo ""
 }
 
@@ -1933,7 +1871,7 @@ setup_native_launchd() {
     local plist_file="$plist_dir/com.openclaw.agent.plist"
 
     if [ -f "$plist_file" ]; then
-        pass "LaunchAgent already exists at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
+        pass "LaunchAgent already exists at $plist_file" "LaunchAgent"
         return
     fi
 
@@ -1989,7 +1927,7 @@ setup_native_launchd() {
 PLIST_EOF
 
     chmod 644 "$plist_file"
-    fixed "LaunchAgent created at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
+    fixed "LaunchAgent created at $plist_file" "LaunchAgent"
     info "It will auto-start OpenClaw next time you log in."
 
     if ask_yn "Load and start OpenClaw now?"; then
@@ -2001,70 +1939,6 @@ PLIST_EOF
         else
             warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
         fi
-    fi
-}
-
-prompt_native_daemon_start() {
-    step_header "Start OpenClaw Daemon"
-
-    # If OpenClaw is already running (e.g. from the LaunchAgent step), skip.
-    if pgrep -f "openclaw.*gateway" &>/dev/null; then
-        pass "OpenClaw daemon is already running" "Daemon Start"
-        return
-    fi
-
-    local openclaw_bin
-    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "")
-
-    if [ -z "$openclaw_bin" ]; then
-        fail "openclaw binary not found in PATH" "Daemon Start"
-        info "Ensure OpenClaw is installed: npm install -g openclaw"
-        return
-    fi
-
-    info "OpenClaw is installed but the daemon is not yet running."
-    echo ""
-    highlight_msg "  Command: openclaw onboard --install-daemon"
-    echo ""
-
-    if ask_yn "Start the OpenClaw daemon now?"; then
-        info "Starting OpenClaw daemon..."
-        echo ""
-
-        local started=false
-
-        # Primary: openclaw onboard --install-daemon
-        if "$openclaw_bin" onboard --install-daemon </dev/tty 2>&1; then
-            started=true
-        else
-            warn "onboard --install-daemon did not succeed — trying alternative..."
-            # Fallback: openclaw gateway install
-            if "$openclaw_bin" gateway install </dev/tty 2>&1; then
-                started=true
-            else
-                warn "gateway install did not succeed — starting gateway directly..."
-                # Last resort: start the gateway process directly
-                nohup "$openclaw_bin" gateway --port 18789 \
-                    > "$HOME/.openclaw/openclaw.log" 2>&1 &
-                sleep 3
-                if pgrep -f "openclaw.*gateway" &>/dev/null; then
-                    started=true
-                fi
-            fi
-        fi
-
-        echo ""
-        if $started || pgrep -f "openclaw.*gateway" &>/dev/null; then
-            fixed "OpenClaw daemon is running" "Daemon Start"
-        else
-            fail "Could not start the OpenClaw daemon" "Daemon Start"
-            info "Try starting manually:"
-            info "  openclaw onboard --install-daemon"
-            info "  openclaw gateway --port 18789"
-        fi
-    else
-        skipped "Daemon start deferred" "Daemon Start"
-        info "When you're ready, run: openclaw onboard --install-daemon"
     fi
 }
 
@@ -2482,10 +2356,7 @@ setup_openclaw_config() {
         _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
         _openclaw_config_set "discovery.mdns.mode" "off"        && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.mdns.mode")
         _openclaw_config_set "discovery.wideArea.enabled" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.wideArea.enabled")
-        _openclaw_config_set "agents.defaults.sandbox.mode" "all" && succeeded=$((succeeded + 1)) || failed_keys+=("agents.defaults.sandbox.mode")
-        _openclaw_config_set "tools.exec.host" "sandbox"       && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.host")
         _openclaw_config_set "tools.exec.applyPatch.workspaceOnly" "true" && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.applyPatch.workspaceOnly")
-        _openclaw_config_set "session.dmScope" "per-channel-peer" && succeeded=$((succeeded + 1)) || failed_keys+=("session.dmScope")
         _openclaw_config_set "logging.redactSensitive" "tools" && succeeded=$((succeeded + 1)) || failed_keys+=("logging.redactSensitive")
 
         if [ ${#failed_keys[@]} -eq 0 ]; then
@@ -2501,6 +2372,21 @@ setup_openclaw_config() {
         info "openclaw binary not found — writing config JSON directly."
         _write_openclaw_config_json "$config_file" "$bind_mode"
     fi
+
+    echo ""
+    accent_msg "  Configuration:"
+    dim_msg "    • gateway.mode = local (run gateway on this machine)"
+    if [ "$DEPLOY_MODE" = "docker" ]; then
+        dim_msg "    • gateway.bind = auto (Docker compose restricts to 127.0.0.1)"
+    else
+        dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
+    fi
+    dim_msg "    • gateway.auth.mode = token (required for every connection)"
+    dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
+    dim_msg "    • discovery.mdns.mode = off (no mDNS broadcast on local network)"
+    dim_msg "    • discovery.wideArea.enabled = false (no wide-area DNS-SD)"
+    dim_msg "    • tools.exec.applyPatch.workspaceOnly = true (can't write outside workspace)"
+    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
 
 _write_openclaw_config_json() {
@@ -2528,26 +2414,12 @@ _write_openclaw_config_json() {
       "enabled": false
     }
   },
-  "agents": {
-    "defaults": {
-      "sandbox": {
-        "mode": "all"
-      }
-    }
-  },
   "tools": {
     "exec": {
-      "host": "sandbox",
       "applyPatch": {
         "workspaceOnly": true
       }
     }
-  },
-  "session": {
-    "dmScope": "per-channel-peer"
-  },
-  "channels": {
-    "dmPolicy": "pairing"
   },
   "logging": {
     "redactSensitive": "tools"
@@ -2905,7 +2777,7 @@ uninstall_openclaw() {
     # ── Summary ──
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -6149,7 +6021,8 @@ case "$REMEDIATION_ID" in
 
         # Run npm install with a 90-second timeout to prevent indefinite hangs.
         # macOS doesn't have the timeout command, so use a background job.
-        npm install -g openclaw@latest >"$HOME/.openclaw/npm-install.log" 2>&1 &
+        local tmplog="/tmp/clawkeeper-npm-install.$$.log"
+        npm install -g openclaw@latest >"$tmplog" 2>&1 &
         local npm_pid=$!
         local waited=0
         while kill -0 "$npm_pid" 2>/dev/null && [ $waited -lt 90 ]; do
@@ -6166,9 +6039,9 @@ case "$REMEDIATION_ID" in
         else
             wait "$npm_pid"
             npm_rc=$?
-            npm_output=$(cat "$HOME/.openclaw/npm-install.log" 2>/dev/null || echo "")
+            npm_output=$(cat "$tmplog" 2>/dev/null || echo "")
         fi
-        rm -f "$HOME/.openclaw/npm-install.log"
+        rm -f "$tmplog"
 
         # Retry with sudo if npm global prefix requires elevation.
         if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
@@ -7430,6 +7303,82 @@ esac
 # By RAD Security — https://rad.security
 # ============================================================================
 
+# --- Cloud Provider Detection -----------------------------------------------
+
+CLOUD_PROVIDER=""
+
+detect_cloud_provider() {
+    CLOUD_PROVIDER=""
+    
+    # Linode detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "linode" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "linode" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    
+    # DigitalOcean detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "digitalocean" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="digitalocean"
+            return
+        fi
+    fi
+    
+    # AWS detection
+    if [ -f /sys/class/dmi/id/product_version ]; then
+        if grep -qi "amazon" /sys/class/dmi/id/product_version 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    if [ -f /sys/hypervisor/uuid ]; then
+        if grep -qi "^ec2" /sys/hypervisor/uuid 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    
+    # Google Cloud detection
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "google" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="gcp"
+            return
+        fi
+    fi
+    
+    # Azure detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "microsoft" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="azure"
+            return
+        fi
+    fi
+    
+    # Vultr detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "vultr" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="vultr"
+            return
+        fi
+    fi
+    
+    # Hetzner detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "hetzner" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="hetzner"
+            return
+        fi
+    fi
+}
+
 # --- Platform Detection Function --------------------------------------------
 
 detect_platform() {
@@ -7470,6 +7419,8 @@ detect_platform() {
                     IS_VPS=true
                 fi
             fi
+            # Detect cloud provider
+            detect_cloud_provider
             ;;
         MINGW*|MSYS*|CYGWIN*)
             echo ""
@@ -7891,7 +7842,6 @@ main() {
                         setup_native_env_file
                         setup_openclaw_config
                         setup_native_launchd
-                        prompt_native_daemon_start
                     else
                         echo ""
                         warn "Node.js is not available — cannot install OpenClaw"
@@ -7931,7 +7881,6 @@ main() {
                 setup_native_env_file
                 setup_openclaw_config
                 setup_native_launchd
-                prompt_native_daemon_start
             else
                 echo ""
                 warn "Node.js is not available — cannot deploy OpenClaw"
@@ -7986,8 +7935,6 @@ main() {
     fi
     _compact_flush
     print_phase_summary
-
-    print_install_summary
 
     # Final report
     print_report
