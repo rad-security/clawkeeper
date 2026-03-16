@@ -1,0 +1,7 @@
+id = "nanoclaw_channels"
+name = "NanoClaw Channel Security"
+phase = "security_audit"
+platform = "all"
+description = "Verifies NanoClaw channel authentication: WhatsApp, Telegram, Slack, Discord credential security."
+requires_sudo = false
+order = 55

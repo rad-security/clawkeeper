@@ -1,0 +1,7 @@
+id = "nanoclaw_hardening"
+name = "NanoClaw Container Hardening"
+phase = "security_audit"
+platform = "all"
+description = "Audits NanoClaw container security: non-root user, capabilities, resource limits, read-only rootfs."
+requires_sudo = false
+order = 52

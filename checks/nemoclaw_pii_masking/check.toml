@@ -1,0 +1,7 @@
+id = "nemoclaw_pii_masking"
+name = "NemoClaw PII Protection"
+phase = "security_audit"
+platform = "all"
+description = "Verifies NemoClaw PII detection and masking configuration for compliance (GDPR, HIPAA, SOC2)."
+requires_sudo = false
+order = 64

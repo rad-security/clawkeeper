@@ -1,0 +1,7 @@
+id = "nemoclaw_permissions"
+name = "NemoClaw Permissions & RBAC"
+phase = "security_audit"
+platform = "all"
+description = "Verifies NemoClaw role-based access control, tool permissions, and privilege separation."
+requires_sudo = false
+order = 63

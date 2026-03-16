@@ -1,0 +1,7 @@
+id = "nanoclaw_network"
+name = "NanoClaw Network Egress"
+phase = "security_audit"
+platform = "linux"
+description = "Checks for network egress restrictions on NanoClaw containers. Warns about unrestricted outbound access (known vulnerability)."
+requires_sudo = true
+order = 54

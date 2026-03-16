@@ -1,0 +1,7 @@
+id = "nanoclaw_running"
+name = "NanoClaw Instance Detection"
+phase = "security_audit"
+platform = "all"
+description = "Detects running NanoClaw instances via processes, containers, and channel connections."
+requires_sudo = false
+order = 50

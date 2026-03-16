@@ -262,12 +262,39 @@ print_platform_info() {
     fi
 }
 
+print_detected_agents() {
+    local agents_list=""
+    
+    if [ "${OPENCLAW_INSTALLED:-false}" = true ]; then
+        local oc_type="${OPENCLAW_INSTALL_TYPE:-unknown}"
+        agents_list="${agents_list}OpenClaw ($oc_type)"
+    fi
+    
+    if [ "${NANOCLAW_INSTALLED:-false}" = true ]; then
+        local nc_type="${NANOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NanoClaw ($nc_type)"
+    fi
+    
+    if [ "${NEMOCLAW_INSTALLED:-false}" = true ]; then
+        local nm_type="${NEMOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NemoClaw ($nm_type)"
+    fi
+    
+    if [ -n "$agents_list" ]; then
+        dim_msg "  Detected agents: $agents_list"
+    else
+        dim_msg "  Detected agents: None"
+    fi
+}
+
 print_banner() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
         gum style --border "$GUM_BORDER" --border-foreground "$GUM_BORDER_FG" \
             --padding "1 4" --align center --bold --foreground "$GUM_CYAN" \
-            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely."
+            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely." "" "OpenClaw • NanoClaw • NemoClaw"
     else
         echo -e "${CYAN}${BOLD}"
         echo "   ┌────────────────────────────────────────┐"
@@ -275,6 +302,7 @@ print_banner() {
         echo "   │        Clawkeeper Setup Wizard         │"
         echo "   │                                        │"
         echo "   │   Harden your host. Deploy securely.   │"
+        echo "   │   OpenClaw • NanoClaw • NemoClaw       │"
         echo "   │                                        │"
         echo "   └────────────────────────────────────────┘"
         echo -e "${RESET}"

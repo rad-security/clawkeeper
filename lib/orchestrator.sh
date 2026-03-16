@@ -645,6 +645,41 @@ main() {
     _compact_flush
     print_phase_summary
 
+    # ── NanoClaw Security Audit (if installed) ──
+    detect_nanoclaw_installed
+    if [ "$NANOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NanoClaw Security Audit ═══"
+        
+        run_check "nanoclaw_running"
+        run_check "nanoclaw_config"
+        run_check "nanoclaw_hardening"
+        run_check "nanoclaw_credentials"
+        run_check "nanoclaw_channels"
+        if [ "$PLATFORM" = "linux" ]; then
+            run_check "nanoclaw_network"
+        fi
+        
+        _compact_flush
+        print_phase_summary
+    fi
+
+    # ── NemoClaw Security Audit (if installed) ──
+    detect_nemoclaw_installed
+    if [ "$NEMOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NemoClaw Security Audit ═══"
+        
+        run_check "nemoclaw_installed"
+        run_check "nemoclaw_guardrails"
+        run_check "nemoclaw_audit_logs"
+        run_check "nemoclaw_permissions"
+        run_check "nemoclaw_pii_masking"
+        
+        _compact_flush
+        print_phase_summary
+    fi
+
     # Final report
     print_report
     save_report
