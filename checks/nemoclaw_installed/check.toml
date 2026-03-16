@@ -1,0 +1,7 @@
+id = "nemoclaw_installed"
+name = "NemoClaw Installation Detection"
+phase = "security_audit"
+platform = "all"
+description = "Detects NemoClaw installation via Python package, config directory, and running processes."
+requires_sudo = false
+order = 60

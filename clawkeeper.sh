@@ -184,6 +184,7 @@ LINUX_DISTRO=""
 LINUX_DISTRO_VERSION=""
 LINUX_DISTRO_NAME=""
 IS_VPS=false
+CLOUD_PROVIDER=""
 
 # --- Gum Installation & Icons -----------------------------------------------
 
@@ -264,7 +265,7 @@ init_gum_icons() {
     _GUM_WARN_ICON=$(gum style --foreground "$GUM_YELLOW" "⚠")
     _GUM_SKIP_ICON=$(gum style --foreground "$GUM_YELLOW" "⊘")
     _GUM_INFO_ICON=$(gum style --foreground "$GUM_DIM" "→")
-    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(fixed)")
+    _GUM_FIXED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(just fixed)")
     _GUM_SKIPPED_SUFFIX=$(gum style --foreground "$GUM_DIM" "(accepted risk)")
 }
 
@@ -350,7 +351,22 @@ print_platform_info() {
         if [ "$IS_VPS" = true ]; then
             local virt_type
             virt_type=$(systemd-detect-virt 2>/dev/null || echo "")
-            dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            local cloud_label=""
+            if [ -n "${CLOUD_PROVIDER:-}" ]; then
+                case "$CLOUD_PROVIDER" in
+                    linode)       cloud_label="Linode" ;;
+                    digitalocean) cloud_label="DigitalOcean" ;;
+                    aws)          cloud_label="AWS" ;;
+                    gcp)          cloud_label="Google Cloud" ;;
+                    azure)        cloud_label="Azure" ;;
+                    vultr)        cloud_label="Vultr" ;;
+                    hetzner)      cloud_label="Hetzner" ;;
+                    *)            cloud_label="$CLOUD_PROVIDER" ;;
+                esac
+                dim_msg "  Cloud: $cloud_label ($virt_type)"
+            else
+                dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            fi
         fi
     fi
     if [ -n "$DEPLOY_MODE" ]; then
@@ -360,12 +376,39 @@ print_platform_info() {
     fi
 }
 
+print_detected_agents() {
+    local agents_list=""
+    
+    if [ "${OPENCLAW_INSTALLED:-false}" = true ]; then
+        local oc_type="${OPENCLAW_INSTALL_TYPE:-unknown}"
+        agents_list="${agents_list}OpenClaw ($oc_type)"
+    fi
+    
+    if [ "${NANOCLAW_INSTALLED:-false}" = true ]; then
+        local nc_type="${NANOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NanoClaw ($nc_type)"
+    fi
+    
+    if [ "${NEMOCLAW_INSTALLED:-false}" = true ]; then
+        local nm_type="${NEMOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NemoClaw ($nm_type)"
+    fi
+    
+    if [ -n "$agents_list" ]; then
+        dim_msg "  Detected agents: $agents_list"
+    else
+        dim_msg "  Detected agents: None"
+    fi
+}
+
 print_banner() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
         gum style --border "$GUM_BORDER" --border-foreground "$GUM_BORDER_FG" \
             --padding "1 4" --align center --bold --foreground "$GUM_CYAN" \
-            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely."
+            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely." "" "OpenClaw • NanoClaw • NemoClaw"
     else
         echo -e "${CYAN}${BOLD}"
         echo "   ┌────────────────────────────────────────┐"
@@ -373,6 +416,7 @@ print_banner() {
         echo "   │        Clawkeeper Setup Wizard         │"
         echo "   │                                        │"
         echo "   │   Harden your host. Deploy securely.   │"
+        echo "   │   OpenClaw • NanoClaw • NemoClaw       │"
         echo "   │                                        │"
         echo "   └────────────────────────────────────────┘"
         echo -e "${RESET}"
@@ -452,8 +496,8 @@ print_phase_summary() {
 print_expectations() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --foreground "$GUM_DIM" -- "  This wizard walks you through 5 phases:"
         gum style --foreground "$GUM_DIM" -- \
+            "  This wizard walks you through 5 phases:" \
             "    1. Host Hardening   — reduce your attack surface" \
             "    2. Network          — verify network security" \
             "    3. Prerequisites    — install required software" \
@@ -503,21 +547,19 @@ step_header() {
     _compact_flush
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "$1"
+        gum style --bold --foreground "$GUM_BOLD_WHITE" -- "Step ${TOTAL}: $1"
     else
-        echo -e "${BOLD}$1${RESET}"
+        echo -e "${BOLD}Step ${TOTAL}: $1${RESET}"
     fi
 }
 
 pass() {
     PASS=$((PASS + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${display_name}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME}")"
         fi
         log_result "PASS" "$2" "$1"
         return
@@ -533,12 +575,10 @@ pass() {
 fail() {
     FAIL=$((FAIL + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_FAIL_ICON} ${display_name}"
+            _compact_emit "  ${_GUM_FAIL_ICON} ${_COMPACT_STEP_NAME}"
         else
-            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${display_name}")"
+            _compact_emit "$(echo -e "  ${RED}✗${RESET} ${_COMPACT_STEP_NAME}")"
         fi
         log_result "FAIL" "$2" "$1"
         return
@@ -554,12 +594,10 @@ fail() {
 fixed() {
     FIXED=$((FIXED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_PASS_ICON} ${display_name} ${_GUM_FIXED_SUFFIX}"
+            _compact_emit "  ${_GUM_PASS_ICON} ${_COMPACT_STEP_NAME} ${_GUM_FIXED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${display_name} ${DIM}(fixed)${RESET}")"
+            _compact_emit "$(echo -e "  ${GREEN}✓${RESET} ${_COMPACT_STEP_NAME} ${DIM}(fixed)${RESET}")"
         fi
         log_result "FIXED" "$2" "$1"
         return
@@ -567,20 +605,26 @@ fixed() {
     if [ "$HAS_GUM" = true ]; then
         echo "  ${_GUM_PASS_ICON} $1 ${_GUM_FIXED_SUFFIX}"
     else
-        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(fixed)${RESET}"
+        echo -e "  ${GREEN}✓${RESET} $1 ${DIM}(just fixed)${RESET}"
     fi
     log_result "FIXED" "$2" "$1"
+    # After the 3rd fix, a subtle "at scale" hint (suppress in compact mode)
+    if [ "$FIXED" -eq 3 ] && [ "$COMPACT_OUTPUT" != true ]; then
+        if [ "$HAS_GUM" = true ]; then
+            echo "  $(gum style --foreground "$GUM_DIM" "Track drift across hosts:") $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
+        else
+            echo -e "  ${DIM}Track drift across hosts: ${RESET}${CYAN}clawkeeper.sh agent --install${RESET}"
+        fi
+    fi
 }
 
 skipped() {
     SKIPPED=$((SKIPPED + 1))
     if [ "$COMPACT_OUTPUT" = true ] && [ "$_COMPACT_THIS_CHECK" = true ]; then
-        local display_name="${_COMPACT_STEP_NAME}"
-        [ -n "$2" ] && [ "$2" != "$_COMPACT_STEP_NAME" ] && display_name="$2"
         if [ "$HAS_GUM" = true ]; then
-            _compact_emit "  ${_GUM_SKIP_ICON} ${display_name} ${_GUM_SKIPPED_SUFFIX}"
+            _compact_emit "  ${_GUM_SKIP_ICON} ${_COMPACT_STEP_NAME} ${_GUM_SKIPPED_SUFFIX}"
         else
-            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${display_name} ${DIM}(risk)${RESET}")"
+            _compact_emit "$(echo -e "  ${YELLOW}⊘${RESET} ${_COMPACT_STEP_NAME} ${DIM}(risk)${RESET}")"
         fi
         log_result "SKIPPED" "$2" "$1"
         return
@@ -895,8 +939,14 @@ select_deployment_mode() {
 
 # --- OpenClaw Installation Detection -----------------------------------------
 
+# --- Agent Detection Variables -----------------------------------------------
 OPENCLAW_INSTALLED=false
 OPENCLAW_INSTALL_TYPE=""
+NANOCLAW_INSTALLED=false
+NANOCLAW_INSTALL_TYPE=""
+NEMOCLAW_INSTALLED=false
+NEMOCLAW_INSTALL_TYPE=""
+DETECTED_AGENTS=()
 
 detect_openclaw_installed() {
     OPENCLAW_INSTALLED=false
@@ -953,12 +1003,141 @@ detect_openclaw_installed() {
     fi
 }
 
+# --- NanoClaw Detection ------------------------------------------------------
+
+detect_nanoclaw_installed() {
+    NANOCLAW_INSTALLED=false
+    NANOCLAW_INSTALL_TYPE=""
+
+    # Check for NanoClaw config directory
+    if [ -d "$HOME/.config/nanoclaw" ]; then
+        NANOCLAW_INSTALLED=true
+        NANOCLAW_INSTALL_TYPE="native"
+    fi
+
+    # Check for npm global installation
+    if command -v npm &>/dev/null; then
+        if npm list -g nanoclaw 2>/dev/null | grep -q "nanoclaw@"; then
+            NANOCLAW_INSTALLED=true
+            NANOCLAW_INSTALL_TYPE="npm"
+            return
+        fi
+    fi
+
+    # Check for running NanoClaw process
+    if pgrep -fl "nanoclaw\|nano-claw" &>/dev/null 2>&1; then
+        NANOCLAW_INSTALLED=true
+        [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+
+    # Check for NanoClaw Docker containers
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qiE "nanoclaw|nc-agent"; then
+            NANOCLAW_INSTALLED=true
+            NANOCLAW_INSTALL_TYPE="docker"
+            return
+        fi
+    fi
+
+    # Check for systemd service
+    if command -v systemctl &>/dev/null; then
+        if systemctl is-enabled --quiet nanoclaw 2>/dev/null; then
+            NANOCLAW_INSTALLED=true
+            [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+            return
+        fi
+    fi
+
+    # Check for launchd service (macOS)
+    if [ -f "$HOME/Library/LaunchAgents/com.nanoclaw.agent.plist" ]; then
+        NANOCLAW_INSTALLED=true
+        [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+}
+
+# --- NemoClaw Detection ------------------------------------------------------
+
+detect_nemoclaw_installed() {
+    NEMOCLAW_INSTALLED=false
+    NEMOCLAW_INSTALL_TYPE=""
+
+    # Check for NemoClaw Python package
+    if command -v python3 &>/dev/null; then
+        if python3 -c "import nemoclaw" 2>/dev/null; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+        # Also check for NVIDIA NeMo Agent Toolkit
+        if python3 -c "import nvidia_nat" 2>/dev/null; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+    fi
+
+    # Check pip list
+    if command -v pip3 &>/dev/null; then
+        if pip3 list 2>/dev/null | grep -qiE "nemoclaw|nvidia-nat"; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+    fi
+
+    # Check for NemoClaw config directories
+    for config_dir in "$HOME/.nemo/nemoclaw" "$HOME/.config/nemoclaw" "$HOME/.nemoclaw"; do
+        if [ -d "$config_dir" ]; then
+            NEMOCLAW_INSTALLED=true
+            [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+        fi
+    done
+
+    # Check for NeMo Guardrails config (indicates NemoClaw ecosystem)
+    if [ -f "$HOME/.nemo/guardrails/config.yml" ]; then
+        NEMOCLAW_INSTALLED=true
+        [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+    fi
+
+    # Check for running NemoClaw process
+    if pgrep -fl "nemoclaw\|nemo.*agent" &>/dev/null 2>&1; then
+        NEMOCLAW_INSTALLED=true
+        [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+
+    # Check for NemoClaw Docker containers
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qiE "nemoclaw|nemo.*agent"; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="docker"
+            return
+        fi
+    fi
+}
+
+# --- Detect All Agents -------------------------------------------------------
+
+detect_all_agents() {
+    DETECTED_AGENTS=()
+    
+    detect_openclaw_installed
+    detect_nanoclaw_installed
+    detect_nemoclaw_installed
+    
+    [ "$OPENCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("openclaw")
+    [ "$NANOCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("nanoclaw")
+    [ "$NEMOCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("nemoclaw")
+}
+
 # --- Report -----------------------------------------------------------------
 
 print_report() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -1055,7 +1234,7 @@ print_report() {
     fi
 
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -1097,7 +1276,7 @@ print_report() {
         else
             echo -e "  ${GREEN}✓${RESET} Agent connected — view your dashboard at ${CYAN}clawkeeper.dev${RESET}"
         fi
-    elif [ "$has_api_key" != true ] && [ "$SCAN_ONLY" = true ]; then
+    elif [ "$has_api_key" != true ]; then
         echo "  Track your score over time with a free dashboard:"
         if [ "$HAS_GUM" = true ]; then
             echo "  → Sign up at $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
@@ -1107,84 +1286,6 @@ print_report() {
             echo -e "  → Then run ${CYAN}clawkeeper.sh agent --install${RESET} to connect"
         fi
     fi
-    echo ""
-}
-
-print_install_summary() {
-    # Only show after a setup/deploy that actually installed OpenClaw
-    if [ "$SCAN_ONLY" = true ] || [ "$OPENCLAW_INSTALLED" != true ]; then
-        return
-    fi
-
-    local install_type config_path autostart container_line
-    if [ "$DEPLOY_MODE" = "docker" ]; then
-        install_type="Docker"
-        config_path="~/openclaw-docker/"
-        autostart=""
-        container_line="openclaw"
-    else
-        install_type="Native (npm)"
-        config_path="~/.openclaw/"
-        container_line=""
-        if [ "$PLATFORM" = "macos" ]; then
-            autostart="LaunchAgent (runs on login)"
-        elif [ "$PLATFORM" = "linux" ]; then
-            autostart="systemd service"
-        else
-            autostart="manual"
-        fi
-    fi
-
-    echo ""
-
-    if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --border double --border-foreground "$GUM_BORDER_FG" --padding "1 3" -- \
-            "$(gum style --bold --foreground "$GUM_GREEN" "✓ OpenClaw installed and running!")" \
-            "" \
-            "$(gum style --foreground "$GUM_DIM" "  Type         ")$(gum style --foreground "$GUM_CYAN" "$install_type")" \
-            "$(gum style --foreground "$GUM_DIM" "  Gateway      ")$(gum style --foreground "$GUM_CYAN" "http://localhost:18789")" \
-            "$(gum style --foreground "$GUM_DIM" "  Config       ")$(gum style --foreground "$GUM_CYAN" "$config_path")" \
-            $([ -n "$autostart" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Auto-start   ")$(gum style --foreground "$GUM_CYAN" "$autostart")\"") \
-            $([ -n "$container_line" ] && echo "\"$(gum style --foreground "$GUM_DIM" "  Container    ")$(gum style --foreground "$GUM_CYAN" "$container_line")\"") \
-        )"
-        echo ""
-        echo "  $(gum style --bold --foreground "$GUM_DIM" "── Connect to Clawkeeper Dashboard ────────────")"
-        echo ""
-        echo "  $(gum style --foreground 15 "Track your security score, get scan history,")"
-        echo "  $(gum style --foreground 15 "and receive alerts when your grade changes:")"
-        echo ""
-        echo "  $(gum style --foreground "$GUM_DIM" "1.") $(gum style --bold "Sign up")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "https://clawkeeper.dev/signup")"
-        echo "  $(gum style --foreground "$GUM_DIM" "2.") $(gum style --bold "Connect")     $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent --install")"
-        echo "  $(gum style --foreground "$GUM_DIM" "3.") $(gum style --bold "First scan")  $(gum style --foreground "$GUM_DIM" "→")  $(gum style --foreground "$GUM_CYAN" "clawkeeper.sh agent run")"
-        echo ""
-        echo "  $(gum style --foreground "$GUM_DIM" "Scans upload automatically every hour after setup.")"
-    else
-        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
-        echo -e "  ${GREEN}${BOLD}✓ OpenClaw installed and running!${RESET}"
-        echo ""
-        echo -e "  ${DIM}Type         ${RESET}${CYAN}$install_type${RESET}"
-        echo -e "  ${DIM}Gateway      ${RESET}${CYAN}http://localhost:18789${RESET}"
-        echo -e "  ${DIM}Config       ${RESET}${CYAN}$config_path${RESET}"
-        if [ -n "$autostart" ]; then
-            echo -e "  ${DIM}Auto-start   ${RESET}${CYAN}$autostart${RESET}"
-        fi
-        if [ -n "$container_line" ]; then
-            echo -e "  ${DIM}Container    ${RESET}${CYAN}$container_line${RESET}"
-        fi
-        echo -e "${CYAN}${BOLD}══════════════════════════════════════════════════${RESET}"
-        echo ""
-        echo -e "  ${DIM}${BOLD}── Connect to Clawkeeper Dashboard ────────────${RESET}"
-        echo ""
-        echo "  Track your security score, get scan history,"
-        echo "  and receive alerts when your grade changes:"
-        echo ""
-        echo -e "  ${DIM}1.${RESET} ${BOLD}Sign up${RESET}     ${DIM}→${RESET}  ${CYAN}https://clawkeeper.dev/signup${RESET}"
-        echo -e "  ${DIM}2.${RESET} ${BOLD}Connect${RESET}     ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent --install${RESET}"
-        echo -e "  ${DIM}3.${RESET} ${BOLD}First scan${RESET}  ${DIM}→${RESET}  ${CYAN}clawkeeper.sh agent run${RESET}"
-        echo ""
-        echo -e "  ${DIM}Scans upload automatically every hour after setup.${RESET}"
-    fi
-
     echo ""
 }
 
@@ -1933,7 +2034,7 @@ setup_native_launchd() {
     local plist_file="$plist_dir/com.openclaw.agent.plist"
 
     if [ -f "$plist_file" ]; then
-        pass "LaunchAgent already exists at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
+        pass "LaunchAgent already exists at $plist_file" "LaunchAgent"
         return
     fi
 
@@ -1989,7 +2090,7 @@ setup_native_launchd() {
 PLIST_EOF
 
     chmod 644 "$plist_file"
-    fixed "LaunchAgent created at ~/Library/LaunchAgents/com.openclaw.agent.plist" "LaunchAgent"
+    fixed "LaunchAgent created at $plist_file" "LaunchAgent"
     info "It will auto-start OpenClaw next time you log in."
 
     if ask_yn "Load and start OpenClaw now?"; then
@@ -2001,70 +2102,6 @@ PLIST_EOF
         else
             warn "OpenClaw may still be starting — check with: launchctl list | grep openclaw"
         fi
-    fi
-}
-
-prompt_native_daemon_start() {
-    step_header "Start OpenClaw Daemon"
-
-    # If OpenClaw is already running (e.g. from the LaunchAgent step), skip.
-    if pgrep -f "openclaw.*gateway" &>/dev/null; then
-        pass "OpenClaw daemon is already running" "Daemon Start"
-        return
-    fi
-
-    local openclaw_bin
-    openclaw_bin=$(command -v openclaw 2>/dev/null || echo "")
-
-    if [ -z "$openclaw_bin" ]; then
-        fail "openclaw binary not found in PATH" "Daemon Start"
-        info "Ensure OpenClaw is installed: npm install -g openclaw"
-        return
-    fi
-
-    info "OpenClaw is installed but the daemon is not yet running."
-    echo ""
-    highlight_msg "  Command: openclaw onboard --install-daemon"
-    echo ""
-
-    if ask_yn "Start the OpenClaw daemon now?"; then
-        info "Starting OpenClaw daemon..."
-        echo ""
-
-        local started=false
-
-        # Primary: openclaw onboard --install-daemon
-        if "$openclaw_bin" onboard --install-daemon </dev/tty 2>&1; then
-            started=true
-        else
-            warn "onboard --install-daemon did not succeed — trying alternative..."
-            # Fallback: openclaw gateway install
-            if "$openclaw_bin" gateway install </dev/tty 2>&1; then
-                started=true
-            else
-                warn "gateway install did not succeed — starting gateway directly..."
-                # Last resort: start the gateway process directly
-                nohup "$openclaw_bin" gateway --port 18789 \
-                    > "$HOME/.openclaw/openclaw.log" 2>&1 &
-                sleep 3
-                if pgrep -f "openclaw.*gateway" &>/dev/null; then
-                    started=true
-                fi
-            fi
-        fi
-
-        echo ""
-        if $started || pgrep -f "openclaw.*gateway" &>/dev/null; then
-            fixed "OpenClaw daemon is running" "Daemon Start"
-        else
-            fail "Could not start the OpenClaw daemon" "Daemon Start"
-            info "Try starting manually:"
-            info "  openclaw onboard --install-daemon"
-            info "  openclaw gateway --port 18789"
-        fi
-    else
-        skipped "Daemon start deferred" "Daemon Start"
-        info "When you're ready, run: openclaw onboard --install-daemon"
     fi
 }
 
@@ -2482,10 +2519,7 @@ setup_openclaw_config() {
         _openclaw_config_set "gateway.controlUi.enabled" "false"   && succeeded=$((succeeded + 1)) || failed_keys+=("gateway.controlUi.enabled")
         _openclaw_config_set "discovery.mdns.mode" "off"        && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.mdns.mode")
         _openclaw_config_set "discovery.wideArea.enabled" "false" && succeeded=$((succeeded + 1)) || failed_keys+=("discovery.wideArea.enabled")
-        _openclaw_config_set "agents.defaults.sandbox.mode" "all" && succeeded=$((succeeded + 1)) || failed_keys+=("agents.defaults.sandbox.mode")
-        _openclaw_config_set "tools.exec.host" "sandbox"       && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.host")
         _openclaw_config_set "tools.exec.applyPatch.workspaceOnly" "true" && succeeded=$((succeeded + 1)) || failed_keys+=("tools.exec.applyPatch.workspaceOnly")
-        _openclaw_config_set "session.dmScope" "per-channel-peer" && succeeded=$((succeeded + 1)) || failed_keys+=("session.dmScope")
         _openclaw_config_set "logging.redactSensitive" "tools" && succeeded=$((succeeded + 1)) || failed_keys+=("logging.redactSensitive")
 
         if [ ${#failed_keys[@]} -eq 0 ]; then
@@ -2501,6 +2535,21 @@ setup_openclaw_config() {
         info "openclaw binary not found — writing config JSON directly."
         _write_openclaw_config_json "$config_file" "$bind_mode"
     fi
+
+    echo ""
+    accent_msg "  Configuration:"
+    dim_msg "    • gateway.mode = local (run gateway on this machine)"
+    if [ "$DEPLOY_MODE" = "docker" ]; then
+        dim_msg "    • gateway.bind = auto (Docker compose restricts to 127.0.0.1)"
+    else
+        dim_msg "    • gateway.bind = loopback (localhost only, not exposed to network)"
+    fi
+    dim_msg "    • gateway.auth.mode = token (required for every connection)"
+    dim_msg "    • gateway.controlUi.enabled = false (web dashboard disabled)"
+    dim_msg "    • discovery.mdns.mode = off (no mDNS broadcast on local network)"
+    dim_msg "    • discovery.wideArea.enabled = false (no wide-area DNS-SD)"
+    dim_msg "    • tools.exec.applyPatch.workspaceOnly = true (can't write outside workspace)"
+    dim_msg "    • logging.redactSensitive = tools (keys redacted in logs)"
 }
 
 _write_openclaw_config_json() {
@@ -2528,26 +2577,12 @@ _write_openclaw_config_json() {
       "enabled": false
     }
   },
-  "agents": {
-    "defaults": {
-      "sandbox": {
-        "mode": "all"
-      }
-    }
-  },
   "tools": {
     "exec": {
-      "host": "sandbox",
       "applyPatch": {
         "workspaceOnly": true
       }
     }
-  },
-  "session": {
-    "dmScope": "per-channel-peer"
-  },
-  "channels": {
-    "dmPolicy": "pairing"
   },
   "logging": {
     "redactSensitive": "tools"
@@ -2641,6 +2676,274 @@ deploy_openclaw_docker() {
     else
         skipped "OpenClaw container not started" "Deploy"
     fi
+}
+
+# ============================================================================
+# NanoClaw Deployment Functions
+# ============================================================================
+
+NANOCLAW_CONFIG_DIR="$HOME/.config/nanoclaw"
+NANOCLAW_DATA_DIR="$HOME/.config/nanoclaw/data"
+NANOCLAW_SESSIONS_DIR="$HOME/.config/nanoclaw/sessions"
+
+setup_nanoclaw_directories() {
+    step_header "NanoClaw Directory Structure"
+    info "Creating directories with secure permissions."
+
+    for dir in "$NANOCLAW_CONFIG_DIR" "$NANOCLAW_DATA_DIR" "$NANOCLAW_SESSIONS_DIR"; do
+        if [ -d "$dir" ]; then
+            local perms
+            perms=$(stat -f "%OLp" "$dir" 2>/dev/null || stat -c "%a" "$dir" 2>/dev/null || echo "unknown")
+            if [ "$perms" = "700" ]; then
+                ok_msg "$dir exists (permissions: 700)"
+            else
+                warn_msg "$dir exists but permissions are $perms"
+                chmod 700 "$dir"
+                ok_msg "Fixed permissions to 700"
+            fi
+        else
+            mkdir -p "$dir"
+            chmod 700 "$dir"
+            ok_msg "Created $dir (permissions: 700)"
+        fi
+    done
+
+    pass "NanoClaw directory structure ready" "NanoClaw Directories"
+}
+
+setup_nanoclaw_mount_allowlist() {
+    step_header "NanoClaw Mount Allowlist"
+    info "The mount allowlist controls which directories agents can access."
+
+    local allowlist_file="$NANOCLAW_CONFIG_DIR/mount-allowlist.json"
+
+    if [ -f "$allowlist_file" ]; then
+        info "Mount allowlist already exists at $allowlist_file"
+        local perms
+        perms=$(stat -f "%OLp" "$allowlist_file" 2>/dev/null || stat -c "%a" "$allowlist_file" 2>/dev/null || echo "unknown")
+        if [ "$perms" != "600" ]; then
+            chmod 600 "$allowlist_file"
+            info "Fixed permissions to 600"
+        fi
+        pass "Mount allowlist exists" "Mount Allowlist"
+        return
+    fi
+
+    info "Creating secure mount-allowlist.json..."
+    
+    cat > "$allowlist_file" << 'ALLOWLIST_EOF'
+{
+  "version": 1,
+  "description": "NanoClaw mount allowlist - generated by Clawkeeper",
+  "nonMainReadOnly": true,
+  "blocklist": [
+    ".ssh",
+    ".gnupg",
+    ".aws",
+    ".azure",
+    ".gcloud",
+    ".kube",
+    ".docker",
+    ".env",
+    ".netrc",
+    ".npmrc",
+    "credentials",
+    "private_key",
+    "id_rsa",
+    "id_ed25519",
+    ".secret",
+    ".password",
+    "secrets.json",
+    "config.json",
+    ".git/config"
+  ],
+  "allowlist": []
+}
+ALLOWLIST_EOF
+
+    chmod 600 "$allowlist_file"
+    fixed "Created secure mount-allowlist.json (permissions: 600)" "Mount Allowlist"
+    
+    echo ""
+    accent_msg "  Security settings:"
+    dim_msg "    • nonMainReadOnly = true (non-main groups get read-only access)"
+    dim_msg "    • Blocked: .ssh, .aws, .gnupg, credentials, private keys"
+    dim_msg "    • Allowlist empty (agent must request specific mounts)"
+}
+
+install_nanoclaw_npm() {
+    step_header "NanoClaw Installation (npm)"
+    
+    if ! command -v node &>/dev/null; then
+        fail "Node.js is required to install NanoClaw" "NanoClaw Install"
+        return 1
+    fi
+    
+    local node_version
+    node_version=$(node -v | sed 's/v//' | cut -d. -f1)
+    if [ "$node_version" -lt 22 ]; then
+        fail "NanoClaw requires Node.js 22+, found v$node_version" "NanoClaw Install"
+        return 1
+    fi
+    
+    if command -v nanoclaw &>/dev/null || npm list -g nanoclaw 2>/dev/null | grep -q "nanoclaw@"; then
+        local version
+        version=$(npm list -g nanoclaw 2>/dev/null | grep "nanoclaw@" | sed 's/.*@//' | head -1)
+        pass "NanoClaw already installed (v$version)" "NanoClaw Install"
+        return 0
+    fi
+    
+    if ask_yn "Install NanoClaw globally via npm?"; then
+        info "Installing NanoClaw..."
+        if npm install -g nanoclaw 2>&1 | tail -3; then
+            fixed "NanoClaw installed successfully" "NanoClaw Install"
+        else
+            fail "Failed to install NanoClaw" "NanoClaw Install"
+            return 1
+        fi
+    else
+        skipped "NanoClaw installation deferred" "NanoClaw Install"
+    fi
+}
+
+setup_nanoclaw_systemd() {
+    step_header "NanoClaw Service (systemd)"
+    
+    if [ "$PLATFORM" != "linux" ]; then
+        info "Skipping systemd setup (not Linux)"
+        return
+    fi
+    
+    if ! command -v systemctl &>/dev/null; then
+        info "systemd not available"
+        return
+    fi
+    
+    local service_file="/etc/systemd/system/nanoclaw.service"
+    
+    if [ -f "$service_file" ]; then
+        pass "NanoClaw systemd service already exists" "Systemd Service"
+        return
+    fi
+    
+    if ! ask_yn "Create systemd service for NanoClaw auto-start?"; then
+        skipped "Systemd service not created" "Systemd Service"
+        return
+    fi
+    
+    local nanoclaw_bin
+    nanoclaw_bin=$(command -v nanoclaw 2>/dev/null || which nanoclaw 2>/dev/null || echo "/usr/local/bin/nanoclaw")
+    
+    sudo tee "$service_file" > /dev/null << SERVICE_EOF
+[Unit]
+Description=NanoClaw AI Agent
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=$(whoami)
+Group=$(id -gn)
+WorkingDirectory=$HOME
+ExecStart=$nanoclaw_bin start
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=$NANOCLAW_CONFIG_DIR
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable nanoclaw
+    
+    fixed "NanoClaw systemd service created and enabled" "Systemd Service"
+    info "Start with: sudo systemctl start nanoclaw"
+}
+
+setup_nanoclaw_launchd() {
+    step_header "NanoClaw Service (launchd)"
+    
+    if [ "$PLATFORM" != "macos" ]; then
+        info "Skipping launchd setup (not macOS)"
+        return
+    fi
+    
+    local plist_dir="$HOME/Library/LaunchAgents"
+    local plist_file="$plist_dir/com.nanoclaw.agent.plist"
+    
+    if [ -f "$plist_file" ]; then
+        pass "NanoClaw LaunchAgent already exists" "LaunchAgent"
+        return
+    fi
+    
+    if ! ask_yn "Create LaunchAgent for NanoClaw auto-start?"; then
+        skipped "LaunchAgent not created" "LaunchAgent"
+        return
+    fi
+    
+    mkdir -p "$plist_dir"
+    
+    local nanoclaw_bin
+    nanoclaw_bin=$(command -v nanoclaw 2>/dev/null || echo "/usr/local/bin/nanoclaw")
+    
+    cat > "$plist_file" << PLIST_EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.nanoclaw.agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${nanoclaw_bin}</string>
+        <string>start</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${HOME}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${NANOCLAW_CONFIG_DIR}/nanoclaw.log</string>
+    <key>StandardErrorPath</key>
+    <string>${NANOCLAW_CONFIG_DIR}/nanoclaw-error.log</string>
+</dict>
+</plist>
+PLIST_EOF
+
+    chmod 644 "$plist_file"
+    fixed "NanoClaw LaunchAgent created" "LaunchAgent"
+    
+    if ask_yn "Load and start NanoClaw now?"; then
+        launchctl load "$plist_file" 2>/dev/null || true
+        info "NanoClaw is starting..."
+    fi
+}
+
+deploy_nanoclaw() {
+    step_header "Deploy NanoClaw"
+    
+    setup_nanoclaw_directories
+    setup_nanoclaw_mount_allowlist
+    install_nanoclaw_npm
+    
+    if [ "$PLATFORM" = "linux" ]; then
+        setup_nanoclaw_systemd
+    elif [ "$PLATFORM" = "macos" ]; then
+        setup_nanoclaw_launchd
+    fi
+    
+    echo ""
+    accent_msg "  NanoClaw deployment complete!"
+    dim_msg "  Run '/setup' skill in NanoClaw to configure channels (WhatsApp, Telegram, etc.)"
 }
 
 # === Uninstall (secure removal) ==========================================
@@ -2905,7 +3208,7 @@ uninstall_openclaw() {
     # ── Summary ──
     echo ""
     if [ "$HAS_GUM" = true ]; then
-        echo "$(gum style --bold --foreground "$GUM_CYAN" "════════════════════════════════════════════════════")"
+        gum style --bold --foreground "$GUM_CYAN" --border double --border-foreground "$GUM_BORDER_FG" --padding "0 2" -- ""
     else
         echo -e "  ${CYAN}${BOLD}════════════════════════════════════════════════════${RESET}"
     fi
@@ -6083,6 +6386,944 @@ else
 fi
 }
 
+# --- Check: nanoclaw_channels ---
+
+__meta_nanoclaw_channels() {
+    case "$1" in
+        name) echo "NanoClaw Channel Security" ;;
+        id)   echo "nanoclaw_channels" ;;
+    esac
+}
+
+__check_nanoclaw_channels() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Channel Security
+# Verifies NanoClaw channel authentication security for WhatsApp, Telegram,
+# Slack, and Discord integrations.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+config_dir="$HOME/.config/nanoclaw"
+sessions_dir="$config_dir/sessions"
+
+if [ ! -d "$config_dir" ]; then
+    emit_info "No NanoClaw config directory found — skipping channel checks"
+return 0
+fi
+
+emit_info "NanoClaw channel security audit:"
+
+channels_found=0
+issues_found=0
+
+# ---------- WhatsApp (Baileys) ----------
+emit_info "Checking WhatsApp channel..."
+whatsapp_session="$sessions_dir/main/creds.json"
+if [ -f "$whatsapp_session" ]; then
+    channels_found=$((channels_found + 1))
+    emit_info "WhatsApp channel configured (Baileys session)"
+    
+    # Check permissions
+    perms=$(stat -f "%OLp" "$whatsapp_session" 2>/dev/null || stat -c "%a" "$whatsapp_session" 2>/dev/null || echo "unknown")
+    if [ "$perms" = "600" ] || [ "$perms" = "400" ]; then
+        emit_pass "WhatsApp credentials have secure permissions ($perms)" "WhatsApp Security"
+    else
+        emit_fail "WhatsApp credentials permissions are $perms (should be 600)" "WhatsApp Security"
+        issues_found=$((issues_found + 1))
+    fi
+    
+    # Check that session is not in a mounted directory
+    if echo "$whatsapp_session" | grep -qE "^/workspace|^/home/.*/(code|projects|workspace)"; then
+        emit_warn "WhatsApp session is in a workspace directory — may be mounted into containers"
+        emit_info "Session credentials should stay in ~/.config/nanoclaw/sessions only"
+        issues_found=$((issues_found + 1))
+    fi
+else
+    emit_info "WhatsApp channel not configured"
+fi
+
+# ---------- Telegram ----------
+emit_info "Checking Telegram channel..."
+telegram_configured=false
+
+# Check for Telegram bot token in environment
+if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+    telegram_configured=true
+    emit_info "Telegram bot token found in environment"
+    emit_pass "Telegram token stored in env var (not in files)" "Telegram Security"
+fi
+
+# Check for hardcoded tokens in config files
+if [ -d "$config_dir" ]; then
+    if grep -rqE "bot[0-9]+:[A-Za-z0-9_-]{35}" "$config_dir" 2>/dev/null; then
+        emit_fail "CRITICAL: Telegram bot token found hardcoded in config files" "Telegram Security"
+        emit_info "Move token to TELEGRAM_BOT_TOKEN environment variable"
+        issues_found=$((issues_found + 1))
+        telegram_configured=true
+    fi
+fi
+
+if [ "$telegram_configured" = false ]; then
+    emit_info "Telegram channel not configured"
+else
+    channels_found=$((channels_found + 1))
+fi
+
+# ---------- Slack ----------
+emit_info "Checking Slack channel..."
+slack_configured=false
+
+# Check for Slack tokens in environment
+if [ -n "${SLACK_BOT_TOKEN:-}" ] || [ -n "${SLACK_APP_TOKEN:-}" ]; then
+    slack_configured=true
+    emit_info "Slack tokens found in environment"
+    emit_pass "Slack tokens stored in env vars (not in files)" "Slack Security"
+fi
+
+# Check for hardcoded Slack tokens
+if [ -d "$config_dir" ]; then
+    if grep -rqE "xoxb-[0-9]+-[0-9]+-[A-Za-z0-9]+" "$config_dir" 2>/dev/null; then
+        emit_fail "CRITICAL: Slack bot token found hardcoded in config files" "Slack Security"
+        emit_info "Move token to SLACK_BOT_TOKEN environment variable"
+        issues_found=$((issues_found + 1))
+        slack_configured=true
+    fi
+    if grep -rqE "xapp-[0-9]+-[A-Za-z0-9]+-[0-9]+-[A-Za-z0-9]+" "$config_dir" 2>/dev/null; then
+        emit_fail "CRITICAL: Slack app token found hardcoded in config files" "Slack Security"
+        issues_found=$((issues_found + 1))
+        slack_configured=true
+    fi
+fi
+
+if [ "$slack_configured" = false ]; then
+    emit_info "Slack channel not configured"
+else
+    channels_found=$((channels_found + 1))
+fi
+
+# ---------- Discord ----------
+emit_info "Checking Discord channel..."
+discord_configured=false
+
+# Check for Discord tokens in environment
+if [ -n "${DISCORD_BOT_TOKEN:-}" ]; then
+    discord_configured=true
+    emit_info "Discord bot token found in environment"
+    emit_pass "Discord token stored in env var (not in files)" "Discord Security"
+fi
+
+# Check for hardcoded Discord tokens
+if [ -d "$config_dir" ]; then
+    if grep -rqE "[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}" "$config_dir" 2>/dev/null; then
+        emit_fail "CRITICAL: Discord bot token found hardcoded in config files" "Discord Security"
+        emit_info "Move token to DISCORD_BOT_TOKEN environment variable"
+        issues_found=$((issues_found + 1))
+        discord_configured=true
+    fi
+fi
+
+if [ "$discord_configured" = false ]; then
+    emit_info "Discord channel not configured"
+else
+    channels_found=$((channels_found + 1))
+fi
+
+# ---------- Check CLAUDE.md files for channel tokens ----------
+emit_info "Scanning memory files for leaked channel tokens..."
+data_dir="$config_dir/data"
+
+if [ -d "$data_dir" ]; then
+    tokens_in_memory=false
+    
+    while IFS= read -r claude_file; do
+        if [ -f "$claude_file" ]; then
+            # Check for various token patterns
+            if grep -qE "(bot[0-9]+:[A-Za-z0-9_-]{35}|xoxb-|xapp-|[A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27})" "$claude_file" 2>/dev/null; then
+                tokens_in_memory=true
+                group_name=$(basename "$(dirname "$claude_file")")
+                emit_fail "Channel token found in $group_name/CLAUDE.md" "Memory Token Leak"
+            fi
+        fi
+    done < <(find "$data_dir" -name "CLAUDE.md" 2>/dev/null)
+    
+    if [ "$tokens_in_memory" = false ]; then
+        emit_pass "No channel tokens in memory files" "Memory Token Leak"
+    else
+        issues_found=$((issues_found + 1))
+    fi
+fi
+
+# ---------- Summary ----------
+emit_info ""
+if [ "$channels_found" -eq 0 ]; then
+    emit_info "No messaging channels configured"
+elif [ "$issues_found" -eq 0 ]; then
+    emit_pass "$channels_found channel(s) configured with secure credentials" "Channel Security"
+else
+    emit_fail "$issues_found security issue(s) found across $channels_found channel(s)" "Channel Security"
+fi
+}
+
+# --- Check: nanoclaw_config ---
+
+__meta_nanoclaw_config() {
+    case "$1" in
+        name) echo "NanoClaw Mount Allowlist Audit" ;;
+        id)   echo "nanoclaw_config" ;;
+    esac
+}
+
+__check_nanoclaw_config() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Mount Allowlist Audit
+# Audits ~/.config/nanoclaw directory permissions, mount-allowlist.json
+# permissions, blocked paths, and security settings.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+config_dir="$HOME/.config/nanoclaw"
+allowlist_file="$config_dir/mount-allowlist.json"
+
+# ---------- Check config directory exists ----------
+if [ ! -d "$config_dir" ]; then
+    emit_info "No NanoClaw config directory found (~/.config/nanoclaw)"
+    emit_info "This is expected if NanoClaw isn't installed yet. Skipping config checks."
+return 0
+fi
+
+# ---------- Check directory permissions ----------
+dir_perms=$(stat -f "%OLp" "$config_dir" 2>/dev/null || stat -c "%a" "$config_dir" 2>/dev/null || echo "unknown")
+if [ "$dir_perms" = "700" ]; then
+    emit_pass "Config directory permissions are 700 (owner-only)" "Config Permissions"
+else
+    emit_prompt "Config directory permissions are $dir_perms — fix to 700?" \
+        "fix_nanoclaw_config_dir_perms" \
+        "Config directory permissions are $dir_perms (should be 700)" \
+        "Config directory permissions not changed"
+fi
+
+# ---------- Check mount-allowlist.json exists ----------
+if [ ! -f "$allowlist_file" ]; then
+    emit_warn "No mount-allowlist.json found"
+    emit_fail "Mount allowlist not configured — NanoClaw may use permissive defaults" "Mount Allowlist"
+return 0
+fi
+
+# ---------- Check allowlist file permissions ----------
+file_perms=$(stat -f "%OLp" "$allowlist_file" 2>/dev/null || stat -c "%a" "$allowlist_file" 2>/dev/null || echo "unknown")
+if [ "$file_perms" = "600" ]; then
+    emit_pass "Mount allowlist permissions are 600" "Allowlist Permissions"
+else
+    emit_prompt "Mount allowlist permissions are $file_perms — fix to 600?" \
+        "fix_nanoclaw_allowlist_perms" \
+        "Mount allowlist permissions are $file_perms (should be 600)" \
+        "Allowlist permissions not changed"
+fi
+
+emit_info "Mount allowlist audit:"
+
+# ---------- Check for required blocked paths ----------
+required_blocked=(
+    ".ssh"
+    ".gnupg"
+    ".aws"
+    ".env"
+    "credentials"
+    "private_key"
+    "id_rsa"
+    "id_ed25519"
+)
+
+missing_blocks=()
+for path in "${required_blocked[@]}"; do
+    if ! grep -q "\"$path\"" "$allowlist_file" 2>/dev/null; then
+        missing_blocks+=("$path")
+    fi
+done
+
+if [ ${#missing_blocks[@]} -eq 0 ]; then
+    emit_pass "All sensitive paths blocked in allowlist" "Blocked Paths"
+else
+    emit_fail "Missing blocked paths: ${missing_blocks[*]}" "Blocked Paths"
+    emit_info "Add these to the blocklist in mount-allowlist.json"
+fi
+
+# ---------- Check for overly permissive mounts ----------
+if grep -qE '"\/"[[:space:]]*:|"\/home"[[:space:]]*:' "$allowlist_file" 2>/dev/null; then
+    emit_fail "CRITICAL: Root (/) or /home is in mount allowlist — too permissive" "Mount Scope"
+elif grep -qE '"\/Users"[[:space:]]*:' "$allowlist_file" 2>/dev/null; then
+    emit_fail "CRITICAL: /Users is in mount allowlist — too permissive" "Mount Scope"
+else
+    emit_pass "No overly permissive mount paths detected" "Mount Scope"
+fi
+
+# ---------- Check nonMainReadOnly setting ----------
+if grep -q '"nonMainReadOnly"[[:space:]]*:[[:space:]]*true' "$allowlist_file" 2>/dev/null; then
+    emit_pass "nonMainReadOnly enabled (non-main groups get read-only access)" "Read-Only Mode"
+else
+    emit_warn "nonMainReadOnly not enabled"
+    emit_fail "Enable nonMainReadOnly for defense-in-depth" "Read-Only Mode"
+    emit_info "This restricts non-main channel groups to read-only filesystem access"
+fi
+
+# ---------- Check for plaintext secrets ----------
+if grep -qiE "(sk-ant-|sk-|api_key|password|secret)" "$allowlist_file" 2>/dev/null; then
+    emit_fail "CRITICAL: Possible secrets found in mount-allowlist.json" "Credential Exposure"
+else
+    emit_pass "No plaintext secrets in allowlist file" "Credential Exposure"
+fi
+}
+
+__remediate_nanoclaw_config() {
+# ============================================================================
+# Clawkeeper Remediation: NanoClaw Mount Allowlist
+# Fixes permissions and creates secure mount-allowlist.json if needed.
+# ============================================================================
+
+
+remediation_id="${1:-}"
+config_dir="$HOME/.config/nanoclaw"
+allowlist_file="$config_dir/mount-allowlist.json"
+
+case "$remediation_id" in
+    fix_nanoclaw_config_dir_perms)
+        if chmod 700 "$config_dir" 2>/dev/null; then
+            emit_pass "Fixed config directory permissions to 700" "Config Permissions"
+        else
+            emit_fail "Could not fix config directory permissions" "Config Permissions"
+        fi
+        ;;
+    fix_nanoclaw_allowlist_perms)
+        if chmod 600 "$allowlist_file" 2>/dev/null; then
+            emit_pass "Fixed allowlist file permissions to 600" "Allowlist Permissions"
+        else
+            emit_fail "Could not fix allowlist permissions" "Allowlist Permissions"
+        fi
+        ;;
+    create_allowlist)
+        mkdir -p "$config_dir"
+        chmod 700 "$config_dir"
+        
+        cat > "$allowlist_file" << 'ALLOWLIST_EOF'
+{
+  "version": 1,
+  "description": "NanoClaw mount allowlist - generated by Clawkeeper",
+  "nonMainReadOnly": true,
+  "blocklist": [
+    ".ssh",
+    ".gnupg",
+    ".aws",
+    ".azure",
+    ".gcloud",
+    ".kube",
+    ".docker",
+    ".env",
+    ".netrc",
+    ".npmrc",
+    "credentials",
+    "private_key",
+    "id_rsa",
+    "id_ed25519",
+    ".secret",
+    ".password",
+    "secrets.json",
+    "config.json"
+  ],
+  "allowlist": []
+}
+ALLOWLIST_EOF
+
+        chmod 600 "$allowlist_file"
+        emit_pass "Created secure mount-allowlist.json" "Mount Allowlist"
+        ;;
+    *)
+        emit_fail "Unknown remediation: $remediation_id" "Remediation"
+        ;;
+esac
+}
+
+# --- Check: nanoclaw_credentials ---
+
+__meta_nanoclaw_credentials() {
+    case "$1" in
+        name) echo "NanoClaw Credential Security" ;;
+        id)   echo "nanoclaw_credentials" ;;
+    esac
+}
+
+__check_nanoclaw_credentials() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Credential Security
+# Verifies NanoClaw credential isolation: environment variable exposure,
+# secrets in CLAUDE.md memory files, and session credential safety.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+config_dir="$HOME/.config/nanoclaw"
+data_dir="$config_dir/data"
+
+if [ ! -d "$config_dir" ]; then
+    emit_info "No NanoClaw config directory found — skipping credential checks"
+return 0
+fi
+
+emit_info "NanoClaw credential security audit:"
+
+# ---------- Check 1: Whitelisted environment variables ----------
+# NanoClaw should only expose specific env vars to containers
+allowed_env_vars=(
+    "CLAUDE_CODE_OAUTH_TOKEN"
+    "ANTHROPIC_API_KEY"
+    "OPENAI_API_KEY"
+)
+
+emit_info "Checking environment variable exposure..."
+
+# Check for potentially dangerous env vars that shouldn't reach containers
+dangerous_vars_found=()
+for var in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY GITHUB_TOKEN GH_TOKEN NPM_TOKEN; do
+    if [ -n "${!var:-}" ]; then
+        dangerous_vars_found+=("$var")
+    fi
+done
+
+if [ ${#dangerous_vars_found[@]} -eq 0 ]; then
+    emit_pass "No dangerous env vars detected in shell environment" "Env Var Exposure"
+else
+    emit_warn "Found env vars that should NOT reach NanoClaw containers: ${dangerous_vars_found[*]}"
+    emit_info "NanoClaw's container isolation should filter these, but verify mount-allowlist.json"
+fi
+
+# Check for required auth env vars
+auth_configured=false
+if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+    emit_pass "CLAUDE_CODE_OAUTH_TOKEN is set" "Claude Auth"
+    auth_configured=true
+elif [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+    emit_pass "ANTHROPIC_API_KEY is set" "Claude Auth"
+    auth_configured=true
+fi
+
+if [ "$auth_configured" = false ]; then
+    emit_warn "No Claude authentication env var found"
+    emit_info "Set CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY"
+fi
+
+# ---------- Check 2: Scan CLAUDE.md files for secrets ----------
+emit_info "Scanning CLAUDE.md memory files for secrets..."
+
+if [ -d "$data_dir" ]; then
+    secrets_found=false
+    
+    while IFS= read -r claude_file; do
+        if [ -f "$claude_file" ]; then
+            # Check for API keys and secrets
+            if grep -qiE "(sk-ant-[a-zA-Z0-9]{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36})" "$claude_file" 2>/dev/null; then
+                secrets_found=true
+                emit_fail "CRITICAL: API key pattern found in $(basename "$(dirname "$claude_file")")/CLAUDE.md" "Memory Secrets"
+            fi
+            
+            # Check for password patterns
+            if grep -qiE "(password[[:space:]]*[=:][[:space:]]*['\"][^'\"]+['\"]|secret[[:space:]]*[=:][[:space:]]*['\"][^'\"]+['\"])" "$claude_file" 2>/dev/null; then
+                secrets_found=true
+                emit_warn "Password/secret pattern found in $(basename "$(dirname "$claude_file")")/CLAUDE.md"
+            fi
+        fi
+    done < <(find "$data_dir" -name "CLAUDE.md" 2>/dev/null)
+    
+    if [ "$secrets_found" = false ]; then
+        emit_pass "No secrets detected in CLAUDE.md memory files" "Memory Secrets"
+    fi
+else
+    emit_info "No data directory found — no memory files to scan"
+fi
+
+# ---------- Check 3: Session credential permissions ----------
+emit_info "Checking session credential security..."
+
+sessions_dir="$config_dir/sessions"
+if [ -d "$sessions_dir" ]; then
+    insecure_creds=false
+    
+    while IFS= read -r creds_file; do
+        if [ -f "$creds_file" ]; then
+            perms=$(stat -f "%OLp" "$creds_file" 2>/dev/null || stat -c "%a" "$creds_file" 2>/dev/null || echo "unknown")
+            if [ "$perms" != "600" ] && [ "$perms" != "400" ]; then
+                insecure_creds=true
+                emit_warn "Session credentials at $creds_file have permissions $perms"
+            fi
+        fi
+    done < <(find "$sessions_dir" -name "creds.json" 2>/dev/null)
+    
+    if [ "$insecure_creds" = true ]; then
+        emit_prompt "Fix session credential permissions to 600?" \
+            "fix_nanoclaw_session_perms" \
+            "Session credentials have insecure permissions" \
+            "Session permissions not fixed"
+    else
+        session_count=$(find "$sessions_dir" -name "creds.json" 2>/dev/null | wc -l)
+        if [ "$session_count" -gt 0 ]; then
+            emit_pass "All $session_count session credential files have secure permissions" "Session Credentials"
+        else
+            emit_info "No session credentials found"
+        fi
+    fi
+else
+    emit_info "No sessions directory — no channel credentials to check"
+fi
+
+# ---------- Check 4: .env file in NanoClaw directory ----------
+nanoclaw_env="$config_dir/.env"
+if [ -f "$nanoclaw_env" ]; then
+    env_perms=$(stat -f "%OLp" "$nanoclaw_env" 2>/dev/null || stat -c "%a" "$nanoclaw_env" 2>/dev/null || echo "unknown")
+    if [ "$env_perms" = "600" ]; then
+        emit_pass ".env file permissions are 600" ".env Permissions"
+    else
+        emit_prompt ".env file permissions are $env_perms — fix to 600?" \
+            "fix_nanoclaw_env_perms" \
+            ".env file permissions are $env_perms (should be 600)" \
+            ".env permissions not fixed"
+    fi
+else
+    emit_info "No .env file in NanoClaw config directory"
+fi
+}
+
+__remediate_nanoclaw_credentials() {
+# ============================================================================
+# Clawkeeper Remediation: NanoClaw Credentials
+# Fixes credential file permissions.
+# ============================================================================
+
+
+remediation_id="${1:-}"
+config_dir="$HOME/.config/nanoclaw"
+
+case "$remediation_id" in
+    fix_nanoclaw_session_perms)
+        sessions_dir="$config_dir/sessions"
+        fixed=0
+        while IFS= read -r creds_file; do
+            if chmod 600 "$creds_file" 2>/dev/null; then
+                fixed=$((fixed + 1))
+            fi
+        done < <(find "$sessions_dir" -name "creds.json" 2>/dev/null)
+        
+        if [ "$fixed" -gt 0 ]; then
+            emit_pass "Fixed permissions on $fixed session credential file(s)" "Session Credentials"
+        else
+            emit_fail "Could not fix session credential permissions" "Session Credentials"
+        fi
+        ;;
+    fix_nanoclaw_env_perms)
+        if chmod 600 "$config_dir/.env" 2>/dev/null; then
+            emit_pass "Fixed .env permissions to 600" ".env Permissions"
+        else
+            emit_fail "Could not fix .env permissions" ".env Permissions"
+        fi
+        ;;
+    *)
+        emit_fail "Unknown remediation: $remediation_id" "Remediation"
+        ;;
+esac
+}
+
+# --- Check: nanoclaw_hardening ---
+
+__meta_nanoclaw_hardening() {
+    case "$1" in
+        name) echo "NanoClaw Container Hardening" ;;
+        id)   echo "nanoclaw_hardening" ;;
+    esac
+}
+
+__check_nanoclaw_hardening() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Container Hardening
+# Audits NanoClaw container security settings: non-root execution,
+# capabilities, resource limits, read-only rootfs, Docker Sandboxes.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+# ---------- Check for Docker ----------
+if ! command -v docker &>/dev/null; then
+    emit_info "Docker not installed — skipping container hardening checks"
+    emit_info "NanoClaw requires Docker or Apple Container for isolation"
+return 0
+fi
+
+if ! docker info &>/dev/null 2>&1; then
+    emit_info "Docker daemon not running — skipping container hardening checks"
+return 0
+fi
+
+# ---------- Find NanoClaw agent containers ----------
+nc_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -iE "nanoclaw|nc-agent" || true)
+
+if [ -z "$nc_containers" ]; then
+    emit_info "No running NanoClaw agent containers found"
+    emit_info "Container hardening will be verified when agents run"
+return 0
+fi
+
+emit_info "Auditing NanoClaw container security:"
+
+for container in $nc_containers; do
+    emit_info "Checking container: $container"
+    
+    # ---------- Check 1: Running as non-root ----------
+    container_user=$(docker exec "$container" id -u 2>/dev/null || echo "unknown")
+    if [ "$container_user" = "0" ]; then
+        emit_fail "Container $container is running as ROOT (uid 0)" "Container User"
+    elif [ "$container_user" = "unknown" ]; then
+        emit_warn "Could not determine user for container $container"
+    elif [ "$container_user" = "1000" ]; then
+        emit_pass "Container $container running as node user (uid: 1000)" "Container User"
+    else
+        emit_pass "Container $container running as non-root (uid: $container_user)" "Container User"
+    fi
+    
+    # ---------- Check 2: Capabilities ----------
+    cap_drop=$(docker inspect --format='{{.HostConfig.CapDrop}}' "$container" 2>/dev/null || echo "")
+    if echo "$cap_drop" | grep -qi "all"; then
+        emit_pass "All capabilities dropped for $container" "Capabilities"
+    else
+        emit_warn "Capabilities not fully dropped for $container"
+        emit_fail "Add cap_drop: ALL to container configuration" "Capabilities"
+    fi
+    
+    # ---------- Check 3: no-new-privileges ----------
+    no_new_priv=$(docker inspect --format='{{index .HostConfig.SecurityOpt}}' "$container" 2>/dev/null || echo "")
+    if echo "$no_new_priv" | grep -qi "no-new-privileges"; then
+        emit_pass "no-new-privileges set for $container" "No New Privileges"
+    else
+        emit_fail "no-new-privileges not set for $container" "No New Privileges"
+    fi
+    
+    # ---------- Check 4: Resource limits ----------
+    mem_limit=$(docker inspect --format='{{.HostConfig.Memory}}' "$container" 2>/dev/null || echo "0")
+    if [ "$mem_limit" -gt 0 ] 2>/dev/null; then
+        mem_mb=$((mem_limit / 1024 / 1024))
+        emit_pass "Memory limit set for $container (${mem_mb}MB)" "Memory Limit"
+    else
+        emit_fail "No memory limit set for $container — runaway agent risk" "Memory Limit"
+    fi
+    
+    cpu_limit=$(docker inspect --format='{{.HostConfig.NanoCpus}}' "$container" 2>/dev/null || echo "0")
+    if [ "$cpu_limit" -gt 0 ] 2>/dev/null; then
+        emit_pass "CPU limit set for $container" "CPU Limit"
+    else
+        emit_fail "No CPU limit set for $container" "CPU Limit"
+    fi
+    
+    # ---------- Check 5: Read-only rootfs ----------
+    readonly_fs=$(docker inspect --format='{{.HostConfig.ReadonlyRootfs}}' "$container" 2>/dev/null || echo "unknown")
+    if [ "$readonly_fs" = "true" ]; then
+        emit_pass "Root filesystem is read-only for $container" "Read-Only FS"
+    else
+        emit_warn "Root filesystem is writable for $container"
+        emit_info "Consider adding read_only: true for defense-in-depth"
+    fi
+done
+
+# ---------- Check for Docker Sandboxes ----------
+emit_info "Checking Docker Sandboxes availability:"
+
+# Check for Docker Desktop with Sandboxes support
+if docker info 2>/dev/null | grep -qi "sandbox"; then
+    emit_pass "Docker Sandboxes available (hypervisor-level isolation)" "Docker Sandboxes"
+    emit_info "NanoClaw agents can run with enhanced microVM isolation"
+else
+    # Check platform for Sandboxes support
+    platform=$(uname -s)
+    arch=$(uname -m)
+    
+    if [ "$platform" = "Darwin" ] && [ "$arch" = "arm64" ]; then
+        emit_info "macOS Apple Silicon detected — Docker Sandboxes supported"
+        emit_info "Enable in Docker Desktop settings for hypervisor isolation"
+    elif [ "$platform" = "Linux" ]; then
+        emit_info "Docker Sandboxes for Linux coming soon (Q2 2026)"
+        emit_info "Using standard container isolation"
+    else
+        emit_info "Docker Sandboxes not available on this platform"
+    fi
+fi
+
+# ---------- Check for Apple Container (macOS alternative) ----------
+if [ "$(uname -s)" = "Darwin" ]; then
+    if command -v container &>/dev/null || [ -d "/Library/Apple/System/Library/Sandbox" ]; then
+        emit_info "Apple Container/Sandbox available as alternative isolation"
+    fi
+fi
+}
+
+# --- Check: nanoclaw_network ---
+
+__meta_nanoclaw_network() {
+    case "$1" in
+        name) echo "NanoClaw Network Egress" ;;
+        id)   echo "nanoclaw_network" ;;
+    esac
+}
+
+__check_nanoclaw_network() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Network Egress
+# Checks for network egress restrictions on NanoClaw containers.
+# This addresses a KNOWN VULNERABILITY (GitHub Issue #458):
+# Agent containers have unrestricted outbound network access, enabling
+# data exfiltration, credential theft, and arbitrary payload download.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking NanoClaw network egress restrictions..."
+emit_warn "NOTE: Unrestricted network egress is a KNOWN NanoClaw vulnerability (Issue #458)"
+
+# ---------- Check for Docker network restrictions ----------
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    # Check for NanoClaw containers
+    nc_containers=$(docker ps --format '{{.Names}}' 2>/dev/null | grep -iE "nanoclaw|nc-agent" || true)
+    
+    if [ -n "$nc_containers" ]; then
+        for container in $nc_containers; do
+            # Check network mode
+            net_mode=$(docker inspect --format='{{.HostConfig.NetworkMode}}' "$container" 2>/dev/null || echo "unknown")
+            
+            if [ "$net_mode" = "none" ]; then
+                emit_pass "Container $container has network disabled" "Network Isolation"
+            elif [ "$net_mode" = "host" ]; then
+                emit_fail "CRITICAL: Container $container using host network — no isolation" "Network Isolation"
+            else
+                emit_warn "Container $container has network access ($net_mode)"
+                emit_info "This allows potential data exfiltration to attacker-controlled servers"
+            fi
+        done
+    fi
+fi
+
+# ---------- Check for iptables egress rules ----------
+has_egress_rules=false
+
+if command -v iptables &>/dev/null; then
+    # Check for rules targeting uid 1000 (node user in containers)
+    if sudo iptables -L OUTPUT -n -v 2>/dev/null | grep -q "owner UID match 1000"; then
+        has_egress_rules=true
+        emit_info "Found iptables rules for container user (uid 1000)"
+    fi
+    
+    # Check for rules targeting Docker networks
+    if sudo iptables -L DOCKER-USER -n -v 2>/dev/null | grep -qE "DROP|REJECT"; then
+        has_egress_rules=true
+        emit_info "Found Docker network egress restrictions"
+    fi
+fi
+
+if command -v nft &>/dev/null; then
+    # Check nftables for egress rules
+    if sudo nft list ruleset 2>/dev/null | grep -qE "uid 1000.*drop|docker.*drop"; then
+        has_egress_rules=true
+        emit_info "Found nftables egress restrictions"
+    fi
+fi
+
+# ---------- Provide recommendations ----------
+if [ "$has_egress_rules" = true ]; then
+    emit_pass "Network egress restrictions detected" "Egress Control"
+else
+    emit_fail "No network egress restrictions found — data exfiltration risk" "Egress Control"
+    emit_info ""
+    emit_info "RECOMMENDED: Add iptables rules to restrict container network access:"
+    emit_info ""
+    emit_info "  # Allow only Anthropic API endpoints for uid 1000 (container user)"
+    emit_info "  sudo iptables -A OUTPUT -m owner --uid-owner 1000 -d api.anthropic.com -j ACCEPT"
+    emit_info "  sudo iptables -A OUTPUT -m owner --uid-owner 1000 -d statsig.anthropic.com -j ACCEPT"
+    emit_info "  sudo iptables -A OUTPUT -m owner --uid-owner 1000 -j DROP"
+    emit_info ""
+    emit_info "Or use Docker network policies to restrict container egress."
+fi
+
+# ---------- Check for Docker network policies ----------
+if command -v docker &>/dev/null; then
+    # Check for custom bridge networks with internal flag
+    internal_nets=$(docker network ls --filter "driver=bridge" --format '{{.Name}}' 2>/dev/null | while read -r net; do
+        if docker network inspect "$net" --format '{{.Internal}}' 2>/dev/null | grep -q "true"; then
+            echo "$net"
+        fi
+    done)
+    
+    if [ -n "$internal_nets" ]; then
+        emit_info "Found internal Docker networks (no external access): $internal_nets"
+    fi
+fi
+
+# ---------- Additional warning ----------
+emit_info ""
+emit_warn "Without egress restrictions, compromised agents can:"
+emit_info "  • Exfiltrate mounted filesystem data"
+emit_info "  • Steal API credentials (ANTHROPIC_API_KEY)"
+emit_info "  • Download and execute arbitrary payloads"
+emit_info "  • Scan internal networks"
+}
+
+# --- Check: nanoclaw_running ---
+
+__meta_nanoclaw_running() {
+    case "$1" in
+        name) echo "NanoClaw Instance Detection" ;;
+        id)   echo "nanoclaw_running" ;;
+    esac
+}
+
+__check_nanoclaw_running() {
+# ============================================================================
+# Clawkeeper Check: NanoClaw Instance Detection
+# Detects running NanoClaw instances via host process, Docker containers,
+# and active channel connections (WhatsApp, Telegram, etc.).
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking for running NanoClaw instances..."
+
+found=false
+running=false
+
+# ---------- Check for NanoClaw host process ----------
+nanoclaw_process=$(pgrep -fl "nanoclaw|nano-claw" 2>/dev/null || true)
+if [ -n "$nanoclaw_process" ]; then
+    found=true
+    running=true
+    while IFS= read -r line; do
+        emit_info "Found NanoClaw process: $line"
+    done <<< "$nanoclaw_process"
+fi
+
+# ---------- Check for NanoClaw npm package ----------
+if command -v npm &>/dev/null; then
+    if npm list -g nanoclaw 2>/dev/null | grep -q "nanoclaw@"; then
+        found=true
+        nc_version=$(npm list -g nanoclaw 2>/dev/null | grep "nanoclaw@" | sed 's/.*@//' | head -1)
+        emit_info "NanoClaw npm package installed: v$nc_version"
+    fi
+fi
+
+# ---------- Check for NanoClaw agent containers ----------
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    nc_containers=$(docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE "nanoclaw|nc-agent" || true)
+    if [ -n "$nc_containers" ]; then
+        found=true
+        running=true
+        while IFS= read -r line; do
+            emit_info "Found NanoClaw container: $line"
+        done <<< "$nc_containers"
+    fi
+fi
+
+# ---------- Check for NanoClaw config directory ----------
+nanoclaw_config_dir="$HOME/.config/nanoclaw"
+if [ -d "$nanoclaw_config_dir" ]; then
+    found=true
+    emit_info "NanoClaw config directory exists: $nanoclaw_config_dir"
+    
+    # Check for active sessions
+    if [ -d "$nanoclaw_config_dir/sessions" ]; then
+        session_count=$(find "$nanoclaw_config_dir/sessions" -name "creds.json" 2>/dev/null | wc -l)
+        if [ "$session_count" -gt 0 ]; then
+            emit_info "Found $session_count active channel session(s)"
+        fi
+    fi
+fi
+
+# ---------- Check for WhatsApp Baileys session ----------
+if [ -f "$nanoclaw_config_dir/sessions/main/creds.json" ]; then
+    emit_info "WhatsApp channel configured (Baileys session found)"
+fi
+
+# ---------- Check for systemd service ----------
+if command -v systemctl &>/dev/null; then
+    if systemctl is-active --quiet nanoclaw 2>/dev/null; then
+        running=true
+        emit_info "NanoClaw systemd service is active"
+    elif systemctl is-enabled --quiet nanoclaw 2>/dev/null; then
+        emit_info "NanoClaw systemd service is enabled but not running"
+    fi
+fi
+
+# ---------- Check for launchd service (macOS) ----------
+if [ -f "$HOME/Library/LaunchAgents/com.nanoclaw.agent.plist" ]; then
+    if launchctl list 2>/dev/null | grep -q "com.nanoclaw"; then
+        running=true
+        emit_info "NanoClaw launchd service is running"
+    else
+        emit_info "NanoClaw launchd plist exists but service not loaded"
+    fi
+fi
+
+# ---------- Summary ----------
+if [ "$found" = false ]; then
+    emit_info "No NanoClaw installation detected"
+    emit_info "This is expected if you haven't installed NanoClaw yet."
+elif [ "$running" = true ]; then
+    emit_pass "NanoClaw is installed and running" "NanoClaw Detection"
+else
+    emit_warn "NanoClaw is installed but not running"
+    emit_pass "NanoClaw installation detected" "NanoClaw Detection"
+fi
+}
+
 # --- Check: native_openclaw ---
 
 __meta_native_openclaw() {
@@ -6149,7 +7390,8 @@ case "$REMEDIATION_ID" in
 
         # Run npm install with a 90-second timeout to prevent indefinite hangs.
         # macOS doesn't have the timeout command, so use a background job.
-        npm install -g openclaw@latest >"$HOME/.openclaw/npm-install.log" 2>&1 &
+        local tmplog="/tmp/clawkeeper-npm-install.$$.log"
+        npm install -g openclaw@latest >"$tmplog" 2>&1 &
         local npm_pid=$!
         local waited=0
         while kill -0 "$npm_pid" 2>/dev/null && [ $waited -lt 90 ]; do
@@ -6166,9 +7408,9 @@ case "$REMEDIATION_ID" in
         else
             wait "$npm_pid"
             npm_rc=$?
-            npm_output=$(cat "$HOME/.openclaw/npm-install.log" 2>/dev/null || echo "")
+            npm_output=$(cat "$tmplog" 2>/dev/null || echo "")
         fi
-        rm -f "$HOME/.openclaw/npm-install.log"
+        rm -f "$tmplog"
 
         # Retry with sudo if npm global prefix requires elevation.
         if [ $npm_rc -ne 0 ] && echo "$npm_output" | grep -qi "EACCES\|permission denied"; then
@@ -6196,6 +7438,838 @@ return 1
         emit_fail "Unknown remediation: $REMEDIATION_ID" "OpenClaw npm"
         ;;
 esac
+}
+
+# --- Check: nemoclaw_audit_logs ---
+
+__meta_nemoclaw_audit_logs() {
+    case "$1" in
+        name) echo "NemoClaw Audit Logging" ;;
+        id)   echo "nemoclaw_audit_logs" ;;
+    esac
+}
+
+__check_nemoclaw_audit_logs() {
+# ============================================================================
+# Clawkeeper Check: NemoClaw Audit Logging
+# Verifies NemoClaw audit logging is enabled for compliance and security
+# monitoring. Checks log configuration, rotation, and permissions.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking NemoClaw audit logging configuration..."
+
+# Possible audit log locations
+audit_dirs=(
+    "$HOME/.nemo/nemoclaw/audit"
+    "$HOME/.nemo/audit"
+    "$HOME/.config/nemoclaw/audit"
+    "/var/log/nemoclaw"
+)
+
+# Possible config locations
+config_files=(
+    "$HOME/.nemo/nemoclaw/config.yml"
+    "$HOME/.nemo/guardrails/config.yml"
+    "$HOME/.config/nemoclaw/config.yml"
+)
+
+audit_dir=""
+config_file=""
+
+for dir in "${audit_dirs[@]}"; do
+    if [ -d "$dir" ]; then
+        audit_dir="$dir"
+        break
+    fi
+done
+
+for cfg in "${config_files[@]}"; do
+    if [ -f "$cfg" ]; then
+        config_file="$cfg"
+        break
+    fi
+done
+
+if [ -z "$config_file" ] && [ -z "$audit_dir" ]; then
+    emit_info "No NemoClaw configuration or audit directory found"
+    emit_info "Skipping audit logging checks"
+return 0
+fi
+
+# ---------- Check for audit directory ----------
+if [ -n "$audit_dir" ]; then
+    emit_info "Audit directory found: $audit_dir"
+    
+    # Check directory permissions
+    dir_perms=$(stat -f "%OLp" "$audit_dir" 2>/dev/null || stat -c "%a" "$audit_dir" 2>/dev/null || echo "unknown")
+    if [ "$dir_perms" = "700" ] || [ "$dir_perms" = "750" ]; then
+        emit_pass "Audit directory permissions are secure ($dir_perms)" "Audit Dir Permissions"
+    else
+        emit_warn "Audit directory permissions are $dir_perms (recommend 700 or 750)"
+    fi
+    
+    # Count audit log files
+    log_count=$(find "$audit_dir" -name "*.log" -o -name "*.json" 2>/dev/null | wc -l)
+    if [ "$log_count" -gt 0 ]; then
+        emit_pass "Found $log_count audit log file(s)" "Audit Logs Present"
+        
+        # Check most recent log age
+        newest_log=$(find "$audit_dir" -type f \( -name "*.log" -o -name "*.json" \) -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+        if [ -n "$newest_log" ]; then
+            log_age_hours=$(( ($(date +%s) - $(stat -f "%m" "$newest_log" 2>/dev/null || stat -c "%Y" "$newest_log" 2>/dev/null || echo "0")) / 3600 ))
+            if [ "$log_age_hours" -lt 24 ]; then
+                emit_pass "Recent audit activity (within 24 hours)" "Audit Activity"
+            else
+                emit_info "Most recent audit log is $log_age_hours hours old"
+            fi
+        fi
+    else
+        emit_warn "No audit log files found in $audit_dir"
+    fi
+else
+    emit_warn "No audit directory found"
+    emit_info "Create audit directory at ~/.nemo/nemoclaw/audit"
+fi
+
+# ---------- Check config for audit settings ----------
+if [ -n "$config_file" ]; then
+    emit_info "Checking audit configuration in $config_file..."
+    
+    # Check for audit/logging configuration
+    if grep -qiE "audit:|logging:" "$config_file" 2>/dev/null; then
+        emit_pass "Audit/logging section found in config" "Audit Config"
+        
+        # Check for specific audit settings
+        if grep -qiE "enabled:[[:space:]]*true|audit_enabled" "$config_file" 2>/dev/null; then
+            emit_pass "Audit logging is enabled" "Audit Enabled"
+        else
+            emit_warn "Audit logging may not be explicitly enabled"
+        fi
+        
+        # Check for verbose/detailed logging
+        if grep -qiE "verbose|detailed|level:[[:space:]]*(debug|trace)" "$config_file" 2>/dev/null; then
+            emit_info "Verbose/detailed logging configured"
+        fi
+        
+        # Check for log rotation
+        if grep -qiE "rotation|max_size|max_files|rotate" "$config_file" 2>/dev/null; then
+            emit_pass "Log rotation configured" "Log Rotation"
+        else
+            emit_warn "Log rotation not configured — logs may grow unbounded"
+        fi
+    else
+        emit_fail "No audit/logging configuration found" "Audit Config"
+        emit_info "Add 'audit:' or 'logging:' section to enable audit trails"
+    fi
+fi
+
+# ---------- Check for LangSmith/observability integration ----------
+emit_info "Checking observability integrations..."
+
+langsmith_configured=false
+if [ -n "${LANGCHAIN_API_KEY:-}" ] || [ -n "${LANGSMITH_API_KEY:-}" ]; then
+    langsmith_configured=true
+    emit_pass "LangSmith API key configured (tracing enabled)" "LangSmith"
+fi
+
+if [ -n "$config_file" ] && grep -qiE "langsmith|langchain|tracing" "$config_file" 2>/dev/null; then
+    langsmith_configured=true
+    emit_info "LangSmith/tracing configuration found in config"
+fi
+
+if [ "$langsmith_configured" = false ]; then
+    emit_info "LangSmith not configured (optional but recommended for enterprise)"
+    emit_info "NVIDIA NeMo Agent Toolkit supports native LangSmith integration"
+fi
+
+# ---------- Enterprise compliance checks ----------
+emit_info "Enterprise compliance considerations:"
+
+# Check for data retention settings
+if [ -n "$config_file" ] && grep -qiE "retention|expire|ttl" "$config_file" 2>/dev/null; then
+    emit_pass "Data retention settings configured" "Data Retention"
+else
+    emit_info "No data retention policy configured"
+    emit_info "Consider adding retention settings for compliance (GDPR, SOC2)"
+fi
+
+# Check for encryption at rest
+if [ -n "$audit_dir" ]; then
+    if mount | grep -q "$(dirname "$audit_dir").*encrypted\|luks\|ecryptfs"; then
+        emit_pass "Audit directory appears to be on encrypted storage" "Encryption at Rest"
+    else
+        emit_info "Audit directory encryption status unknown"
+        emit_info "Ensure audit logs are stored on encrypted volumes for compliance"
+    fi
+fi
+}
+
+# --- Check: nemoclaw_guardrails ---
+
+__meta_nemoclaw_guardrails() {
+    case "$1" in
+        name) echo "NemoClaw Guardrails Configuration" ;;
+        id)   echo "nemoclaw_guardrails" ;;
+    esac
+}
+
+__check_nemoclaw_guardrails() {
+# ============================================================================
+# Clawkeeper Check: NemoClaw Guardrails Configuration
+# Audits NeMo Guardrails config.yml for security rails: input validation,
+# output filtering, jailbreak detection, PII masking, and fact checking.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+# Possible guardrails config locations
+guardrails_configs=(
+    "$HOME/.nemo/guardrails/config.yml"
+    "$HOME/.nemo/nemoclaw/guardrails/config.yml"
+    "$HOME/.config/nemoclaw/guardrails/config.yml"
+    "./config.yml"
+    "./guardrails/config.yml"
+)
+
+config_file=""
+for cfg in "${guardrails_configs[@]}"; do
+    if [ -f "$cfg" ]; then
+        config_file="$cfg"
+        break
+    fi
+done
+
+if [ -z "$config_file" ]; then
+    emit_info "No NeMo Guardrails config.yml found"
+    emit_info "NemoClaw uses NeMo Guardrails for application-layer security"
+    emit_info "Create config at: ~/.nemo/guardrails/config.yml"
+return 0
+fi
+
+emit_info "Auditing NeMo Guardrails configuration: $config_file"
+
+# ---------- Check config file permissions ----------
+file_perms=$(stat -f "%OLp" "$config_file" 2>/dev/null || stat -c "%a" "$config_file" 2>/dev/null || echo "unknown")
+if [ "$file_perms" = "600" ] || [ "$file_perms" = "644" ]; then
+    emit_pass "Guardrails config permissions are acceptable ($file_perms)" "Config Permissions"
+else
+    emit_warn "Guardrails config permissions are $file_perms"
+fi
+
+# ---------- Check for input rails ----------
+emit_info "Checking input rails..."
+if grep -qE "^[[:space:]]*input:" "$config_file" 2>/dev/null; then
+    emit_pass "Input rails configured" "Input Rails"
+    
+    # Check for specific input rails
+    if grep -qE "self[_-]?check[_-]?input|check_input" "$config_file" 2>/dev/null; then
+        emit_pass "Self-check input rail enabled" "Input Validation"
+    else
+        emit_warn "Self-check input rail not found — consider enabling"
+    fi
+else
+    emit_fail "No input rails configured — user input not validated" "Input Rails"
+    emit_info "Add 'input:' section with validation flows to config.yml"
+fi
+
+# ---------- Check for output rails ----------
+emit_info "Checking output rails..."
+if grep -qE "^[[:space:]]*output:" "$config_file" 2>/dev/null; then
+    emit_pass "Output rails configured" "Output Rails"
+    
+    # Check for specific output rails
+    if grep -qE "self[_-]?check[_-]?output|check_output" "$config_file" 2>/dev/null; then
+        emit_pass "Self-check output rail enabled" "Output Validation"
+    else
+        emit_warn "Self-check output rail not found — consider enabling"
+    fi
+    
+    if grep -qE "fact[_-]?check|hallucination" "$config_file" 2>/dev/null; then
+        emit_pass "Fact checking/hallucination detection enabled" "Fact Checking"
+    else
+        emit_info "Fact checking not configured (optional)"
+    fi
+else
+    emit_fail "No output rails configured — LLM output not validated" "Output Rails"
+    emit_info "Add 'output:' section with validation flows to config.yml"
+fi
+
+# ---------- Check for jailbreak detection ----------
+emit_info "Checking jailbreak detection..."
+if grep -qiE "jailbreak|prompt[_-]?injection|adversarial" "$config_file" 2>/dev/null; then
+    emit_pass "Jailbreak/prompt injection detection configured" "Jailbreak Detection"
+else
+    emit_fail "Jailbreak detection not configured" "Jailbreak Detection"
+    emit_info "Add jailbreak detection flow to prevent prompt injection attacks"
+fi
+
+# ---------- Check for PII masking ----------
+emit_info "Checking PII/sensitive data protection..."
+if grep -qiE "pii|sensitive[_-]?data|mask|redact|PERSON|EMAIL|PHONE" "$config_file" 2>/dev/null; then
+    emit_pass "PII/sensitive data protection configured" "PII Protection"
+else
+    emit_warn "PII protection not configured"
+    emit_info "Consider adding sensitive_data_detection flow for compliance"
+fi
+
+# ---------- Check for retrieval rails (RAG) ----------
+emit_info "Checking retrieval rails..."
+if grep -qE "^[[:space:]]*retrieval:" "$config_file" 2>/dev/null; then
+    emit_pass "Retrieval rails configured (RAG grounding)" "Retrieval Rails"
+else
+    emit_info "No retrieval rails — OK if not using RAG"
+fi
+
+# ---------- Check for dialog rails ----------
+emit_info "Checking dialog flow control..."
+if grep -qE "^[[:space:]]*dialog:" "$config_file" 2>/dev/null; then
+    emit_pass "Dialog rails configured" "Dialog Rails"
+else
+    emit_info "No dialog rails — conversations not flow-controlled"
+fi
+
+# ---------- Check for execution rails ----------
+emit_info "Checking execution rails..."
+if grep -qE "^[[:space:]]*execution:" "$config_file" 2>/dev/null || grep -qiE "tool[_-]?call|action[_-]?check" "$config_file" 2>/dev/null; then
+    emit_pass "Execution rails configured (tool/action control)" "Execution Rails"
+else
+    emit_warn "No execution rails — tool calls not validated"
+    emit_info "Add execution rails to control which tools agents can invoke"
+fi
+
+# ---------- Check for Colang flows ----------
+rails_dir="$(dirname "$config_file")/rails"
+if [ -d "$rails_dir" ]; then
+    flow_count=$(find "$rails_dir" -name "*.co" 2>/dev/null | wc -l)
+    if [ "$flow_count" -gt 0 ]; then
+        emit_info "Found $flow_count Colang flow file(s) in rails directory"
+    fi
+else
+    emit_info "No rails/ directory — using inline config only"
+fi
+
+# ---------- Summary ----------
+emit_info ""
+emit_info "NeMo Guardrails provides application-layer security."
+emit_info "Clawkeeper handles infrastructure/host security."
+emit_info "Together they form a complete AI agent security stack."
+}
+
+# --- Check: nemoclaw_installed ---
+
+__meta_nemoclaw_installed() {
+    case "$1" in
+        name) echo "NemoClaw Installation Detection" ;;
+        id)   echo "nemoclaw_installed" ;;
+    esac
+}
+
+__check_nemoclaw_installed() {
+# ============================================================================
+# Clawkeeper Check: NemoClaw Installation Detection
+# Detects NemoClaw (NVIDIA's enterprise AI agent platform) installation
+# via Python package, config directory, and running processes.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking for NemoClaw (NVIDIA Enterprise AI Agent) installation..."
+
+found=false
+running=false
+version=""
+
+# ---------- Check for NemoClaw Python package ----------
+if command -v python3 &>/dev/null; then
+    if python3 -c "import nemoclaw" 2>/dev/null; then
+        found=true
+        version=$(python3 -c "import nemoclaw; print(nemoclaw.__version__)" 2>/dev/null || echo "unknown")
+        emit_info "NemoClaw Python package installed: v$version"
+    fi
+    
+    # Also check for nemo-agent-toolkit
+    if python3 -c "import nvidia_nat" 2>/dev/null; then
+        found=true
+        nat_version=$(python3 -c "import nvidia_nat; print(nvidia_nat.__version__)" 2>/dev/null || echo "unknown")
+        emit_info "NVIDIA NeMo Agent Toolkit installed: v$nat_version"
+    fi
+fi
+
+# Check pip list as fallback
+if command -v pip3 &>/dev/null; then
+    if pip3 list 2>/dev/null | grep -qi "nemoclaw\|nvidia-nat"; then
+        found=true
+        emit_info "NemoClaw/NeMo Agent Toolkit found in pip packages"
+    fi
+fi
+
+# ---------- Check for NemoClaw config directory ----------
+nemoclaw_config_dirs=(
+    "$HOME/.nemo/nemoclaw"
+    "$HOME/.config/nemoclaw"
+    "$HOME/.nemoclaw"
+)
+
+for config_dir in "${nemoclaw_config_dirs[@]}"; do
+    if [ -d "$config_dir" ]; then
+        found=true
+        emit_info "NemoClaw config directory found: $config_dir"
+    fi
+done
+
+# ---------- Check for NeMo Guardrails config ----------
+guardrails_config="$HOME/.nemo/guardrails/config.yml"
+if [ -f "$guardrails_config" ]; then
+    found=true
+    emit_info "NeMo Guardrails configuration found"
+fi
+
+# ---------- Check for running NemoClaw process ----------
+nemoclaw_process=$(pgrep -fl "nemoclaw|nemo.*agent" 2>/dev/null || true)
+if [ -n "$nemoclaw_process" ]; then
+    found=true
+    running=true
+    while IFS= read -r line; do
+        emit_info "Found NemoClaw process: $line"
+    done <<< "$nemoclaw_process"
+fi
+
+# ---------- Check for NemoClaw Docker containers ----------
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    nc_containers=$(docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE "nemoclaw|nemo.*agent" || true)
+    if [ -n "$nc_containers" ]; then
+        found=true
+        running=true
+        while IFS= read -r line; do
+            emit_info "Found NemoClaw container: $line"
+        done <<< "$nc_containers"
+    fi
+fi
+
+# ---------- Check for NIM (NVIDIA Inference Microservices) ----------
+if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    nim_containers=$(docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | grep -iE "nim|nemotron" || true)
+    if [ -n "$nim_containers" ]; then
+        emit_info "NVIDIA NIM containers detected (inference backend)"
+        while IFS= read -r line; do
+            emit_info "  $line"
+        done <<< "$nim_containers"
+    fi
+fi
+
+# ---------- Check for systemd service ----------
+if command -v systemctl &>/dev/null; then
+    if systemctl is-active --quiet nemoclaw 2>/dev/null; then
+        running=true
+        emit_info "NemoClaw systemd service is active"
+    elif systemctl is-enabled --quiet nemoclaw 2>/dev/null; then
+        emit_info "NemoClaw systemd service is enabled but not running"
+    fi
+fi
+
+# ---------- Summary ----------
+if [ "$found" = false ]; then
+    emit_info "No NemoClaw installation detected"
+    emit_info "NemoClaw is NVIDIA's enterprise AI agent platform (announced GTC 2026)"
+    emit_info "Install: pip install nemoclaw"
+elif [ "$running" = true ]; then
+    if [ -n "$version" ]; then
+        emit_pass "NemoClaw v$version is installed and running" "NemoClaw Detection"
+    else
+        emit_pass "NemoClaw is installed and running" "NemoClaw Detection"
+    fi
+else
+    emit_pass "NemoClaw is installed (not currently running)" "NemoClaw Detection"
+fi
+}
+
+# --- Check: nemoclaw_permissions ---
+
+__meta_nemoclaw_permissions() {
+    case "$1" in
+        name) echo "NemoClaw Permissions & RBAC" ;;
+        id)   echo "nemoclaw_permissions" ;;
+    esac
+}
+
+__check_nemoclaw_permissions() {
+# ============================================================================
+# Clawkeeper Check: NemoClaw Permissions & RBAC
+# Verifies NemoClaw role-based access control, tool permissions, and
+# privilege separation for enterprise deployments.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking NemoClaw permissions and access control..."
+
+# Possible config locations
+config_files=(
+    "$HOME/.nemo/nemoclaw/config.yml"
+    "$HOME/.nemo/guardrails/config.yml"
+    "$HOME/.config/nemoclaw/config.yml"
+    "./config.yml"
+)
+
+config_file=""
+for cfg in "${config_files[@]}"; do
+    if [ -f "$cfg" ]; then
+        config_file="$cfg"
+        break
+    fi
+done
+
+if [ -z "$config_file" ]; then
+    emit_info "No NemoClaw configuration found"
+    emit_info "Skipping permissions checks"
+return 0
+fi
+
+emit_info "Analyzing configuration: $config_file"
+
+# ---------- Check for RBAC/permissions configuration ----------
+emit_info "Checking role-based access control..."
+
+if grep -qiE "roles:|permissions:|rbac:|access[_-]?control:" "$config_file" 2>/dev/null; then
+    emit_pass "RBAC/permissions section found in config" "RBAC Config"
+    
+    # Check for role definitions
+    if grep -qiE "admin|operator|viewer|readonly|user" "$config_file" 2>/dev/null; then
+        emit_pass "Role definitions found" "Role Definitions"
+    else
+        emit_warn "No explicit role definitions found"
+    fi
+else
+    emit_warn "No RBAC/permissions configuration found"
+    emit_info "Consider adding role-based access control for enterprise deployments"
+fi
+
+# ---------- Check tool/action permissions ----------
+emit_info "Checking tool/action permissions..."
+
+if grep -qiE "tools:|actions:|allowed[_-]?tools:|blocked[_-]?tools:" "$config_file" 2>/dev/null; then
+    emit_pass "Tool permissions configuration found" "Tool Permissions"
+    
+    # Check for dangerous tool restrictions
+    dangerous_tools=("shell" "exec" "file_write" "sudo" "system" "eval")
+    unrestricted_dangerous=()
+    
+    for tool in "${dangerous_tools[@]}"; do
+        # Check if tool is mentioned but not in a blocked/restricted context
+        if grep -qiE "$tool" "$config_file" 2>/dev/null; then
+            if ! grep -qiE "(block|disable|deny|restrict).*$tool|$tool.*(block|disable|deny|restrict)" "$config_file" 2>/dev/null; then
+                unrestricted_dangerous+=("$tool")
+            fi
+        fi
+    done
+    
+    if [ ${#unrestricted_dangerous[@]} -gt 0 ]; then
+        emit_warn "Potentially dangerous tools not explicitly restricted: ${unrestricted_dangerous[*]}"
+        emit_info "Consider adding explicit restrictions for shell/exec/system tools"
+    else
+        emit_pass "No unrestricted dangerous tools detected" "Dangerous Tools"
+    fi
+else
+    emit_fail "No tool permissions configured — agents have unrestricted tool access" "Tool Permissions"
+    emit_info "Add 'tools:' section to control which tools agents can invoke"
+fi
+
+# ---------- Check for privilege escalation prevention ----------
+emit_info "Checking privilege escalation prevention..."
+
+if grep -qiE "escalat|privilege|sudo|root|admin[_-]?mode" "$config_file" 2>/dev/null; then
+    if grep -qiE "(prevent|block|disable|deny).*escalat|no[_-]?escalat" "$config_file" 2>/dev/null; then
+        emit_pass "Privilege escalation prevention configured" "Privilege Escalation"
+    else
+        emit_warn "Privilege escalation mentioned but prevention not clear"
+    fi
+else
+    emit_info "No explicit privilege escalation prevention"
+    emit_info "Ensure agents cannot autonomously escalate privileges"
+fi
+
+# ---------- Check for data access controls ----------
+emit_info "Checking data access controls..."
+
+if grep -qiE "data[_-]?access:|file[_-]?access:|directory[_-]?access:|allowed[_-]?paths:" "$config_file" 2>/dev/null; then
+    emit_pass "Data/file access controls configured" "Data Access"
+    
+    # Check for sensitive path blocking
+    if grep -qiE "\.ssh|\.aws|\.gnupg|credentials|secrets" "$config_file" 2>/dev/null; then
+        emit_pass "Sensitive paths mentioned in access config" "Sensitive Paths"
+    else
+        emit_warn "Sensitive paths not explicitly blocked"
+    fi
+else
+    emit_warn "No data access controls configured"
+    emit_info "Consider restricting which files/directories agents can access"
+fi
+
+# ---------- Check for multi-agent permissions ----------
+emit_info "Checking multi-agent collaboration settings..."
+
+if grep -qiE "multi[_-]?agent|collaboration|supervisor|worker|delegate" "$config_file" 2>/dev/null; then
+    emit_pass "Multi-agent configuration found" "Multi-Agent"
+    
+    # Check for inter-agent permission controls
+    if grep -qiE "inter[_-]?agent|agent[_-]?to[_-]?agent|delegation[_-]?policy" "$config_file" 2>/dev/null; then
+        emit_pass "Inter-agent permission controls configured" "Agent Delegation"
+    else
+        emit_info "No explicit inter-agent permission controls"
+        emit_info "Consider defining delegation policies for supervisor/worker agents"
+    fi
+else
+    emit_info "No multi-agent collaboration configured"
+fi
+
+# ---------- Check execution rails for permission enforcement ----------
+if grep -qiE "execution:|pre[_-]?action:|post[_-]?action:" "$config_file" 2>/dev/null; then
+    emit_pass "Execution rails configured for runtime permission checks" "Execution Rails"
+else
+    emit_warn "No execution rails — tool calls not validated at runtime"
+    emit_info "Add execution rails to enforce permissions before actions execute"
+fi
+
+# ---------- Summary recommendations ----------
+emit_info ""
+emit_info "Enterprise permission recommendations:"
+emit_info "  1. Define explicit roles (admin, operator, viewer)"
+emit_info "  2. Restrict dangerous tools (shell, exec, system)"
+emit_info "  3. Block access to sensitive directories"
+emit_info "  4. Configure execution rails for runtime enforcement"
+emit_info "  5. Set delegation policies for multi-agent setups"
+}
+
+# --- Check: nemoclaw_pii_masking ---
+
+__meta_nemoclaw_pii_masking() {
+    case "$1" in
+        name) echo "NemoClaw PII Protection" ;;
+        id)   echo "nemoclaw_pii_masking" ;;
+    esac
+}
+
+__check_nemoclaw_pii_masking() {
+# ============================================================================
+# Clawkeeper Check: NemoClaw PII Protection
+# Verifies NemoClaw PII detection and masking configuration for compliance
+# with GDPR, HIPAA, SOC2 and other privacy regulations.
+# Outputs JSON lines to stdout.
+# ============================================================================
+
+
+MODE="scan"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+emit_info "Checking NemoClaw PII protection configuration..."
+
+# Possible config locations
+config_files=(
+    "$HOME/.nemo/guardrails/config.yml"
+    "$HOME/.nemo/nemoclaw/config.yml"
+    "$HOME/.config/nemoclaw/config.yml"
+    "./config.yml"
+)
+
+config_file=""
+for cfg in "${config_files[@]}"; do
+    if [ -f "$cfg" ]; then
+        config_file="$cfg"
+        break
+    fi
+done
+
+if [ -z "$config_file" ]; then
+    emit_info "No NemoClaw/Guardrails configuration found"
+    emit_info "Skipping PII protection checks"
+return 0
+fi
+
+emit_info "Analyzing PII protection in: $config_file"
+
+# ---------- Check for PII detection configuration ----------
+pii_configured=false
+
+if grep -qiE "pii|personal[_-]?data|sensitive[_-]?data[_-]?detection" "$config_file" 2>/dev/null; then
+    pii_configured=true
+    emit_pass "PII/sensitive data detection configured" "PII Detection"
+else
+    emit_fail "No PII detection configured" "PII Detection"
+    emit_info "Add sensitive_data_detection flow for privacy compliance"
+fi
+
+# ---------- Check for specific entity types ----------
+emit_info "Checking protected entity types..."
+
+entity_types=(
+    "PERSON:Personal names"
+    "EMAIL:Email addresses"
+    "PHONE:Phone numbers"
+    "SSN:Social Security Numbers"
+    "CREDIT_CARD:Credit card numbers"
+    "ADDRESS:Physical addresses"
+    "DATE_OF_BIRTH:Birth dates"
+    "IP_ADDRESS:IP addresses"
+    "MEDICAL:Medical information"
+    "FINANCIAL:Financial data"
+)
+
+detected_entities=0
+for entity_spec in "${entity_types[@]}"; do
+    entity="${entity_spec%%:*}"
+    description="${entity_spec#*:}"
+    
+    if grep -qiE "$entity|$(echo "$entity" | tr '_' ' ')" "$config_file" 2>/dev/null; then
+        emit_info "  ✓ $description ($entity) protection configured"
+        detected_entities=$((detected_entities + 1))
+    fi
+done
+
+if [ "$detected_entities" -gt 0 ]; then
+    emit_pass "$detected_entities entity type(s) configured for detection" "Entity Types"
+else
+    emit_warn "No specific entity types configured"
+    emit_info "Recommend configuring: PERSON, EMAIL, PHONE, SSN, CREDIT_CARD at minimum"
+fi
+
+# ---------- Check for masking/redaction settings ----------
+emit_info "Checking masking/redaction configuration..."
+
+if grep -qiE "mask|redact|anonymize|obfuscate" "$config_file" 2>/dev/null; then
+    emit_pass "Data masking/redaction configured" "Data Masking"
+    
+    # Check masking method
+    if grep -qiE "hash|sha256|md5" "$config_file" 2>/dev/null; then
+        emit_info "  Hashing-based masking configured"
+    fi
+    if grep -qiE "replace|substitute|\*\*\*|xxx" "$config_file" 2>/dev/null; then
+        emit_info "  Replacement-based masking configured"
+    fi
+    if grep -qiE "encrypt|tokenize" "$config_file" 2>/dev/null; then
+        emit_info "  Encryption/tokenization configured"
+    fi
+else
+    if [ "$pii_configured" = true ]; then
+        emit_warn "PII detection configured but masking/redaction not found"
+        emit_info "Configure masking to prevent PII from reaching LLM or logs"
+    else
+        emit_fail "No data masking/redaction configured" "Data Masking"
+    fi
+fi
+
+# ---------- Check input rail for PII ----------
+emit_info "Checking input rail PII handling..."
+
+if grep -qiE "input:.*pii|pii.*input|mask[_-]?input" "$config_file" 2>/dev/null || \
+   grep -A 20 "^[[:space:]]*input:" "$config_file" 2>/dev/null | grep -qiE "pii|sensitive|mask"; then
+    emit_pass "Input rail includes PII handling" "Input PII"
+else
+    emit_warn "Input rail does not explicitly handle PII"
+    emit_info "PII should be masked BEFORE reaching the LLM"
+fi
+
+# ---------- Check output rail for PII ----------
+emit_info "Checking output rail PII handling..."
+
+if grep -qiE "output:.*pii|pii.*output|mask[_-]?output" "$config_file" 2>/dev/null || \
+   grep -A 20 "^[[:space:]]*output:" "$config_file" 2>/dev/null | grep -qiE "pii|sensitive|mask"; then
+    emit_pass "Output rail includes PII handling" "Output PII"
+else
+    emit_warn "Output rail does not explicitly handle PII"
+    emit_info "PII in LLM responses should be masked before returning to users"
+fi
+
+# ---------- Check for audit log PII handling ----------
+emit_info "Checking audit log PII handling..."
+
+if grep -qiE "log.*mask|log.*redact|audit.*pii|pii.*audit" "$config_file" 2>/dev/null; then
+    emit_pass "Audit logs configured for PII masking" "Audit PII"
+else
+    emit_warn "Audit log PII handling not configured"
+    emit_info "Ensure PII is not logged in plain text for compliance"
+fi
+
+# ---------- Compliance considerations ----------
+emit_info ""
+emit_info "Compliance considerations:"
+
+# GDPR check
+if grep -qiE "gdpr|eu[_-]?data|right[_-]?to[_-]?forget|data[_-]?subject" "$config_file" 2>/dev/null; then
+    emit_pass "GDPR considerations found in config" "GDPR"
+else
+    emit_info "  GDPR: Consider adding data subject rights handling"
+fi
+
+# HIPAA check
+if grep -qiE "hipaa|phi|protected[_-]?health|medical" "$config_file" 2>/dev/null; then
+    emit_pass "HIPAA/PHI considerations found in config" "HIPAA"
+else
+    emit_info "  HIPAA: Consider adding PHI detection if handling healthcare data"
+fi
+
+# PCI-DSS check
+if grep -qiE "pci|cardholder|payment|credit[_-]?card" "$config_file" 2>/dev/null; then
+    emit_pass "PCI-DSS considerations found in config" "PCI-DSS"
+else
+    emit_info "  PCI-DSS: Consider adding card data detection if handling payments"
+fi
+
+# ---------- Summary ----------
+emit_info ""
+if [ "$pii_configured" = true ] && [ "$detected_entities" -gt 2 ]; then
+    emit_pass "PII protection is substantially configured" "PII Summary"
+else
+    emit_warn "PII protection needs improvement for compliance"
+    emit_info ""
+    emit_info "Recommended NeMo Guardrails PII configuration:"
+    emit_info "  sensitive_data_detection:"
+    emit_info "    entities:"
+    emit_info "      - PERSON"
+    emit_info "      - EMAIL_ADDRESS"
+    emit_info "      - PHONE_NUMBER"
+    emit_info "      - US_SSN"
+    emit_info "      - CREDIT_CARD"
+    emit_info "    mask_mode: replace  # or 'hash', 'tokenize'"
+fi
 }
 
 # --- Check: network_isolation ---
@@ -7430,6 +9504,82 @@ esac
 # By RAD Security — https://rad.security
 # ============================================================================
 
+# --- Cloud Provider Detection -----------------------------------------------
+
+CLOUD_PROVIDER=""
+
+detect_cloud_provider() {
+    CLOUD_PROVIDER=""
+    
+    # Linode detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "linode" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "linode" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    
+    # DigitalOcean detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "digitalocean" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="digitalocean"
+            return
+        fi
+    fi
+    
+    # AWS detection
+    if [ -f /sys/class/dmi/id/product_version ]; then
+        if grep -qi "amazon" /sys/class/dmi/id/product_version 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    if [ -f /sys/hypervisor/uuid ]; then
+        if grep -qi "^ec2" /sys/hypervisor/uuid 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    
+    # Google Cloud detection
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "google" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="gcp"
+            return
+        fi
+    fi
+    
+    # Azure detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "microsoft" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="azure"
+            return
+        fi
+    fi
+    
+    # Vultr detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "vultr" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="vultr"
+            return
+        fi
+    fi
+    
+    # Hetzner detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "hetzner" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="hetzner"
+            return
+        fi
+    fi
+}
+
 # --- Platform Detection Function --------------------------------------------
 
 detect_platform() {
@@ -7470,6 +9620,8 @@ detect_platform() {
                     IS_VPS=true
                 fi
             fi
+            # Detect cloud provider
+            detect_cloud_provider
             ;;
         MINGW*|MSYS*|CYGWIN*)
             echo ""
@@ -7891,7 +10043,6 @@ main() {
                         setup_native_env_file
                         setup_openclaw_config
                         setup_native_launchd
-                        prompt_native_daemon_start
                     else
                         echo ""
                         warn "Node.js is not available — cannot install OpenClaw"
@@ -7931,7 +10082,6 @@ main() {
                 setup_native_env_file
                 setup_openclaw_config
                 setup_native_launchd
-                prompt_native_daemon_start
             else
                 echo ""
                 warn "Node.js is not available — cannot deploy OpenClaw"
@@ -7987,7 +10137,40 @@ main() {
     _compact_flush
     print_phase_summary
 
-    print_install_summary
+    # ── NanoClaw Security Audit (if installed) ──
+    detect_nanoclaw_installed
+    if [ "$NANOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NanoClaw Security Audit ═══"
+        
+        run_check "nanoclaw_running"
+        run_check "nanoclaw_config"
+        run_check "nanoclaw_hardening"
+        run_check "nanoclaw_credentials"
+        run_check "nanoclaw_channels"
+        if [ "$PLATFORM" = "linux" ]; then
+            run_check "nanoclaw_network"
+        fi
+        
+        _compact_flush
+        print_phase_summary
+    fi
+
+    # ── NemoClaw Security Audit (if installed) ──
+    detect_nemoclaw_installed
+    if [ "$NEMOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NemoClaw Security Audit ═══"
+        
+        run_check "nemoclaw_installed"
+        run_check "nemoclaw_guardrails"
+        run_check "nemoclaw_audit_logs"
+        run_check "nemoclaw_permissions"
+        run_check "nemoclaw_pii_masking"
+        
+        _compact_flush
+        print_phase_summary
+    fi
 
     # Final report
     print_report

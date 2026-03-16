@@ -1,0 +1,7 @@
+id = "nanoclaw_credentials"
+name = "NanoClaw Credential Security"
+phase = "security_audit"
+platform = "all"
+description = "Verifies NanoClaw credential isolation: env var exposure, CLAUDE.md secrets, session credential safety."
+requires_sudo = false
+order = 53

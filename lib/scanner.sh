@@ -257,8 +257,14 @@ select_deployment_mode() {
 
 # --- OpenClaw Installation Detection -----------------------------------------
 
+# --- Agent Detection Variables -----------------------------------------------
 OPENCLAW_INSTALLED=false
 OPENCLAW_INSTALL_TYPE=""
+NANOCLAW_INSTALLED=false
+NANOCLAW_INSTALL_TYPE=""
+NEMOCLAW_INSTALLED=false
+NEMOCLAW_INSTALL_TYPE=""
+DETECTED_AGENTS=()
 
 detect_openclaw_installed() {
     OPENCLAW_INSTALLED=false
@@ -313,6 +319,135 @@ detect_openclaw_installed() {
         OPENCLAW_INSTALL_TYPE="native"
         return
     fi
+}
+
+# --- NanoClaw Detection ------------------------------------------------------
+
+detect_nanoclaw_installed() {
+    NANOCLAW_INSTALLED=false
+    NANOCLAW_INSTALL_TYPE=""
+
+    # Check for NanoClaw config directory
+    if [ -d "$HOME/.config/nanoclaw" ]; then
+        NANOCLAW_INSTALLED=true
+        NANOCLAW_INSTALL_TYPE="native"
+    fi
+
+    # Check for npm global installation
+    if command -v npm &>/dev/null; then
+        if npm list -g nanoclaw 2>/dev/null | grep -q "nanoclaw@"; then
+            NANOCLAW_INSTALLED=true
+            NANOCLAW_INSTALL_TYPE="npm"
+            return
+        fi
+    fi
+
+    # Check for running NanoClaw process
+    if pgrep -fl "nanoclaw\|nano-claw" &>/dev/null 2>&1; then
+        NANOCLAW_INSTALLED=true
+        [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+
+    # Check for NanoClaw Docker containers
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qiE "nanoclaw|nc-agent"; then
+            NANOCLAW_INSTALLED=true
+            NANOCLAW_INSTALL_TYPE="docker"
+            return
+        fi
+    fi
+
+    # Check for systemd service
+    if command -v systemctl &>/dev/null; then
+        if systemctl is-enabled --quiet nanoclaw 2>/dev/null; then
+            NANOCLAW_INSTALLED=true
+            [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+            return
+        fi
+    fi
+
+    # Check for launchd service (macOS)
+    if [ -f "$HOME/Library/LaunchAgents/com.nanoclaw.agent.plist" ]; then
+        NANOCLAW_INSTALLED=true
+        [ -z "$NANOCLAW_INSTALL_TYPE" ] && NANOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+}
+
+# --- NemoClaw Detection ------------------------------------------------------
+
+detect_nemoclaw_installed() {
+    NEMOCLAW_INSTALLED=false
+    NEMOCLAW_INSTALL_TYPE=""
+
+    # Check for NemoClaw Python package
+    if command -v python3 &>/dev/null; then
+        if python3 -c "import nemoclaw" 2>/dev/null; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+        # Also check for NVIDIA NeMo Agent Toolkit
+        if python3 -c "import nvidia_nat" 2>/dev/null; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+    fi
+
+    # Check pip list
+    if command -v pip3 &>/dev/null; then
+        if pip3 list 2>/dev/null | grep -qiE "nemoclaw|nvidia-nat"; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="pip"
+            return
+        fi
+    fi
+
+    # Check for NemoClaw config directories
+    for config_dir in "$HOME/.nemo/nemoclaw" "$HOME/.config/nemoclaw" "$HOME/.nemoclaw"; do
+        if [ -d "$config_dir" ]; then
+            NEMOCLAW_INSTALLED=true
+            [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+        fi
+    done
+
+    # Check for NeMo Guardrails config (indicates NemoClaw ecosystem)
+    if [ -f "$HOME/.nemo/guardrails/config.yml" ]; then
+        NEMOCLAW_INSTALLED=true
+        [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+    fi
+
+    # Check for running NemoClaw process
+    if pgrep -fl "nemoclaw\|nemo.*agent" &>/dev/null 2>&1; then
+        NEMOCLAW_INSTALLED=true
+        [ -z "$NEMOCLAW_INSTALL_TYPE" ] && NEMOCLAW_INSTALL_TYPE="native"
+        return
+    fi
+
+    # Check for NemoClaw Docker containers
+    if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+        if docker ps --format '{{.Names}}' 2>/dev/null | grep -qiE "nemoclaw|nemo.*agent"; then
+            NEMOCLAW_INSTALLED=true
+            NEMOCLAW_INSTALL_TYPE="docker"
+            return
+        fi
+    fi
+}
+
+# --- Detect All Agents -------------------------------------------------------
+
+detect_all_agents() {
+    DETECTED_AGENTS=()
+    
+    detect_openclaw_installed
+    detect_nanoclaw_installed
+    detect_nemoclaw_installed
+    
+    [ "$OPENCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("openclaw")
+    [ "$NANOCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("nanoclaw")
+    [ "$NEMOCLAW_INSTALLED" = true ] && DETECTED_AGENTS+=("nemoclaw")
 }
 
 # --- Report -----------------------------------------------------------------

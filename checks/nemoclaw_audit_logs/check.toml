@@ -1,0 +1,7 @@
+id = "nemoclaw_audit_logs"
+name = "NemoClaw Audit Logging"
+phase = "security_audit"
+platform = "all"
+description = "Verifies NemoClaw audit logging is enabled for compliance and security monitoring."
+requires_sudo = false
+order = 62

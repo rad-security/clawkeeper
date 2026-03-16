@@ -1,0 +1,7 @@
+id = "nemoclaw_guardrails"
+name = "NemoClaw Guardrails Configuration"
+phase = "security_audit"
+platform = "all"
+description = "Audits NeMo Guardrails config.yml for input rails, output rails, jailbreak detection, and PII masking."
+requires_sudo = false
+order = 61

@@ -70,6 +70,7 @@ LINUX_DISTRO=""
 LINUX_DISTRO_VERSION=""
 LINUX_DISTRO_NAME=""
 IS_VPS=false
+CLOUD_PROVIDER=""
 
 # --- Gum Installation & Icons -----------------------------------------------
 
@@ -236,7 +237,22 @@ print_platform_info() {
         if [ "$IS_VPS" = true ]; then
             local virt_type
             virt_type=$(systemd-detect-virt 2>/dev/null || echo "")
-            dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            local cloud_label=""
+            if [ -n "${CLOUD_PROVIDER:-}" ]; then
+                case "$CLOUD_PROVIDER" in
+                    linode)       cloud_label="Linode" ;;
+                    digitalocean) cloud_label="DigitalOcean" ;;
+                    aws)          cloud_label="AWS" ;;
+                    gcp)          cloud_label="Google Cloud" ;;
+                    azure)        cloud_label="Azure" ;;
+                    vultr)        cloud_label="Vultr" ;;
+                    hetzner)      cloud_label="Hetzner" ;;
+                    *)            cloud_label="$CLOUD_PROVIDER" ;;
+                esac
+                dim_msg "  Cloud: $cloud_label ($virt_type)"
+            else
+                dim_msg "  Virtualization: $virt_type (VPS/VM)"
+            fi
         fi
     fi
     if [ -n "$DEPLOY_MODE" ]; then
@@ -246,12 +262,39 @@ print_platform_info() {
     fi
 }
 
+print_detected_agents() {
+    local agents_list=""
+    
+    if [ "${OPENCLAW_INSTALLED:-false}" = true ]; then
+        local oc_type="${OPENCLAW_INSTALL_TYPE:-unknown}"
+        agents_list="${agents_list}OpenClaw ($oc_type)"
+    fi
+    
+    if [ "${NANOCLAW_INSTALLED:-false}" = true ]; then
+        local nc_type="${NANOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NanoClaw ($nc_type)"
+    fi
+    
+    if [ "${NEMOCLAW_INSTALLED:-false}" = true ]; then
+        local nm_type="${NEMOCLAW_INSTALL_TYPE:-unknown}"
+        [ -n "$agents_list" ] && agents_list="${agents_list}, "
+        agents_list="${agents_list}NemoClaw ($nm_type)"
+    fi
+    
+    if [ -n "$agents_list" ]; then
+        dim_msg "  Detected agents: $agents_list"
+    else
+        dim_msg "  Detected agents: None"
+    fi
+}
+
 print_banner() {
     echo ""
     if [ "$HAS_GUM" = true ]; then
         gum style --border "$GUM_BORDER" --border-foreground "$GUM_BORDER_FG" \
             --padding "1 4" --align center --bold --foreground "$GUM_CYAN" \
-            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely."
+            "Clawkeeper Setup Wizard" "" "Harden your host. Deploy securely." "" "OpenClaw • NanoClaw • NemoClaw"
     else
         echo -e "${CYAN}${BOLD}"
         echo "   ┌────────────────────────────────────────┐"
@@ -259,6 +302,7 @@ print_banner() {
         echo "   │        Clawkeeper Setup Wizard         │"
         echo "   │                                        │"
         echo "   │   Harden your host. Deploy securely.   │"
+        echo "   │   OpenClaw • NanoClaw • NemoClaw       │"
         echo "   │                                        │"
         echo "   └────────────────────────────────────────┘"
         echo -e "${RESET}"

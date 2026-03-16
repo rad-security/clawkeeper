@@ -12,6 +12,82 @@
 # By RAD Security — https://rad.security
 # ============================================================================
 
+# --- Cloud Provider Detection -----------------------------------------------
+
+CLOUD_PROVIDER=""
+
+detect_cloud_provider() {
+    CLOUD_PROVIDER=""
+    
+    # Linode detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "linode" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "linode" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="linode"
+            return
+        fi
+    fi
+    
+    # DigitalOcean detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "digitalocean" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="digitalocean"
+            return
+        fi
+    fi
+    
+    # AWS detection
+    if [ -f /sys/class/dmi/id/product_version ]; then
+        if grep -qi "amazon" /sys/class/dmi/id/product_version 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    if [ -f /sys/hypervisor/uuid ]; then
+        if grep -qi "^ec2" /sys/hypervisor/uuid 2>/dev/null; then
+            CLOUD_PROVIDER="aws"
+            return
+        fi
+    fi
+    
+    # Google Cloud detection
+    if [ -f /sys/class/dmi/id/product_name ]; then
+        if grep -qi "google" /sys/class/dmi/id/product_name 2>/dev/null; then
+            CLOUD_PROVIDER="gcp"
+            return
+        fi
+    fi
+    
+    # Azure detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "microsoft" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="azure"
+            return
+        fi
+    fi
+    
+    # Vultr detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "vultr" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="vultr"
+            return
+        fi
+    fi
+    
+    # Hetzner detection
+    if [ -f /sys/class/dmi/id/sys_vendor ]; then
+        if grep -qi "hetzner" /sys/class/dmi/id/sys_vendor 2>/dev/null; then
+            CLOUD_PROVIDER="hetzner"
+            return
+        fi
+    fi
+}
+
 # --- Platform Detection Function --------------------------------------------
 
 detect_platform() {
@@ -52,6 +128,8 @@ detect_platform() {
                     IS_VPS=true
                 fi
             fi
+            # Detect cloud provider
+            detect_cloud_provider
             ;;
         MINGW*|MSYS*|CYGWIN*)
             echo ""
@@ -566,6 +644,41 @@ main() {
     fi
     _compact_flush
     print_phase_summary
+
+    # ── NanoClaw Security Audit (if installed) ──
+    detect_nanoclaw_installed
+    if [ "$NANOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NanoClaw Security Audit ═══"
+        
+        run_check "nanoclaw_running"
+        run_check "nanoclaw_config"
+        run_check "nanoclaw_hardening"
+        run_check "nanoclaw_credentials"
+        run_check "nanoclaw_channels"
+        if [ "$PLATFORM" = "linux" ]; then
+            run_check "nanoclaw_network"
+        fi
+        
+        _compact_flush
+        print_phase_summary
+    fi
+
+    # ── NemoClaw Security Audit (if installed) ──
+    detect_nemoclaw_installed
+    if [ "$NEMOCLAW_INSTALLED" = true ]; then
+        reset_phase_counters
+        phase_header "═══ NemoClaw Security Audit ═══"
+        
+        run_check "nemoclaw_installed"
+        run_check "nemoclaw_guardrails"
+        run_check "nemoclaw_audit_logs"
+        run_check "nemoclaw_permissions"
+        run_check "nemoclaw_pii_masking"
+        
+        _compact_flush
+        print_phase_summary
+    fi
 
     # Final report
     print_report

@@ -1,0 +1,7 @@
+id = "nanoclaw_config"
+name = "NanoClaw Mount Allowlist Audit"
+phase = "security_audit"
+platform = "all"
+description = "Audits ~/.config/nanoclaw/mount-allowlist.json for permissions, blocked paths, and security settings."
+requires_sudo = false
+order = 51
