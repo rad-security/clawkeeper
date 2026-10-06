@@ -1,3 +1,7 @@
+> [!WARNING]
+> **Deprecated — this repository is archived and no longer maintained.**
+> Clawkeeper is now [AgentKeeper](https://agentkeeper.dev). See [Clawkeeper is now AgentKeeper](https://agentkeeper.dev/clawkeeper-transition).
+
 
 <img src="https://rad-website.fly.dev/api/media/file/clawkeeper-banner-small.png" width="100%" align="center" />
 <p align="center">
